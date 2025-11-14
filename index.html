@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Awards - Édition Élite</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary': '#000000',
+                        'accent': '#00D4FF',
+                        'accent-dark': '#0099CC',
+                        'dark': '#0A0A0A',
+                        'light': '#F5F5F5',
+                        'gray-dark': '#1A1A1A',
+                    },
+                    fontFamily: {
+                        'orbitron': ['Orbitron', 'sans-serif'],
+                        'inter': ['Inter', 'sans-serif'],
+                    },
+                    borderRadius: {
+                        '4xl': '2rem',
+                        '5xl': '3rem',
+                    },
+                    animation: {
+                        'float': 'float 8s ease-in-out infinite',
+                        'pulse-subtle': 'pulse-subtle 6s ease-in-out infinite',
+                        'fade-in': 'fade-in 1s ease-out',
+                        'glow': 'glow 3s ease-in-out infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0A0A0A 0%, #000000 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+            color: #F5F5F5;
+        }
+        
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(0, 212, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid rgba(0, 212, 255, 0.08);
+            box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.25);
+        }
+        
+        .glass-button {
+            background: rgba(0, 212, 255, 0.05);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 212, 255, 0.15);
+            transition: all 0.4s ease;
+        }
+        
+        .glass-button:hover {
+            background: rgba(0, 212, 255, 0.12);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .separator {
+            height: 1px;
+            background: linear-gradient(90deg, transparent 0%, rgba(0, 212, 255, 0.4) 50%, transparent 100%);
+            margin: 4rem 0;
+        }
+        
+        .liquid-effect {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .liquid-effect::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.03), transparent);
+            transition: left 0.8s ease;
+        }
+        
+        .liquid-effect:hover::before {
+            left: 100%;
+        }
+        
+        @keyframes float {
+            0% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-15px);
+            }
+            100% {
+                transform: translateY(0px);
+            }
+        }
+        
+        @keyframes pulse-subtle {
+            0% {
+                box-shadow: 0 0 5px rgba(0, 212, 255, 0.2);
+            }
+            50% {
+                box-shadow: 0 0 15px rgba(0, 212, 255, 0.4);
+            }
+            100% {
+                box-shadow: 0 0 5px rgba(0, 212, 255, 0.2);
+            }
+        }
+        
+        @keyframes fade-in {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes glow {
+            0% {
+                text-shadow: 0 0 5px rgba(0, 212, 255, 0.5);
+            }
+            50% {
+                text-shadow: 0 0 20px rgba(0, 212, 255, 0.8);
+            }
+            100% {
+                text-shadow: 0 0 5px rgba(0, 212, 255, 0.5);
+            }
+        }
+        
+        .accent-gradient {
+            background: linear-gradient(135deg, #00D4FF 0%, #0099CC 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .hero-bg {
+            background: radial-gradient(circle at 30% 30%, rgba(0, 212, 255, 0.05) 0%, rgba(0, 0, 0, 0) 70%);
+        }
+        
+        .floating-element {
+            animation: float 10s ease-in-out infinite;
+        }
+        
+        .pulse-subtle {
+            animation: pulse-subtle 6s ease-in-out infinite;
+        }
+        
+        .fade-in {
+            animation: fade-in 1.2s ease-out;
+        }
+        
+        .glow-text {
+            animation: glow 4s ease-in-out infinite;
+        }
+        
+        .nav-link {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s ease;
+        }
+        
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00D4FF, transparent);
+            transition: width 0.4s ease;
+        }
+        
+        .nav-link:hover::after {
+            width: 100%;
+        }
+        
+        .modern-border {
+            position: relative;
+        }
+        
+        .modern-border::before {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: -1px;
+            right: -1px;
+            bottom: -1px;
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(0, 212, 255, 0.05), rgba(0, 212, 255, 0.2));
+            border-radius: inherit;
+            z-index: -1;
+        }
+        
+        .section-title {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .section-title::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00D4FF, transparent);
+        }
+        
+        .form-input {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(0, 212, 255, 0.1);
+            transition: all 0.4s ease;
+        }
+        
+        .form-input:focus {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.1);
+        }
+        
+        .navbar-rounded {
+            border-radius: 2rem;
+        }
+    </style>
+</head>
+<body class="font-inter">
+    <!-- Navigation -->
+    <nav class="glass-effect sticky top-4 z-50 mx-4 mt-4 px-8 py-5 modern-border navbar-rounded">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-4">
+                <div class="p-3 rounded-2xl glass-button pulse-subtle">
+                    <i class="fas fa-gamepad text-accent text-xl"></i>
+                </div>
+                <span class="text-2xl font-bold font-orbitron tracking-wide">GAME<span class="accent-gradient">AWARDS</span></span>
+            </div>
+            
+            <div class="hidden md:flex space-x-2">
+                <a href="#accueil" class="nav-link glass-button px-5 py-3 rounded-2xl font-medium flex items-center space-x-2">
+                    <i class="fas fa-home text-accent text-sm"></i>
+                    <span class="text-light">Accueil</span>
+                </a>
+                <a href="#presentation" class="nav-link glass-button px-5 py-3 rounded-2xl font-medium flex items-center space-x-2">
+                    <i class="fas fa-info-circle text-accent text-sm"></i>
+                    <span class="text-light">Présentation</span>
+                </a>
+                <a href="#scrutin" class="nav-link glass-button px-5 py-3 rounded-2xl font-medium flex items-center space-x-2">
+                    <i class="fas fa-award text-accent text-sm"></i>
+                    <span class="text-light">Mode de scrutin</span>
+                </a>
+                <a href="#contact" class="nav-link glass-button px-5 py-3 rounded-2xl font-medium flex items-center space-x-2">
+                    <i class="fas fa-envelope text-accent text-sm"></i>
+                    <span class="text-light">Contact</span>
+                </a>
+            </div>
+            
+            <div class="md:hidden">
+                <button id="mobile-menu-button" class="glass-button p-3 rounded-2xl">
+                    <i class="fas fa-bars text-accent"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Menu mobile -->
+        <div id="mobile-menu" class="hidden md:hidden mt-4 space-y-3 pb-4">
+            <a href="#accueil" class="block glass-button px-6 py-3 rounded-2xl liquid-effect text-center flex items-center justify-center space-x-2">
+                <i class="fas fa-home text-accent"></i>
+                <span class="text-light">Accueil</span>
+            </a>
+            <a href="#presentation" class="block glass-button px-6 py-3 rounded-2xl liquid-effect text-center flex items-center justify-center space-x-2">
+                <i class="fas fa-info-circle text-accent"></i>
+                <span class="text-light">Présentation</span>
+            </a>
+            <a href="#scrutin" class="block glass-button px-6 py-3 rounded-2xl liquid-effect text-center flex items-center justify-center space-x-2">
+                <i class="fas fa-award text-accent"></i>
+                <span class="text-light">Mode de scrutin</span>
+            </a>
+            <a href="#contact" class="block glass-button px-6 py-3 rounded-2xl liquid-effect text-center flex items-center justify-center space-x-2">
+                <i class="fas fa-envelope text-accent"></i>
+                <span class="text-light">Contact</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Section Hero -->
+    <section id="accueil" class="py-32 px-6 hero-bg relative overflow-hidden">
+        <div class="absolute top-20 right-20 w-64 h-64 rounded-full bg-accent opacity-5 blur-3xl"></div>
+        <div class="absolute bottom-20 left-20 w-80 h-80 rounded-full bg-accent opacity-5 blur-3xl"></div>
+        
+        <div class="container mx-auto text-center relative z-10">
+            <div class="floating-element inline-block mb-10">
+                <div class="glass-card rounded-full p-8 w-40 h-40 mx-auto flex items-center justify-center modern-border">
+                    <i class="fas fa-trophy text-6xl accent-gradient"></i>
+                </div>
+            </div>
+            
+            <h1 class="text-7xl md:text-9xl font-bold mb-8 font-orbitron tracking-tight fade-in">
+                <span class="accent-gradient glow-text">GAME</span><br>
+                <span class="text-light">AWARDS</span>
+            </h1>
+            <p class="text-2xl md:text-3xl max-w-4xl mx-auto mb-16 text-light/80">
+                Célébrons l'<span class="text-accent font-medium">excellence</span> et l'<span class="text-accent font-medium">innovation</span> dans l'univers du jeu vidéo
+            </p>
+            <div class="flex flex-col md:flex-row justify-center gap-6">
+                <a href="#presentation" class="glass-button px-12 py-5 rounded-2xl text-xl font-medium liquid-effect flex items-center justify-center space-x-3 modern-border">
+                    <i class="fas fa-gamepad text-accent"></i>
+                    <span class="text-light">Découvrir les nominés</span>
+                </a>
+                <a href="#contact" class="glass-button px-12 py-5 rounded-2xl text-xl font-medium liquid-effect flex items-center justify-center space-x-3 modern-border">
+                    <i class="fas fa-comment-dots text-accent"></i>
+                    <span class="text-light">Nous contacter</span>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section Présentation -->
+    <section id="presentation" class="py-28 px-6">
+        <div class="container mx-auto">
+            <h2 class="text-5xl font-bold text-center mb-20 font-orbitron section-title text-light">Présentation du site</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+                <div class="glass-card rounded-4xl p-12 liquid-effect modern-border fade-in">
+                    <div class="flex items-center mb-8">
+                        <div class="glass-button rounded-2xl p-4 mr-6 modern-border">
+                            <i class="fas fa-bullseye text-2xl text-accent"></i>
+                        </div>
+                        <h3 class="text-3xl font-bold font-orbitron text-light">Notre mission</h3>
+                    </div>
+                    <p class="text-xl mb-8 text-light/80 leading-relaxed">
+                        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+                    </p>
+                    <p class="text-xl text-light/80 leading-relaxed">
+                        Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+                    </p>
+                </div>
+                
+                <div class="glass-card rounded-4xl p-12 liquid-effect modern-border fade-in">
+                    <div class="flex items-center mb-8">
+                        <div class="glass-button rounded-2xl p-4 mr-6 modern-border">
+                            <i class="fas fa-globe text-2xl text-accent"></i>
+                        </div>
+                        <h3 class="text-3xl font-bold font-orbitron text-light">Le contexte</h3>
+                    </div>
+                    <p class="text-xl mb-8 text-light/80 leading-relaxed">
+                        Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+                    </p>
+                    <p class="text-xl text-light/80 leading-relaxed">
+                        Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="separator container mx-auto"></div>
+
+    <!-- Section Mode de scrutin -->
+    <section id="scrutin" class="py-28 px-6">
+        <div class="container mx-auto">
+            <h2 class="text-5xl font-bold text-center mb-20 font-orbitron section-title text-light">Mode de scrutin</h2>
+            
+            <div class="glass-card rounded-4xl p-12 max-w-5xl mx-auto liquid-effect modern-border fade-in">
+                <div class="flex items-center mb-10">
+                    <div class="glass-button rounded-2xl p-4 mr-6 modern-border">
+                        <i class="fas fa-vote-yea text-2xl text-accent"></i>
+                    </div>
+                    <h3 class="text-3xl font-bold font-orbitron text-light">Notre système de vote</h3>
+                </div>
+                <p class="text-xl mb-8 text-light/80 leading-relaxed">
+                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+                </p>
+                <p class="text-xl mb-12 text-light/80 leading-relaxed">
+                    Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-10 mt-12">
+                    <div class="text-center">
+                        <div class="glass-button rounded-2xl p-6 mb-6 mx-auto w-24 h-24 flex items-center justify-center modern-border">
+                            <i class="fas fa-users text-3xl text-accent"></i>
+                        </div>
+                        <h4 class="text-2xl font-bold mb-4 font-orbitron text-light">Vote public</h4>
+                        <p class="text-lg text-light/80">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="glass-button rounded-2xl p-6 mb-6 mx-auto w-24 h-24 flex items-center justify-center modern-border">
+                            <i class="fas fa-user-tie text-3xl text-accent"></i>
+                        </div>
+                        <h4 class="text-2xl font-bold mb-4 font-orbitron text-light">Jury d'experts</h4>
+                        <p class="text-lg text-light/80">Sed do eiusmod tempor incididunt ut labore et dolore.</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="glass-button rounded-2xl p-6 mb-6 mx-auto w-24 h-24 flex items-center justify-center modern-border">
+                            <i class="fas fa-balance-scale text-3xl text-accent"></i>
+                        </div>
+                        <h4 class="text-2xl font-bold mb-4 font-orbitron text-light">Système hybride</h4>
+                        <p class="text-lg text-light/80">Ut enim ad minim veniam, quis nostrud exercitation.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="separator container mx-auto"></div>
+
+    <!-- Section Contact -->
+    <section id="contact" class="py-28 px-6">
+        <div class="container mx-auto">
+            <h2 class="text-5xl font-bold text-center mb-20 font-orbitron section-title text-light">Contactez-nous</h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-14">
+                <div class="glass-card rounded-4xl p-12 liquid-effect modern-border fade-in">
+                    <h3 class="text-3xl font-bold mb-10 font-orbitron text-light flex items-center">
+                        <i class="fas fa-envelope-open-text text-accent mr-5"></i>
+                        Formulaire de contact
+                    </h3>
+                    <form class="space-y-8">
+                        <div>
+                            <label for="name" class="block mb-4 font-medium text-lg text-light">Nom complet</label>
+                            <input type="text" id="name" class="w-full form-input rounded-2xl p-5 text-lg focus:outline-none" placeholder="Votre nom">
+                        </div>
+                        <div>
+                            <label for="email" class="block mb-4 font-medium text-lg text-light">Adresse email</label>
+                            <input type="email" id="email" class="w-full form-input rounded-2xl p-5 text-lg focus:outline-none" placeholder="votre@email.com">
+                        </div>
+                        <div>
+                            <label for="subject" class="block mb-4 font-medium text-lg text-light">Sujet</label>
+                            <input type="text" id="subject" class="w-full form-input rounded-2xl p-5 text-lg focus:outline-none" placeholder="Sujet de votre message">
+                        </div>
+                        <div>
+                            <label for="message" class="block mb-4 font-medium text-lg text-light">Message</label>
+                            <textarea id="message" rows="5" class="w-full form-input rounded-2xl p-5 text-lg focus:outline-none" placeholder="Votre message..."></textarea>
+                        </div>
+                        <button type="submit" class="glass-button w-full py-5 rounded-2xl font-semibold text-xl liquid-effect flex items-center justify-center space-x-3 modern-border">
+                            <i class="fas fa-paper-plane text-accent"></i>
+                            <span class="text-light">Envoyer le message</span>
+                        </button>
+                    </form>
+                </div>
+                
+                <div class="glass-card rounded-4xl p-12 liquid-effect modern-border fade-in">
+                    <h3 class="text-3xl font-bold mb-10 font-orbitron text-light flex items-center">
+                        <i class="fas fa-address-card text-accent mr-5"></i>
+                        Informations de contact
+                    </h3>
+                    <div class="space-y-10">
+                        <div class="flex items-start">
+                            <div class="glass-button rounded-2xl p-4 mr-6 modern-border">
+                                <i class="fas fa-map-marker-alt text-accent text-xl"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-xl mb-2 text-light">Adresse</h4>
+                                <p class="text-lg text-light/80">123 Avenue du Gaming<br>75000 Paris, France</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="glass-button rounded-2xl p-4 mr-6 modern-border">
+                                <i class="fas fa-phone text-accent text-xl"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-xl mb-2 text-light">Téléphone</h4>
+                                <p class="text-lg text-light/80">+33 1 23 45 67 89</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="glass-button rounded-2xl p-4 mr-6 modern-border">
+                                <i class="fas fa-envelope text-accent text-xl"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-xl mb-2 text-light">Email</h4>
+                                <p class="text-lg text-light/80">contact@gameawards-elite.fr</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="glass-button rounded-2xl p-4 mr-6 modern-border">
+                                <i class="fas fa-share-alt text-accent text-xl"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-xl mb-2 text-light">Réseaux sociaux</h4>
+                                <div class="flex space-x-4 mt-5">
+                                    <a href="#" class="glass-button rounded-2xl p-3 w-12 h-12 flex items-center justify-center modern-border">
+                                        <i class="fab fa-twitter text-accent"></i>
+                                    </a>
+                                    <a href="#" class="glass-button rounded-2xl p-3 w-12 h-12 flex items-center justify-center modern-border">
+                                        <i class="fab fa-facebook-f text-accent"></i>
+                                    </a>
+                                    <a href="#" class="glass-button rounded-2xl p-3 w-12 h-12 flex items-center justify-center modern-border">
+                                        <i class="fab fa-instagram text-accent"></i>
+                                    </a>
+                                    <a href="#" class="glass-button rounded-2xl p-3 w-12 h-12 flex items-center justify-center modern-border">
+                                        <i class="fab fa-youtube text-accent"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-16 px-6 mt-20 glass-effect rounded-t-4xl modern-border">
+        <div class="container mx-auto">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="flex items-center space-x-4 mb-8 md:mb-0">
+                    <div class="glass-button rounded-2xl p-3 modern-border">
+                        <i class="fas fa-gamepad text-accent text-xl"></i>
+                    </div>
+                    <span class="text-2xl font-bold font-orbitron tracking-wide">GAME<span class="accent-gradient">AWARDS</span></span>
+                </div>
+                
+                <div class="flex space-x-5">
+                    <a href="#" class="glass-button rounded-2xl p-3 w-12 h-12 flex items-center justify-center modern-border">
+                        <i class="fab fa-twitter text-accent"></i>
+                    </a>
+                    <a href="#" class="glass-button rounded-2xl p-3 w-12 h-12 flex items-center justify-center modern-border">
+                        <i class="fab fa-facebook-f text-accent"></i>
+                    </a>
+                    <a href="#" class="glass-button rounded-2xl p-3 w-12 h-12 flex items-center justify-center modern-border">
+                        <i class="fab fa-instagram text-accent"></i>
+                    </a>
+                    <a href="#" class="glass-button rounded-2xl p-3 w-12 h-12 flex items-center justify-center modern-border">
+                        <i class="fab fa-youtube text-accent"></i>
+                    </a>
+                </div>
+            </div>
+            
+            <div class="separator mt-10"></div>
+            
+            <div class="text-center text-base text-light/70">
+                <p>&copy; 2025 Game Awards - Édition Élite. Tous droits réservés.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        document.getElementById('mobile-menu-button').addEventListener('click', function() {
+            const menu = document.getElementById('mobile-menu');
+            menu.classList.toggle('hidden');
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const elements = document.querySelectorAll('.fade-in');
+            
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = 1;
+                        entry.target.style.transform = 'translateY(0)';
+                    }
+                });
+            }, { threshold: 0.1 });
+            
+            elements.forEach(el => {
+                el.style.opacity = 0;
+                el.style.transform = 'translateY(30px)';
+                el.style.transition = 'opacity 0.8s ease, transform 0.8s ease';
+                observer.observe(el);
+            });
+        });
+    </script>
+</body>
+</html>
