@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Game Awards - Édition Élite</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Game Awards - Édition Épurée</title>
+    <script src="http://cdn.agence-prestige-numerique.fr/tailwindcss/3.4.17.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="http://cdn.agence-prestige-numerique.fr/fontawesome/all.min.css">
     <script>
         tailwind.config = {
             theme: {
@@ -29,9 +29,9 @@
                     },
                     animation: {
                         'float': 'float 8s ease-in-out infinite',
-                        'pulse-subtle': 'pulse-subtle 6s ease-in-out infinite',
                         'fade-in': 'fade-in 1s ease-out',
                         'glow': 'glow 3s ease-in-out infinite',
+                        'slide': 'slide 40s linear infinite',
                     }
                 }
             }
@@ -44,6 +44,27 @@
             min-height: 100vh;
             overflow-x: hidden;
             color: #F5F5F5;
+            position: relative;
+        }
+        
+        /* Effet de lignes diagonales animées */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                repeating-linear-gradient(
+                    45deg,
+                    rgba(255, 255, 255, 0.03) 0px,
+                    rgba(255, 255, 255, 0.03) 1px,
+                    transparent 1px,
+                    transparent 50px
+                );
+            z-index: -1;
+            animation: slide 40s linear infinite;
         }
         
         .glass-effect {
@@ -60,6 +81,13 @@
             -webkit-backdrop-filter: blur(30px);
             border: 1px solid rgba(0, 212, 255, 0.08);
             box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.25);
+            transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+        }
+        
+        .glass-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 25px 60px 0 rgba(0, 0, 0, 0.4);
+            border-color: rgba(0, 212, 255, 0.3);
         }
         
         .glass-button {
@@ -67,39 +95,18 @@
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(0, 212, 255, 0.15);
-            transition: all 0.4s ease;
+            transition: all 0.3s ease;
         }
         
         .glass-button:hover {
             background: rgba(0, 212, 255, 0.12);
             box-shadow: 0 0 20px rgba(0, 212, 255, 0.2);
-            transform: translateY(-2px);
         }
         
         .separator {
             height: 1px;
             background: linear-gradient(90deg, transparent 0%, rgba(0, 212, 255, 0.4) 50%, transparent 100%);
             margin: 4rem 0;
-        }
-        
-        .liquid-effect {
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .liquid-effect::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.03), transparent);
-            transition: left 0.8s ease;
-        }
-        
-        .liquid-effect:hover::before {
-            left: 100%;
         }
         
         @keyframes float {
@@ -111,18 +118,6 @@
             }
             100% {
                 transform: translateY(0px);
-            }
-        }
-        
-        @keyframes pulse-subtle {
-            0% {
-                box-shadow: 0 0 5px rgba(0, 212, 255, 0.2);
-            }
-            50% {
-                box-shadow: 0 0 15px rgba(0, 212, 255, 0.4);
-            }
-            100% {
-                box-shadow: 0 0 5px rgba(0, 212, 255, 0.2);
             }
         }
         
@@ -149,6 +144,15 @@
             }
         }
         
+        @keyframes slide {
+            0% {
+                background-position: 0 0;
+            }
+            100% {
+                background-position: 50px 50px;
+            }
+        }
+        
         .accent-gradient {
             background: linear-gradient(135deg, #00D4FF 0%, #0099CC 100%);
             -webkit-background-clip: text;
@@ -162,10 +166,6 @@
         
         .floating-element {
             animation: float 10s ease-in-out infinite;
-        }
-        
-        .pulse-subtle {
-            animation: pulse-subtle 6s ease-in-out infinite;
         }
         
         .fade-in {
@@ -244,6 +244,41 @@
         .navbar-rounded {
             border-radius: 2rem;
         }
+        
+        .typewriter {
+            overflow: hidden;
+            border-right: 2px solid #00D4FF;
+            white-space: nowrap;
+            margin: 0 auto;
+            animation: typing 3.5s steps(40, end), blink-caret 0.75s step-end infinite;
+        }
+        
+        @keyframes typing {
+            from { width: 0 }
+            to { width: 100% }
+        }
+        
+        @keyframes blink-caret {
+            from, to { border-color: transparent }
+            50% { border-color: #00D4FF }
+        }
+        
+        .floating-shape {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border: 1px solid rgba(0, 212, 255, 0.1);
+            border-radius: 50%;
+            z-index: -1;
+        }
+        
+        .floating-shape:nth-child(odd) {
+            animation: float 15s ease-in-out infinite;
+        }
+        
+        .floating-shape:nth-child(even) {
+            animation: float 20s ease-in-out infinite reverse;
+        }
     </style>
 </head>
 <body class="font-inter">
@@ -251,7 +286,7 @@
     <nav class="glass-effect sticky top-4 z-50 mx-4 mt-4 px-8 py-5 modern-border navbar-rounded">
         <div class="container mx-auto flex justify-between items-center">
             <div class="flex items-center space-x-4">
-                <div class="p-3 rounded-2xl glass-button pulse-subtle">
+                <div class="p-3 rounded-2xl glass-button">
                     <i class="fas fa-gamepad text-accent text-xl"></i>
                 </div>
                 <span class="text-2xl font-bold font-orbitron tracking-wide">GAME<span class="accent-gradient">AWARDS</span></span>
@@ -285,19 +320,19 @@
         
         <!-- Menu mobile -->
         <div id="mobile-menu" class="hidden md:hidden mt-4 space-y-3 pb-4">
-            <a href="#accueil" class="block glass-button px-6 py-3 rounded-2xl liquid-effect text-center flex items-center justify-center space-x-2">
+            <a href="#accueil" class="block glass-button px-6 py-3 rounded-2xl text-center flex items-center justify-center space-x-2">
                 <i class="fas fa-home text-accent"></i>
                 <span class="text-light">Accueil</span>
             </a>
-            <a href="#presentation" class="block glass-button px-6 py-3 rounded-2xl liquid-effect text-center flex items-center justify-center space-x-2">
+            <a href="#presentation" class="block glass-button px-6 py-3 rounded-2xl text-center flex items-center justify-center space-x-2">
                 <i class="fas fa-info-circle text-accent"></i>
                 <span class="text-light">Présentation</span>
             </a>
-            <a href="#scrutin" class="block glass-button px-6 py-3 rounded-2xl liquid-effect text-center flex items-center justify-center space-x-2">
+            <a href="#scrutin" class="block glass-button px-6 py-3 rounded-2xl text-center flex items-center justify-center space-x-2">
                 <i class="fas fa-award text-accent"></i>
                 <span class="text-light">Mode de scrutin</span>
             </a>
-            <a href="#contact" class="block glass-button px-6 py-3 rounded-2xl liquid-effect text-center flex items-center justify-center space-x-2">
+            <a href="#contact" class="block glass-button px-6 py-3 rounded-2xl text-center flex items-center justify-center space-x-2">
                 <i class="fas fa-envelope text-accent"></i>
                 <span class="text-light">Contact</span>
             </a>
@@ -306,8 +341,11 @@
 
     <!-- Section Hero -->
     <section id="accueil" class="py-32 px-6 hero-bg relative overflow-hidden">
-        <div class="absolute top-20 right-20 w-64 h-64 rounded-full bg-accent opacity-5 blur-3xl"></div>
-        <div class="absolute bottom-20 left-20 w-80 h-80 rounded-full bg-accent opacity-5 blur-3xl"></div>
+        <!-- Formes flottantes décoratives -->
+        <div class="floating-shape top-20 left-10"></div>
+        <div class="floating-shape top-40 right-20"></div>
+        <div class="floating-shape bottom-40 left-20"></div>
+        <div class="floating-shape bottom-20 right-10"></div>
         
         <div class="container mx-auto text-center relative z-10">
             <div class="floating-element inline-block mb-10">
@@ -320,15 +358,15 @@
                 <span class="accent-gradient glow-text">GAME</span><br>
                 <span class="text-light">AWARDS</span>
             </h1>
-            <p class="text-2xl md:text-3xl max-w-4xl mx-auto mb-16 text-light/80">
+            <div class="typewriter text-2xl md:text-3xl max-w-4xl mx-auto mb-16 text-light/80">
                 Célébrons l'<span class="text-accent font-medium">excellence</span> et l'<span class="text-accent font-medium">innovation</span> dans l'univers du jeu vidéo
-            </p>
+            </div>
             <div class="flex flex-col md:flex-row justify-center gap-6">
-                <a href="#presentation" class="glass-button px-12 py-5 rounded-2xl text-xl font-medium liquid-effect flex items-center justify-center space-x-3 modern-border">
+                <a href="#presentation" class="glass-button px-12 py-5 rounded-2xl text-xl font-medium flex items-center justify-center space-x-3 modern-border">
                     <i class="fas fa-gamepad text-accent"></i>
                     <span class="text-light">Découvrir les nominés</span>
                 </a>
-                <a href="#contact" class="glass-button px-12 py-5 rounded-2xl text-xl font-medium liquid-effect flex items-center justify-center space-x-3 modern-border">
+                <a href="#contact" class="glass-button px-12 py-5 rounded-2xl text-xl font-medium flex items-center justify-center space-x-3 modern-border">
                     <i class="fas fa-comment-dots text-accent"></i>
                     <span class="text-light">Nous contacter</span>
                 </a>
@@ -342,7 +380,7 @@
             <h2 class="text-5xl font-bold text-center mb-20 font-orbitron section-title text-light">Présentation du site</h2>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
-                <div class="glass-card rounded-4xl p-12 liquid-effect modern-border fade-in">
+                <div class="glass-card rounded-4xl p-12 modern-border fade-in">
                     <div class="flex items-center mb-8">
                         <div class="glass-button rounded-2xl p-4 mr-6 modern-border">
                             <i class="fas fa-bullseye text-2xl text-accent"></i>
@@ -357,7 +395,7 @@
                     </p>
                 </div>
                 
-                <div class="glass-card rounded-4xl p-12 liquid-effect modern-border fade-in">
+                <div class="glass-card rounded-4xl p-12 modern-border fade-in">
                     <div class="flex items-center mb-8">
                         <div class="glass-button rounded-2xl p-4 mr-6 modern-border">
                             <i class="fas fa-globe text-2xl text-accent"></i>
@@ -382,7 +420,7 @@
         <div class="container mx-auto">
             <h2 class="text-5xl font-bold text-center mb-20 font-orbitron section-title text-light">Mode de scrutin</h2>
             
-            <div class="glass-card rounded-4xl p-12 max-w-5xl mx-auto liquid-effect modern-border fade-in">
+            <div class="glass-card rounded-4xl p-12 max-w-5xl mx-auto modern-border fade-in">
                 <div class="flex items-center mb-10">
                     <div class="glass-button rounded-2xl p-4 mr-6 modern-border">
                         <i class="fas fa-vote-yea text-2xl text-accent"></i>
@@ -430,7 +468,7 @@
             <h2 class="text-5xl font-bold text-center mb-20 font-orbitron section-title text-light">Contactez-nous</h2>
             
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-14">
-                <div class="glass-card rounded-4xl p-12 liquid-effect modern-border fade-in">
+                <div class="glass-card rounded-4xl p-12 modern-border fade-in">
                     <h3 class="text-3xl font-bold mb-10 font-orbitron text-light flex items-center">
                         <i class="fas fa-envelope-open-text text-accent mr-5"></i>
                         Formulaire de contact
@@ -452,14 +490,14 @@
                             <label for="message" class="block mb-4 font-medium text-lg text-light">Message</label>
                             <textarea id="message" rows="5" class="w-full form-input rounded-2xl p-5 text-lg focus:outline-none" placeholder="Votre message..."></textarea>
                         </div>
-                        <button type="submit" class="glass-button w-full py-5 rounded-2xl font-semibold text-xl liquid-effect flex items-center justify-center space-x-3 modern-border">
+                        <button type="submit" class="glass-button w-full py-5 rounded-2xl font-semibold text-xl flex items-center justify-center space-x-3 modern-border">
                             <i class="fas fa-paper-plane text-accent"></i>
                             <span class="text-light">Envoyer le message</span>
                         </button>
                     </form>
                 </div>
                 
-                <div class="glass-card rounded-4xl p-12 liquid-effect modern-border fade-in">
+                <div class="glass-card rounded-4xl p-12 modern-border fade-in">
                     <h3 class="text-3xl font-bold mb-10 font-orbitron text-light flex items-center">
                         <i class="fas fa-address-card text-accent mr-5"></i>
                         Informations de contact
@@ -489,7 +527,7 @@
                             </div>
                             <div>
                                 <h4 class="font-bold text-xl mb-2 text-light">Email</h4>
-                                <p class="text-lg text-light/80">contact@gameawards-elite.fr</p>
+                                <p class="text-lg text-light/80">contact@gameawards-epure.fr</p>
                             </div>
                         </div>
                         <div class="flex items-start">
@@ -550,7 +588,7 @@
             <div class="separator mt-10"></div>
             
             <div class="text-center text-base text-light/70">
-                <p>&copy; 2025 Game Awards - Édition Élite. Tous droits réservés.</p>
+                <p>&copy; 2025 Game Awards - Édition Épurée. Tous droits réservés.</p>
             </div>
         </div>
     </footer>
