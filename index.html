@@ -29,6 +29,7 @@
                     borderRadius: {
                         '4xl': '2rem',
                         '5xl': '3rem',
+                        '6xl': '4rem',
                     },
                     animation: {
                         'float': 'float 8s ease-in-out infinite',
@@ -192,6 +193,23 @@
             background: radial-gradient(circle, rgba(0, 212, 255, 0.1) 0%, transparent 70%);
             filter: blur(20px);
             animation: vote-pulse 8s ease-in-out infinite;
+        }
+
+
+        .glass-effect-nav {
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(35px);
+            -webkit-backdrop-filter: blur(35px);
+            border: 1px solid rgba(0, 212, 255, 0.08);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .glass-effect-footer {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            border: 1px solid rgba(0, 212, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
         }
 
         .glass-effect {
@@ -405,10 +423,10 @@
 
 <body class="font-inter">
     <!-- Navbar -->
-    <nav class="glass-effect fixed top-0 left-0 right-0 z-50 mx-4 mt-4 px-4 py-3 lg:px-6 lg:py-4 rounded-3xl">
+    <nav class="glass-effect-nav fixed top-0 left-0 right-0 z-50 mx-2 mt-4 px-2 py-3 lg:mx-4 lg:px-4 lg:py-4 rounded-6xl">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <div class="logo-container">
-                <div class="glass-button p-2 rounded-2xl">
+                <div class="glass-button p-2 rounded-3xl">
                     <img src="./assets/img/logo.png" alt="Logo GameCrown" class="logo-image">
                 </div>
                 <span class="logo-text">
@@ -419,29 +437,29 @@
             <!-- Menu Desktop -->
             <div class="nav-desktop flex items-center gap-2">
                 <a href="#accueil"
-                    class="nav-link glass-button px-5 py-3 rounded-2xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                    class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
                     <i class="fas fa-home text-accent"></i>
                     <span>Accueil</span>
                 </a>
                 <a href="#presentation"
-                    class="nav-link glass-button px-5 py-3 rounded-2xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                    class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
                     <i class="fas fa-info-circle text-accent"></i>
                     <span>Présentation</span>
                 </a>
                 <a href="#scrutin"
-                    class="nav-link glass-button px-5 py-3 rounded-2xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                    class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
                     <i class="fas fa-award text-accent"></i>
                     <span>Mode de scrutin</span>
                 </a>
                 <a href="#contact"
-                    class="nav-link glass-button px-5 py-3 rounded-2xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                    class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
                     <i class="fas fa-envelope text-accent"></i>
                     <span>Contact</span>
                 </a>
             </div>
 
             <!-- Bouton pour dérouler la navbar mobile -->
-            <button id="mobile-menu-btn" class="mobile-menu-button glass-button p-3 rounded-2xl">
+            <button id="mobile-menu-btn" class="mobile-menu-button glass-button p-3 rounded-3xl">
                 <div class="hamburger flex flex-col gap-1.5 w-6 h-6 justify-center items-center">
                     <i class="fa-solid fa-bars fa-2xl" style="color: #00d4ff;"></i>
                 </div>
@@ -452,22 +470,22 @@
         <div id="mobile-menu" class="mobile-menu mt-4">
             <div class="flex flex-col gap-3 pb-4">
                 <a href="#accueil"
-                    class="glass-button px-6 py-4 rounded-2xl text-center flex items-center justify-center gap-3">
+                    class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
                     <i class="fas fa-home text-accent"></i>
                     <span>Accueil</span>
                 </a>
                 <a href="#presentation"
-                    class="glass-button px-6 py-4 rounded-2xl text-center flex items-center justify-center gap-3">
+                    class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
                     <i class="fas fa-info-circle text-accent"></i>
                     <span>Présentation</span>
                 </a>
                 <a href="#scrutin"
-                    class="glass-button px-6 py-4 rounded-2xl text-center flex items-center justify-center gap-3">
+                    class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
                     <i class="fas fa-award text-accent"></i>
                     <span>Mode de scrutin</span>
                 </a>
                 <a href="#contact"
-                    class="glass-button px-6 py-4 rounded-2xl text-center flex items-center justify-center gap-3">
+                    class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
                     <i class="fas fa-envelope text-accent"></i>
                     <span>Contact</span>
                 </a>
@@ -508,12 +526,12 @@
             </div>
             <div class="flex flex-col md:flex-row justify-center gap-6">
                 <a href="#presentation"
-                    class="glass-button px-12 py-5 rounded-2xl text-xl font-medium flex items-center justify-center space-x-3 modern-border">
+                    class="glass-button px-12 py-5 rounded-3xl text-xl font-medium flex items-center justify-center space-x-3 modern-border">
                     <i class="fas fa-gamepad text-accent"></i>
                     <span class="text-light">Découvrir les nominés</span>
                 </a>
                 <a href="#contact"
-                    class="glass-button px-12 py-5 rounded-2xl text-xl font-medium flex items-center justify-center space-x-3 modern-border">
+                    class="glass-button px-12 py-5 rounded-3xl text-xl font-medium flex items-center justify-center space-x-3 modern-border">
                     <i class="fas fa-comment-dots text-accent"></i>
                     <span class="text-light">Nous contacter</span>
                 </a>
@@ -528,9 +546,9 @@
             </h2>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                <div class="glass-card rounded-4xl p-12 modern-border">
+                <div class="glass-card rounded-5xl p-12 modern-border">
                     <div class="flex items-start mb-8">
-                        <div class="glass-button rounded-2xl p-4 mr-6 modern-border">
+                        <div class="glass-button rounded-3xl p-4 mr-6 modern-border">
                             <i class="fas fa-bullseye text-2xl text-accent"></i>
                         </div>
                         <div>
@@ -567,9 +585,9 @@
                     </div>
                 </div>
 
-                <div class="glass-card rounded-4xl p-12 modern-border">
+                <div class="glass-card rounded-5xl p-12 modern-border">
                     <div class="flex items-start mb-8">
-                        <div class="glass-button rounded-2xl p-4 mr-6 modern-border">
+                        <div class="glass-button rounded-3xl p-4 mr-6 modern-border">
                             <i class="fas fa-globe text-2xl text-accent"></i>
                         </div>
                         <div>
@@ -615,9 +633,9 @@
         <div class="container mx-auto">
             <h2 class="text-5xl font-bold text-center mb-20 font-orbitron section-title text-light">Mode de scrutin</h2>
 
-            <div class="glass-card rounded-4xl p-12 max-w-5xl mx-auto modern-border fade-in">
+            <div class="glass-card rounded-5xl p-12 max-w-5xl mx-auto modern-border fade-in">
                 <div class="flex items-center mb-10">
-                    <div class="glass-button rounded-2xl p-4 mr-6 modern-border">
+                    <div class="glass-button rounded-3xl p-4 mr-6 modern-border">
                         <i class="fas fa-vote-yea text-2xl text-accent"></i>
                     </div>
                     <h3 class="text-3xl font-bold font-orbitron text-light">Notre système de vote en deux étapes</h3>
@@ -650,7 +668,7 @@
                         </li>
                     </ul>
                     <p
-                        class="text-lg text-light/80 italic bg-gradient-to-r from-accent/10 to-transparent p-4 rounded-xl">
+                        class="text-lg text-light/80 italic bg-gradient-to-r from-accent/10 to-transparent p-4 rounded-3xl">
                         Un seul jeu est élu par catégorie et devient finaliste pour la grande finale.
                     </p>
                 </div>
@@ -681,7 +699,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-10 mt-12">
                     <div class="text-center">
                         <div
-                            class="glass-button rounded-2xl p-6 mb-6 mx-auto w-24 h-24 flex items-center justify-center modern-border">
+                            class="glass-button rounded-3xl p-6 mb-6 mx-auto w-24 h-24 flex items-center justify-center modern-border">
                             <i class="fas fa-tags text-3xl text-accent"></i>
                         </div>
                         <h4 class="text-2xl font-bold mb-4 font-orbitron text-light">Vote par catégorie</h4>
@@ -690,7 +708,7 @@
                     </div>
                     <div class="text-center">
                         <div
-                            class="glass-button rounded-2xl p-6 mb-6 mx-auto w-24 h-24 flex items-center justify-center modern-border">
+                            class="glass-button rounded-3xl p-6 mb-6 mx-auto w-24 h-24 flex items-center justify-center modern-border">
                             <i class="fas fa-trophy text-3xl text-accent"></i>
                         </div>
                         <h4 class="text-2xl font-bold mb-4 font-orbitron text-light">Finalistes</h4>
@@ -699,7 +717,7 @@
                     </div>
                     <div class="text-center">
                         <div
-                            class="glass-button rounded-2xl p-6 mb-6 mx-auto w-24 h-24 flex items-center justify-center modern-border">
+                            class="glass-button rounded-3xl p-6 mb-6 mx-auto w-24 h-24 flex items-center justify-center modern-border">
                             <i class="fas fa-award text-3xl text-accent"></i>
                         </div>
                         <h4 class="text-2xl font-bold mb-4 font-orbitron text-light">Vote final</h4>
@@ -719,9 +737,9 @@
             <h2 class="text-4xl font-bold text-center mb-16 font-orbitron text-light">Contactez-nous</h2>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                <div class="glass-card rounded-3xl p-8 modern-border">
+                <div class="glass-card rounded-4xl p-8 modern-border">
                     <div class="flex items-center mb-6">
-                        <div class="glass-button rounded-xl p-3 mr-4 modern-border">
+                        <div class="glass-button rounded-3xl p-3 mr-4 modern-border">
                             <i class="fas fa-envelope text-accent"></i>
                         </div>
                         <h3 class="text-2xl font-bold font-orbitron text-light">Formulaire de contact</h3>
@@ -731,25 +749,25 @@
                         <div>
                             <label for="name" class="block mb-2 font-medium text-light">Nom complet</label>
                             <input type="text" id="name"
-                                class="w-full form-input rounded-xl p-3 text-light/90 bg-white/5 border border-white/10 focus:border-accent/50">
+                                class="w-full form-input rounded-3xl p-3 text-light/90 bg-white/5 border border-white/10 focus:border-accent/50">
                         </div>
                         <div>
                             <label for="email" class="block mb-2 font-medium text-light">Adresse email</label>
                             <input type="email" id="email"
-                                class="w-full form-input rounded-xl p-3 text-light/90 bg-white/5 border border-white/10 focus:border-accent/50">
+                                class="w-full form-input rounded-3xl p-3 text-light/90 bg-white/5 border border-white/10 focus:border-accent/50">
                         </div>
                         <div>
                             <label for="subject" class="block mb-2 font-medium text-light">Sujet</label>
                             <input type="text" id="subject"
-                                class="w-full form-input rounded-xl p-3 text-light/90 bg-white/5 border border-white/10 focus:border-accent/50">
+                                class="w-full form-input rounded-3xl p-3 text-light/90 bg-white/5 border border-white/10 focus:border-accent/50">
                         </div>
                         <div>
                             <label for="message" class="block mb-2 font-medium text-light">Message</label>
                             <textarea id="message" rows="4"
-                                class="w-full form-input rounded-xl p-3 text-light/90 bg-white/5 border border-white/10 focus:border-accent/50"></textarea>
+                                class="w-full form-input rounded-3xl p-3 text-light/90 bg-white/5 border border-white/10 focus:border-accent/50"></textarea>
                         </div>
                         <button type="submit"
-                            class="w-full py-3 rounded-xl font-semibold bg-accent text-white flex items-center justify-center space-x-2 hover:bg-accent/90 transition-colors">
+                            class="w-full py-3 rounded-3xl font-semibold bg-accent text-white flex items-center justify-center space-x-2 hover:bg-accent/90 transition-colors">
                             <i class="fas fa-paper-plane"></i>
                             <span>Envoyer le message</span>
                         </button>
@@ -757,9 +775,9 @@
                 </div>
 
                 <!-- Informations contact -->
-                <div class="glass-card rounded-3xl p-8 modern-border">
+                <div class="glass-card rounded-4xl p-8 modern-border">
                     <div class="flex items-center mb-6">
-                        <div class="glass-button rounded-xl p-3 mr-4 modern-border">
+                        <div class="glass-button rounded-3xl p-3 mr-4 modern-border">
                             <i class="fas fa-address-card text-accent"></i>
                         </div>
                         <h3 class="text-2xl font-bold font-orbitron text-light">Informations</h3>
@@ -767,7 +785,7 @@
 
                     <div class="space-y-6">
                         <div class="flex items-start">
-                            <div class="glass-button rounded-xl p-2 mr-4 modern-border">
+                            <div class="glass-button rounded-3xl p-2 mr-4 modern-border">
                                 <i class="fas fa-map-marker-alt text-accent text-sm"></i>
                             </div>
                             <div>
@@ -778,7 +796,7 @@
                         </div>
 
                         <div class="flex items-start">
-                            <div class="glass-button rounded-xl p-2 mr-4 modern-border">
+                            <div class="glass-button rounded-3xl p-2 mr-4 modern-border">
                                 <i class="fas fa-phone text-accent text-sm"></i>
                             </div>
                             <div>
@@ -788,7 +806,7 @@
                         </div>
 
                         <div class="flex items-start">
-                            <div class="glass-button rounded-xl p-2 mr-4 modern-border">
+                            <div class="glass-button rounded-3xl p-2 mr-4 modern-border">
                                 <i class="fas fa-envelope text-accent text-sm"></i>
                             </div>
                             <div>
@@ -803,11 +821,11 @@
     </section>
 
     <!-- Footer -->
-    <footer class="py-16 px-6 mt-20 glass-effect rounded-t-4xl modern-border">
+    <footer class="glass-effect-footer py-16 px-6 mt-20 rounded-t-6xl modern-border">
         <div class="container mx-auto">
             <div class="flex flex-col md:flex-row justify-between items-center">
                 <div class="flex items-center space-x-4 mb-8 md:mb-0">
-                    <div class="glass-button p-2 rounded-2xl">
+                    <div class="glass-button p-2 rounded-3xl">
                         <img src="./assets/img/logo.png" alt="Logo GameCrown" class="logo-image">
                     </div>
                     <span class="logo-text">
@@ -817,19 +835,19 @@
 
                 <div class="flex space-x-5">
                     <a href="#"
-                        class="glass-button rounded-2xl p-3 w-12 h-12 flex items-center justify-center modern-border">
+                        class="glass-button rounded-3xl p-3 w-12 h-12 flex items-center justify-center modern-border">
                         <i class="fab fa-twitter text-accent"></i>
                     </a>
                     <a href="#"
-                        class="glass-button rounded-2xl p-3 w-12 h-12 flex items-center justify-center modern-border">
+                        class="glass-button rounded-3xl p-3 w-12 h-12 flex items-center justify-center modern-border">
                         <i class="fab fa-facebook-f text-accent"></i>
                     </a>
                     <a href="#"
-                        class="glass-button rounded-2xl p-3 w-12 h-12 flex items-center justify-center modern-border">
+                        class="glass-button rounded-3xl p-3 w-12 h-12 flex items-center justify-center modern-border">
                         <i class="fab fa-instagram text-accent"></i>
                     </a>
                     <a href="#"
-                        class="glass-button rounded-2xl p-3 w-12 h-12 flex items-center justify-center modern-border">
+                        class="glass-button rounded-3xl p-3 w-12 h-12 flex items-center justify-center modern-border">
                         <i class="fab fa-youtube text-accent"></i>
                     </a>
                 </div>
