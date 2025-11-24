@@ -1,6 +1,7 @@
 <?php
-// On fait un système de contact qui enregistre les messages dans un fichier texte pour le moment
+header('Access-Control-Allow-Origin: *');
 header('Content-Type: application/json');
+header('Access-Control-Allow-Methods: POST');
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $name = trim($_POST['name'] ?? '');
@@ -9,7 +10,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $message = trim($_POST['message'] ?? '');
     $errors = [];
     
-    // Vérification
+    // Vérifications
     if (empty($name)) $errors[] = "Le nom est obligatoire";
     if (empty($email)) $errors[] = "L'email est obligatoire";
     if (empty($subject)) $errors[] = "Le sujet est obligatoire";
@@ -19,21 +20,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $errors[] = "L'email n'est pas valide";
     }
     
-    // Si erreur on arrête
     if (!empty($errors)) {
         http_response_code(400);
         echo json_encode(['success' => false, 'errors' => $errors]);
         exit;
     }
 
-    $filename = './data/messages/msg.txt';
+    // ✅ SOLUTION : Utiliser DIRECTORY_SEPARATOR
+    $directory = __DIR__ . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'messages';
+    
+    // Créer le dossier automatiquement
+    if (!is_dir($directory)) {
+        mkdir($directory, 0755, true);
+    }
+
+    $filename = $directory . DIRECTORY_SEPARATOR . 'messages.txt';
     
     // Contenu du message
-    $content = "Date: " . date('d/m/Y à H:i:s') . "\n";
-    $content .= "Nom: " . htmlspecialchars($name) . "\n";
-    $content .= "Email: " . htmlspecialchars($email) . "\n";
-    $content .= "Sujet: " . htmlspecialchars($subject) . "\n";
-    $content .= "Message: " . htmlspecialchars($message) . "\n";
+    $content = "\n" . str_repeat("=", 80) . "\n";
+    $content .= "Date: " . date('d/m/Y à H:i:s') . "\n";
+    $content .= "Nom: " . htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . "\n";
+    $content .= "Email: " . htmlspecialchars($email, ENT_QUOTES, 'UTF-8') . "\n";
+    $content .= "Sujet: " . htmlspecialchars($subject, ENT_QUOTES, 'UTF-8') . "\n";
+    $content .= "Message: " . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . "\n";
+    $content .= str_repeat("=", 80) . "\n";
     
     if (file_put_contents($filename, $content, FILE_APPEND | LOCK_EX) !== false) {
         echo json_encode(['success' => true, 'message' => 'Message envoyé avec succès !']);
