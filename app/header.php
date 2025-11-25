@@ -54,7 +54,7 @@
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <div class="logo-container">
                 <div class="glass-button p-2 rounded-3xl">
-                    <img src="./assets/img/logo.png" alt="Logo GameCrown" class="logo-image">
+                    <img src="../assets/img/logo.png" alt="Logo GameCrown" class="logo-image">
                 </div>
                 <span class="logo-text">
                     GAME<span class="accent-gradient">CROWN</span>
