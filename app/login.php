@@ -178,7 +178,7 @@
                 <!-- Lien inscription -->
                 <div class="text-center">
                     <p class="text-light/60 text-sm">Pas encore de compte ? 
-                        <a href="#" class="text-accent font-medium hover:text-accent-dark transition-colors hover:underline">Créer un compte</a>
+                        <a href="register.php" class="text-accent font-medium hover:text-accent-dark transition-colors hover:underline">Créer un compte</a>
                     </p>
                 </div>
             </div>
