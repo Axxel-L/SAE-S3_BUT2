@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="fr">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GameCrown - Édition Épurée</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link  rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap">
     <link rel="stylesheet" href="http://cdn.agence-prestige-numerique.fr/fontawesome/all.min.css">
     <link rel="stylesheet" href="./assets/css/index.css">
     <link rel="icon" type="image/png" href="./assets/img/logo.png">
@@ -62,25 +62,34 @@
 
             <!-- Menu Desktop -->
             <div class="nav-desktop flex items-center gap-2">
-                <a href="#accueil"
-                    class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
-                    <i class="fas fa-home text-accent"></i>
-                    <span>Accueil</span>
-                </a>
-                <a href="#presentation"
-                    class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
-                    <i class="fas fa-info-circle text-accent"></i>
-                    <span>Présentation</span>
-                </a>
-                <a href="#scrutin"
-                    class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
-                    <i class="fas fa-award text-accent"></i>
-                    <span>Mode de scrutin</span>
-                </a>
-                <a href="#contact"
-                    class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
-                    <i class="fas fa-envelope text-accent"></i>
-                    <span>Contact</span>
+                <!-- Liens de navigation -->
+                <div class="flex items-center gap-2">
+                    <a href="#accueil"
+                        class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                        <i class="fas fa-home text-accent"></i>
+                        <span>Accueil</span>
+                    </a>
+                    <a href="#presentation"
+                        class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                        <i class="fas fa-info-circle text-accent"></i>
+                        <span>Présentation</span>
+                    </a>
+                    <a href="#scrutin"
+                        class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                        <i class="fas fa-award text-accent"></i>
+                        <span>Mode de scrutin</span>
+                    </a>
+                    <a href="#contact"
+                        class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                        <i class="fas fa-envelope text-accent"></i>
+                        <span>Contact</span>
+                    </a>
+                </div>
+                <div class="h-8 w-px bg-accent/30 mx-2"></div>
+                <a href="./app/"
+                    class="nav-link glass-button px-6 py-3 rounded-3xl font-medium flex items-center gap-3 text-sm lg:text-base bg-gradient-to-r from-accent/20 to-accent/10 border border-accent/30 hover:from-accent/30 hover:to-accent/20 transition-all duration-300">
+                    <i class="fa-solid fa-user text-accent text-lg"></i>
+                    <span class="text-accent font-semibold">Connexion</span>
                 </a>
             </div>
 
@@ -114,6 +123,12 @@
                     class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
                     <i class="fas fa-envelope text-accent"></i>
                     <span>Contact</span>
+                </a>
+                <div class="h-px bg-accent/30 my-2"></div>
+                <a href="./app/"
+                    class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3 bg-gradient-to-r from-accent/20 to-accent/10 border border-accent/30">
+                    <i class="fas fa-sign-in-alt text-accent"></i>
+                    <span class="text-accent font-semibold">Se connecter</span>
                 </a>
             </div>
         </div>
