@@ -4,12 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GameCrown - Édition Épurée</title>
-    
-    <!-- Ces 3 lignes suffisent pour tous les styles -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="http://cdn.agence-prestige-numerique.fr/tailwindcss/3.4.17.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap">
+    <link rel="stylesheet" href="http://cdn.agence-prestige-numerique.fr/fontawesome/all.min.css">
     <link rel="stylesheet" href="../assets/css/index.css">
-    
     <link rel="icon" type="image/png" href="../assets/img/logo.png">
     <script>
         tailwind.config = {
@@ -45,12 +43,38 @@
             }
         }
     </script>
+    <style>
+        /* Styles pour les modals */
+        .modal-backdrop {
+            background: rgba(0, 0, 0, 0.6);
+        }
+        
+        .modal-content {
+            background: rgba(10, 10, 10, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 
+                0 25px 50px -12px rgba(0, 0, 0, 0.5),
+                0 0 80px rgba(0, 212, 255, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .input-glow:focus {
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.15);
+        }
+
+        .btn-glow:hover {
+            box-shadow: 0 10px 40px rgba(0, 212, 255, 0.4);
+        }
+
+        .close-btn:hover {
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+    </style>
 </head>
 
 <body class="font-inter">
     <!-- Navbar -->
-    <nav
-        class="glass-effect-nav fixed top-0 left-0 right-0 z-50 mx-2 mt-4 px-2 py-3 lg:mx-4 lg:px-4 lg:py-4 rounded-6xl">
+    <nav class="glass-effect-nav fixed top-0 left-0 right-0 z-50 mx-2 mt-4 px-2 py-3 lg:mx-4 lg:px-4 lg:py-4 rounded-6xl">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <div class="logo-container">
                 <div class="glass-button p-2 rounded-3xl">
@@ -64,36 +88,32 @@
             <!-- Menu Desktop -->
             <div class="nav-desktop flex items-center gap-2">
                 <div class="flex items-center gap-2">
-                    <a href="#accueil"
-                        class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                    <a href="#accueil" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
                         <i class="fas fa-home text-accent"></i>
                         <span>Accueil</span>
                     </a>
-                    <a href="#presentation"
-                        class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                    <a href="#presentation" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
                         <i class="fas fa-info-circle text-accent"></i>
                         <span>Présentation</span>
                     </a>
-                    <a href="#scrutin"
-                        class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                    <a href="#scrutin" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
                         <i class="fas fa-award text-accent"></i>
                         <span>Mode de scrutin</span>
                     </a>
-                    <a href="#contact"
-                        class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                    <a href="#contact" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
                         <i class="fas fa-envelope text-accent"></i>
                         <span>Contact</span>
                     </a>
                 </div>
                 <div class="h-8 w-px bg-accent/30 mx-2"></div>
-                <a href="./app/login"
-                    class="nav-link glass-button px-6 py-3 rounded-3xl font-medium flex items-center gap-3 text-sm lg:text-base bg-gradient-to-r from-accent/20 to-accent/10 border border-accent/30 hover:from-accent/30 hover:to-accent/20 transition-all duration-300">
+                <!-- Bouton Connexion Desktop -->
+                <button id="openLoginBtn" class="nav-link glass-button px-6 py-3 rounded-3xl font-medium flex items-center gap-3 text-sm lg:text-base bg-gradient-to-r from-accent/20 to-accent/10 border border-accent/30 hover:from-accent/30 hover:to-accent/20 transition-all duration-300 cursor-pointer">
                     <i class="fa-solid fa-user text-accent text-lg"></i>
                     <span class="text-accent font-semibold">Connexion</span>
-                </a>
+                </button>
             </div>
 
-            <!-- Bouton pour dérouler la navbar mobile -->
+            <!-- Bouton menu mobile -->
             <button id="mobile-menu-btn" class="mobile-menu-button glass-button p-3 rounded-3xl">
                 <div class="hamburger flex flex-col gap-1.5 w-6 h-6 justify-center items-center">
                     <i class="fa-solid fa-bars fa-2xl" style="color: #00d4ff;"></i>
@@ -104,32 +124,28 @@
         <!-- Menu Mobile -->
         <div id="mobile-menu" class="mobile-menu mt-4">
             <div class="flex flex-col gap-3 pb-4">
-                <a href="#accueil"
-                    class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+                <a href="#accueil" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
                     <i class="fas fa-home text-accent"></i>
                     <span>Accueil</span>
                 </a>
-                <a href="#presentation"
-                    class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+                <a href="#presentation" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
                     <i class="fas fa-info-circle text-accent"></i>
                     <span>Présentation</span>
                 </a>
-                <a href="#scrutin"
-                    class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+                <a href="#scrutin" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
                     <i class="fas fa-award text-accent"></i>
                     <span>Mode de scrutin</span>
                 </a>
-                <a href="#contact"
-                    class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+                <a href="#contact" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
                     <i class="fas fa-envelope text-accent"></i>
                     <span>Contact</span>
                 </a>
                 <div class="h-px bg-accent/30 my-2"></div>
-                <a href="./app/login"
-                    class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3 bg-gradient-to-r from-accent/20 to-accent/10 border border-accent/30">
+                <!-- Bouton Connexion Mobile -->
+                <button id="openLoginBtnMobile" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3 bg-gradient-to-r from-accent/20 to-accent/10 border border-accent/30 cursor-pointer">
                     <i class="fas fa-sign-in-alt text-accent"></i>
                     <span class="text-accent font-semibold">Se connecter</span>
-                </a>
+                </button>
             </div>
         </div>
     </nav>
