@@ -148,10 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div id="registerModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
         <div id="registerModalContent" class="relative w-full max-w-md my-8 transition-all duration-300">
             
-            <!-- Bouton fermer -->
-            <button id="closeModal" type="button" class="close-btn absolute -top-3 -right-3 z-10 w-11 h-11 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center text-light hover:bg-accent/20 hover:border-accent/50 transition-all duration-300 group">
-                <i class="fas fa-times text-lg group-hover:rotate-90 group-hover:text-accent transition-all duration-300"></i>
-            </button>
+
 
             <!-- Contenu du popup -->
             <div class="modal-content rounded-[2.5rem] p-8 md:p-10 backdrop-blur-xl">
