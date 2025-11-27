@@ -129,7 +129,7 @@ $logged_in = isset($_SESSION['user_id']);
                     </div>
                 <!-- Si pas connecté : bouton Connexion -->
                 <?php else: ?>
-                    <a href="login.php" class="glass-button px-6 py-3 rounded-3xl font-medium flex items-center gap-3 text-sm lg:text-base bg-gradient-to-r from-accent/20 to-accent/10 border border-accent/30 hover:from-accent/30 hover:to-accent/20 transition-all duration-300">
+                    <a href="#" onclick="openResponsiveWindow('login.php'); return false;" class="glass-button px-6 py-3 rounded-3xl font-medium flex items-center gap-3 text-sm lg:text-base bg-gradient-to-r from-accent/20 to-accent/10 border border-accent/30 hover:from-accent/30 hover:to-accent/20 transition-all duration-300">
                         <i class="fa-solid fa-user text-accent text-lg"></i>
                         <span class="text-accent font-semibold">Connexion</span>
                     </a>
@@ -183,7 +183,7 @@ $logged_in = isset($_SESSION['user_id']);
                     </div>
                 <!-- Si pas connecté : bouton Connexion (mobile) -->
                 <?php else: ?>
-                    <a href="login.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3 bg-gradient-to-r from-accent/20 to-accent/10 border border-accent/30">
+                    <a href="#" onclick="openResponsiveWindow('login.php'); return false;" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3 bg-gradient-to-r from-accent/20 to-accent/10 border border-accent/30">
                         <i class="fas fa-sign-in-alt text-accent"></i>
                         <span class="text-accent font-semibold">Se connecter</span>
                     </a>
@@ -191,5 +191,19 @@ $logged_in = isset($_SESSION['user_id']);
             </div>
         </div>
     </nav>
+
+    <script>
+function openResponsiveWindow(url) {
+    // Calculer 80% de la largeur et hauteur de l'écran
+    const width = Math.round(window.innerWidth * 0.3);
+    const height = Math.round(window.innerHeight * 0.7);
+    
+    // Centrer la fenêtre
+    const left = Math.round((window.innerWidth - width) / 2);
+    const top = Math.round((window.innerHeight - height) / 2);
+    
+    window.open(url, '_blank', `width=${width},height=${height},left=${left},top=${top}`);
+}
+</script>
 </body>
 </html>
