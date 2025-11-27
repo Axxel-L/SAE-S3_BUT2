@@ -1,3 +1,49 @@
+<?php
+session_start();
+require_once 'dbconnect.php';
+
+$error = '';
+$success = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $email = trim($_POST['email'] ?? '');
+    $password = $_POST['password'] ?? '';
+    $confirm_password = $_POST['confirm_password'] ?? '';
+    $type = $_POST['type'] ?? 'joueur';
+
+    // Validation
+    if (empty($email) || empty($password)) {
+        $error = "Email et mot de passe requis !";
+    } elseif ($password !== $confirm_password) {
+        $error = "Les mots de passe ne correspondent pas !";
+    } elseif (strlen($password) < 8) {
+        $error = "Le mot de passe doit contenir au minimum 8 caractères !";
+    } else {
+        // Vérifier si l'email existe déjà
+        $stmt = $connexion->prepare("SELECT id_utilisateur FROM utilisateur WHERE email = ?");
+        $stmt->execute([$email]);
+        
+        if ($stmt->rowCount() > 0) {
+            $error = "Cet email est déjà utilisé !";
+        } else {
+            // Générer salt et hasher le mot de passe
+            $salt = bin2hex(random_bytes(16)); // Salt aléatoire
+            $password_hash = hash('sha256', $password . $salt); // Hachage SHA-256
+
+            // Insérer dans la BD
+            $stmt = $connexion->prepare("INSERT INTO utilisateur (email, mot_de_passe, salt, type, date_inscription) VALUES (?, ?, ?, ?, NOW())");
+            
+            if ($stmt->execute([$email, $password_hash, $salt, $type])) {
+                $success = "✓ Compte créé avec succès !";
+                $_POST = []; // Vider le formulaire
+            } else {
+                $error = "Erreur lors de la création du compte !";
+            }
+        }
+    }
+}
+?>
+
 <!DOCTYPE html>
 <html lang="fr">
 
@@ -31,21 +77,11 @@
                         '5xl': '3rem',
                         '6xl': '4rem',
                     },
-                    animation: {
-                        'float': 'float 8s ease-in-out infinite',
-                        'fade-in': 'fade-in 1s ease-out',
-                        'glow': 'glow 3s ease-in-out infinite',
-                        'slide': 'slide 40s linear infinite',
-                        'pulse-slow': 'pulse-slow 4s ease-in-out infinite',
-                        'trophy-glow': 'trophy-glow 6s ease-in-out infinite',
-                        'vote-pulse': 'vote-pulse 2s ease-in-out infinite',
-                    }
                 }
             }
         }
     </script>
     <style>
-        /* Styles pour le modal */
         .modal-backdrop {
             background: rgba(0, 0, 0, 0.6);
         }
@@ -70,6 +106,28 @@
         .close-btn:hover {
             box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
         }
+
+        .message-box {
+            padding: 12px 15px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .message-success {
+            background: rgba(74, 222, 128, 0.1);
+            color: #4ade80;
+            border: 1px solid rgba(74, 222, 128, 0.3);
+        }
+
+        .message-error {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
     </style>
 </head>
 
@@ -81,10 +139,6 @@
         <div class="diagonal-lines-3"></div>
         <div class="award-grid"></div>
         <div class="trophy-pattern"></div>
-        <div class="controller-icons" id="controller-icons"></div>
-        <div class="vote-aura" style="top: 10%; left: 5%;"></div>
-        <div class="vote-aura" style="top: 60%; left: 80%;"></div>
-        <div class="vote-aura" style="top: 80%; left: 20%;"></div>
     </div>
 
     <!-- Overlay fond flou transparent -->
@@ -95,7 +149,7 @@
         <div id="registerModalContent" class="relative w-full max-w-md my-8 transition-all duration-300">
             
             <!-- Bouton fermer -->
-            <button id="closeModal" class="close-btn absolute -top-3 -right-3 z-10 w-11 h-11 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center text-light hover:bg-accent/20 hover:border-accent/50 transition-all duration-300 group">
+            <button id="closeModal" type="button" class="close-btn absolute -top-3 -right-3 z-10 w-11 h-11 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center text-light hover:bg-accent/20 hover:border-accent/50 transition-all duration-300 group">
                 <i class="fas fa-times text-lg group-hover:rotate-90 group-hover:text-accent transition-all duration-300"></i>
             </button>
 
@@ -104,7 +158,7 @@
                 
                 <!-- Header -->
                 <div class="text-center mb-8">
-                    <div class="inline-block mb-5 animate-float">
+                    <div class="inline-block mb-5">
                         <div class="rounded-3xl p-4 mx-auto w-20 h-20 flex items-center justify-center bg-gradient-to-br from-accent/20 to-accent/5 border border-accent/30 shadow-lg shadow-accent/20">
                             <i class="fas fa-user-plus text-3xl text-accent"></i>
                         </div>
@@ -113,8 +167,29 @@
                     <p class="text-light/60 text-sm md:text-base">Rejoignez la communauté GameCrown</p>
                 </div>
 
+                <!-- Messages PHP -->
+                <?php if ($error): ?>
+                    <div class="message-box message-error">
+                        <i class="fas fa-exclamation-circle flex-shrink-0"></i>
+                        <span><?php echo htmlspecialchars($error); ?></span>
+                    </div>
+                <?php endif; ?>
+
+                <?php if ($success): ?>
+                    <div class="message-box message-success">
+                        <i class="fas fa-check-circle flex-shrink-0"></i>
+                        <span><?php echo htmlspecialchars($success); ?></span>
+                    </div>
+                    <p class="text-center text-light/60 text-sm mb-4">Redirection vers la connexion...</p>
+                    <script>
+                        setTimeout(() => {
+                            window.location.href = 'login.php';
+                        }, 2000);
+                    </script>
+                <?php else: ?>
+
                 <!-- Formulaire -->
-                <form id="registerForm" class="space-y-5">
+                <form method="POST" class="space-y-5">
                     <!-- Email -->
                     <div>
                         <label for="email" class="block mb-2 font-medium text-light text-sm">
@@ -122,7 +197,8 @@
                         </label>
                         <input type="email" id="email" name="email" required
                             class="input-glow w-full rounded-2xl p-4 text-light bg-white/5 backdrop-blur-sm border border-white/10 focus:border-accent/50 focus:outline-none transition-all duration-300 placeholder-white/30"
-                            placeholder="votre@email.com">
+                            placeholder="votre@email.com"
+                            value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>">
                     </div>
                     
                     <!-- Mot de passe -->
@@ -150,11 +226,11 @@
                     
                     <!-- Confirmation mot de passe -->
                     <div>
-                        <label for="passwordConfirm" class="block mb-2 font-medium text-light text-sm">
+                        <label for="confirm_password" class="block mb-2 font-medium text-light text-sm">
                             <i class="fas fa-lock text-accent mr-2"></i>Confirmer le mot de passe
                         </label>
                         <div class="relative">
-                            <input type="password" id="passwordConfirm" name="password_confirm" required
+                            <input type="password" id="confirm_password" name="confirm_password" required
                                 class="input-glow w-full rounded-2xl p-4 pr-12 text-light bg-white/5 backdrop-blur-sm border border-white/10 focus:border-accent/50 focus:outline-none transition-all duration-300 placeholder-white/30"
                                 placeholder="Confirmez votre mot de passe">
                             <button type="button" id="togglePasswordConfirm" class="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-accent transition-colors">
@@ -163,16 +239,29 @@
                         </div>
                         <p id="passwordMatchMessage" class="text-xs mt-1 hidden"></p>
                     </div>
+
+                    <!-- Type de compte -->
+                    <div>
+                        <label for="type" class="block mb-2 font-medium text-light text-sm">
+                            <i class="fas fa-user-tag text-accent mr-2"></i>Type de compte
+                        </label>
+                        <select id="type" name="type" required
+                            class="input-glow w-full rounded-2xl p-4 text-light bg-white/5 backdrop-blur-sm border border-white/10 focus:border-accent/50 focus:outline-none transition-all duration-300">
+                            <option value="joueur" style="background: #0a0a0a; color: #f5f5f5;">🎮 Joueur</option>
+                            <option value="admin" style="background: #0a0a0a; color: #f5f5f5;">👨‍💼 Administrateur</option>
+                            <option value="candidat" style="background: #0a0a0a; color: #f5f5f5;">🏆 Candidat</option>
+                        </select>
+                    </div>
                     
                     <!-- Bouton inscription -->
                     <button type="submit"
-                        class="btn-glow w-full py-4 rounded-2xl font-semibold bg-gradient-to-r from-accent to-accent-dark text-white flex items-center justify-center space-x-3 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 mt-6">
+                        class="btn-glow w-full py-4 rounded-2xl font-semibold bg-gradient-to-r from-accent to-accent-dark text-dark flex items-center justify-center space-x-3 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 mt-6">
                         <i class="fas fa-user-plus"></i>
                         <span>Créer mon compte</span>
                     </button>
-                    
-                    <div id="registerMessage" class="mt-4"></div>
                 </form>
+
+                <?php endif; ?>
 
                 <!-- Séparateur -->
                 <div class="flex items-center my-6">
@@ -191,89 +280,18 @@
         </div>
     </div>
 
-    <!-- Footer (visible en arrière-plan) -->
-    <footer class="glass-effect-footer py-16 px-6 mt-20 rounded-t-6xl modern-border opacity-30">
-        <div class="container mx-auto">
-            <div class="flex flex-col md:flex-row justify-between items-center">
-                <div class="flex items-center space-x-4 mb-8 md:mb-0">
-                    <div class="glass-button p-2 rounded-3xl">
-                        <img src="../assets/img/logo.png" alt="Logo GameCrown" class="logo-image">
-                    </div>
-                    <span class="logo-text">
-                        GAME<span class="accent-gradient">CROWN</span>
-                    </span>
-                </div>
-
-                <div class="flex space-x-5">
-                    <a href="#" class="glass-button rounded-3xl p-3 w-12 h-12 flex items-center justify-center modern-border">
-                        <i class="fab fa-twitter text-accent"></i>
-                    </a>
-                    <a href="#" class="glass-button rounded-3xl p-3 w-12 h-12 flex items-center justify-center modern-border">
-                        <i class="fab fa-facebook-f text-accent"></i>
-                    </a>
-                    <a href="#" class="glass-button rounded-3xl p-3 w-12 h-12 flex items-center justify-center modern-border">
-                        <i class="fab fa-instagram text-accent"></i>
-                    </a>
-                    <a href="#" class="glass-button rounded-3xl p-3 w-12 h-12 flex items-center justify-center modern-border">
-                        <i class="fab fa-youtube text-accent"></i>
-                    </a>
-                </div>
-            </div>
-
-            <div class="separator mt-10"></div>
-
-            <div class="text-center text-base text-light/70">
-                <p>&copy;2025 GameCrown. Tous droits réservés.</p>
-            </div>
-        </div>
-    </footer>
-
-    <!-- Script pour gérer le popup -->
+    <!-- Script -->
     <script>
-        const registerOverlay = document.getElementById('registerOverlay');
-        const registerModal = document.getElementById('registerModal');
-        const registerModalContent = document.getElementById('registerModalContent');
-        const closeModal = document.getElementById('closeModal');
         const togglePassword = document.getElementById('togglePassword');
         const togglePasswordConfirm = document.getElementById('togglePasswordConfirm');
         const passwordInput = document.getElementById('password');
-        const passwordConfirmInput = document.getElementById('passwordConfirm');
-
-        // Fonction pour fermer le popup avec animation
-        function closeRegisterPopup() {
-            registerOverlay.style.transition = 'opacity 0.3s ease-out';
-            registerOverlay.style.opacity = '0';
-            
-            registerModalContent.style.transition = 'all 0.3s ease-out';
-            registerModalContent.style.opacity = '0';
-            registerModalContent.style.transform = 'scale(0.95) translateY(-20px)';
-            
-            setTimeout(() => {
-                registerOverlay.style.display = 'none';
-                registerModal.style.display = 'none';
-            }, 300);
-        }
-
-        // Événement de fermeture sur le bouton croix
-        closeModal.addEventListener('click', closeRegisterPopup);
-        
-        // Fermeture au clic sur l'overlay
-        registerOverlay.addEventListener('click', closeRegisterPopup);
-
-        // Empêcher la fermeture quand on clique sur le popup lui-même
-        registerModalContent.addEventListener('click', (e) => {
-            e.stopPropagation();
-        });
-
-        // Fermer avec la touche Escape
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                closeRegisterPopup();
-            }
-        });
+        const passwordConfirmInput = document.getElementById('confirm_password');
+        const closeModal = document.getElementById('closeModal');
+        const registerOverlay = document.getElementById('registerOverlay');
+        const registerModalContent = document.getElementById('registerModalContent');
 
         // Toggle affichage mot de passe
-        togglePassword.addEventListener('click', () => {
+        togglePassword?.addEventListener('click', () => {
             const type = passwordInput.type === 'password' ? 'text' : 'password';
             passwordInput.type = type;
             togglePassword.innerHTML = type === 'password' 
@@ -282,7 +300,7 @@
         });
 
         // Toggle affichage confirmation mot de passe
-        togglePasswordConfirm.addEventListener('click', () => {
+        togglePasswordConfirm?.addEventListener('click', () => {
             const type = passwordConfirmInput.type === 'password' ? 'text' : 'password';
             passwordConfirmInput.type = type;
             togglePasswordConfirm.innerHTML = type === 'password' 
@@ -317,10 +335,9 @@
             });
             
             strengthText.textContent = strength > 0 ? texts[strength - 1] : '';
-            strengthText.className = strength > 0 ? 'text-xs mt-1 ' + colors[strength - 1].replace('bg-', 'text-') : 'text-xs mt-1 text-white/40';
         }
 
-        passwordInput.addEventListener('input', () => {
+        passwordInput?.addEventListener('input', () => {
             updateStrengthIndicator(checkPasswordStrength(passwordInput.value));
             checkPasswordMatch();
         });
@@ -352,33 +369,28 @@
             }
         }
 
-        passwordConfirmInput.addEventListener('input', checkPasswordMatch);
+        passwordConfirmInput?.addEventListener('input', checkPasswordMatch);
 
-        // Validation du formulaire
-        document.getElementById('registerForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            
-            const email = document.getElementById('email').value;
-            const password = passwordInput.value;
-            const confirmPassword = passwordConfirmInput.value;
-            const messageDiv = document.getElementById('registerMessage');
-            
-            // Vérifications
-            if (password !== confirmPassword) {
-                messageDiv.innerHTML = '<p class="text-red-400 text-sm text-center"><i class="fas fa-exclamation-circle mr-2"></i>Les mots de passe ne correspondent pas</p>';
-                return;
+        // Fermer le modal
+        function closeRegisterPopup() {
+            registerOverlay.style.opacity = '0';
+            registerModalContent.style.opacity = '0';
+            setTimeout(() => {
+                window.history.back();
+            }, 300);
+        }
+
+        closeModal?.addEventListener('click', closeRegisterPopup);
+        registerOverlay?.addEventListener('click', closeRegisterPopup);
+
+        registerModalContent?.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeRegisterPopup();
             }
-            
-            if (password.length < 8) {
-                messageDiv.innerHTML = '<p class="text-red-400 text-sm text-center"><i class="fas fa-exclamation-circle mr-2"></i>Le mot de passe doit contenir au moins 8 caractères</p>';
-                return;
-            }
-            
-            // Si tout est OK, afficher un message de succès
-            messageDiv.innerHTML = '<p class="text-green-400 text-sm text-center"><i class="fas fa-check-circle mr-2"></i>Compte créé avec succès !</p>';
-            
-            // Ici vous pouvez ajouter l'envoi des données au serveur
-            // fetch('/api/register', { ... })
         });
     </script>
 </body>

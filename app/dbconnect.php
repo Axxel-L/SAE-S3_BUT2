@@ -1,20 +1,11 @@
-<?php 
-define('USER',"root"); 
-define('PASSWD',""); 
-define('SERVER',"localhost"); 
-define('BASE',"vote"); 
+<?php
+try {
+    $connexion = new PDO("mysql:host=localhost;dbname=vote;charset=utf8", "root", "");
+    $connexion->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch(PDOException $e){
+    printf("Échec de la connexion: %s\n", $e->getMessage());
+    exit();
+}
 
 
-function dbconnect(){ 
-  $dsn="mysql:dbname=".BASE.";host=".SERVER; 
-  try{ 
-    $connexion=new PDO($dsn,USER,PASSWD); 
-    $connexion->exec("set names utf8"); //Support utf8
-  } 
-  catch(PDOException $e){ 
-    printf("Échec de la connexion: %s\n", $e->getMessage()); 
-    exit(); 
-  } 
-  return $connexion; 
-} 
-?> 
+?>
