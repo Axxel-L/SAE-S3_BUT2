@@ -1,4 +1,6 @@
 <?php
+
+date_default_timezone_set('Europe/Paris');
 header('Access-Control-Allow-Origin: *');
 header('Content-Type: application/json');
 header('Access-Control-Allow-Methods: POST');
@@ -26,8 +28,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit;
     }
 
-    // ✅ SOLUTION : Utiliser DIRECTORY_SEPARATOR
-    $directory = __DIR__ . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'messages';
+    
+    $directory = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'messages';
+
     
     // Créer le dossier automatiquement
     if (!is_dir($directory)) {

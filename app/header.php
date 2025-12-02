@@ -1,3 +1,10 @@
+<?php
+if (!isset($_SESSION)) {
+    session_start();
+}
+$logged_in = isset($_SESSION['user_id']);
+?>
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -44,7 +51,6 @@
         }
     </script>
     <style>
-        /* Styles pour les modals */
         .modal-backdrop {
             background: rgba(0, 0, 0, 0.6);
         }
@@ -106,11 +112,28 @@
                     </a>
                 </div>
                 <div class="h-8 w-px bg-accent/30 mx-2"></div>
-                <!-- Bouton Connexion Desktop -->
-                <button id="openLoginBtn" class="nav-link glass-button px-6 py-3 rounded-3xl font-medium flex items-center gap-3 text-sm lg:text-base bg-gradient-to-r from-accent/20 to-accent/10 border border-accent/30 hover:from-accent/30 hover:to-accent/20 transition-all duration-300 cursor-pointer">
-                    <i class="fa-solid fa-user text-accent text-lg"></i>
-                    <span class="text-accent font-semibold">Connexion</span>
-                </button>
+                
+                <!-- Si connecté : affiche info utilisateur + déconnexion -->
+                <?php if ($logged_in): ?>
+                    <div class="flex items-center gap-3">
+                        <span class="badge badge-<?php echo strtolower($_SESSION['user_type']); ?> px-4 py-2 rounded-3xl text-sm font-medium">
+                            <?php 
+                                $types = ['joueur' => '🎮 Joueur', 'admin' => '👨‍💼 Admin', 'candidat' => '🏆 Candidat'];
+                                echo $types[$_SESSION['user_type']] ?? $_SESSION['user_type'];
+                            ?>
+                        </span>
+                        <a href="logout.php" class="glass-button px-6 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm bg-red-500/20 border border-red-500/30 hover:bg-red-500/30 transition-all duration-300">
+                            <i class="fas fa-sign-out-alt text-red-400"></i>
+                            <span class="text-red-400">Déconnexion</span>
+                        </a>
+                    </div>
+                <!-- Si pas connecté : bouton Connexion -->
+                <?php else: ?>
+                    <a href="#" onclick="openResponsiveWindow('login.php'); return false;" class="glass-button px-6 py-3 rounded-3xl font-medium flex items-center gap-3 text-sm lg:text-base bg-gradient-to-r from-accent/20 to-accent/10 border border-accent/30 hover:from-accent/30 hover:to-accent/20 transition-all duration-300">
+                        <i class="fa-solid fa-user text-accent text-lg"></i>
+                        <span class="text-accent font-semibold">Connexion</span>
+                    </a>
+                <?php endif; ?>
             </div>
 
             <!-- Bouton menu mobile -->
@@ -141,11 +164,46 @@
                     <span>Contact</span>
                 </a>
                 <div class="h-px bg-accent/30 my-2"></div>
-                <!-- Bouton Connexion Mobile -->
-                <button id="openLoginBtnMobile" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3 bg-gradient-to-r from-accent/20 to-accent/10 border border-accent/30 cursor-pointer">
-                    <i class="fas fa-sign-in-alt text-accent"></i>
-                    <span class="text-accent font-semibold">Se connecter</span>
-                </button>
+                
+                <!-- Si connecté : affiche info utilisateur + déconnexion (mobile) -->
+                <?php if ($logged_in): ?>
+                    <div class="flex flex-col gap-3">
+                        <div class="glass-button px-6 py-4 rounded-3xl text-center">
+                            <span class="badge badge-<?php echo strtolower($_SESSION['user_type']); ?> px-4 py-2 rounded-3xl text-sm font-medium inline-block">
+                                <?php 
+                                    $types = ['joueur' => '🎮 Joueur', 'admin' => '👨‍💼 Admin', 'candidat' => '🏆 Candidat'];
+                                    echo $types[$_SESSION['user_type']] ?? $_SESSION['user_type'];
+                                ?>
+                            </span>
+                        </div>
+                        <a href="logout.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3 bg-red-500/20 border border-red-500/30">
+                            <i class="fas fa-sign-out-alt text-red-400"></i>
+                            <span class="text-red-400 font-semibold">Déconnexion</span>
+                        </a>
+                    </div>
+                <!-- Si pas connecté : bouton Connexion (mobile) -->
+                <?php else: ?>
+                    <a href="#" onclick="openResponsiveWindow('login.php'); return false;" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3 bg-gradient-to-r from-accent/20 to-accent/10 border border-accent/30">
+                        <i class="fas fa-sign-in-alt text-accent"></i>
+                        <span class="text-accent font-semibold">Se connecter</span>
+                    </a>
+                <?php endif; ?>
             </div>
         </div>
     </nav>
+
+    <script>
+function openResponsiveWindow(url) {
+    // Calculer 80% de la largeur et hauteur de l'écran
+    const width = Math.round(window.innerWidth * 0.3);
+    const height = Math.round(window.innerHeight * 0.7);
+    
+    // Centrer la fenêtre
+    const left = Math.round((window.innerWidth - width) / 2);
+    const top = Math.round((window.innerHeight - height) / 2);
+    
+    window.open(url, '_blank', `width=${width},height=${height},left=${left},top=${top}`);
+}
+</script>
+</body>
+</html>

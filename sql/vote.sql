@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Hôte : 127.0.0.1:3306
--- Généré le : mar. 25 nov. 2025 à 11:57
+-- Généré le : ven. 28 nov. 2025 à 09:50
 -- Version du serveur : 9.1.0
 -- Version de PHP : 8.3.14
 
@@ -62,6 +62,23 @@ CREATE TABLE IF NOT EXISTS `bulletin_final` (
 -- --------------------------------------------------------
 
 --
+-- Structure de la table `candidat`
+--
+
+DROP TABLE IF EXISTS `candidat`;
+CREATE TABLE IF NOT EXISTS `candidat` (
+  `id_candidat` int NOT NULL AUTO_INCREMENT,
+  `id_utilisateur` int NOT NULL,
+  `id_jeu` int DEFAULT NULL,
+  `date_inscription` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id_candidat`),
+  KEY `id_utilisateur` (`id_utilisateur`),
+  KEY `id_jeu` (`id_jeu`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Structure de la table `categorie`
 --
 
@@ -69,8 +86,8 @@ DROP TABLE IF EXISTS `categorie`;
 CREATE TABLE IF NOT EXISTS `categorie` (
   `id_categorie` int NOT NULL AUTO_INCREMENT,
   `id_evenement` int NOT NULL,
-  `nom` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `description` text COLLATE utf8mb4_unicode_ci,
+  `nom` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   PRIMARY KEY (`id_categorie`),
   KEY `idx_evenement` (`id_evenement`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -86,7 +103,7 @@ CREATE TABLE IF NOT EXISTS `commentaire` (
   `id_commentaire` int NOT NULL AUTO_INCREMENT,
   `id_utilisateur` int NOT NULL,
   `id_jeu` int NOT NULL,
-  `contenu` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `contenu` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `date_commentaire` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id_commentaire`),
   KEY `idx_utilisateur` (`id_utilisateur`),
@@ -141,10 +158,10 @@ CREATE TABLE IF NOT EXISTS `emargement_final` (
 DROP TABLE IF EXISTS `evenement`;
 CREATE TABLE IF NOT EXISTS `evenement` (
   `id_evenement` int NOT NULL AUTO_INCREMENT,
-  `nom` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `nom` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `date_ouverture` datetime NOT NULL,
   `date_fermeture` datetime NOT NULL,
-  `statut` enum('preparation','ouvert','cloture') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'preparation',
+  `statut` enum('preparation','ouvert','cloture') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'preparation',
   PRIMARY KEY (`id_evenement`),
   KEY `idx_statut` (`statut`),
   KEY `idx_dates` (`date_ouverture`,`date_fermeture`)
@@ -161,7 +178,7 @@ CREATE TABLE IF NOT EXISTS `export` (
   `id_export` int NOT NULL AUTO_INCREMENT,
   `id_admin` int NOT NULL,
   `id_evenement` int NOT NULL,
-  `type_export` enum('PDF','CSV','JSON') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `type_export` enum('PDF','CSV','JSON') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `date_export` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id_export`),
   KEY `idx_admin` (`id_admin`),
@@ -178,11 +195,11 @@ CREATE TABLE IF NOT EXISTS `export` (
 DROP TABLE IF EXISTS `jeu`;
 CREATE TABLE IF NOT EXISTS `jeu` (
   `id_jeu` int NOT NULL AUTO_INCREMENT,
-  `titre` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `editeur` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `image` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `titre` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `editeur` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `image` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `date_sortie` date DEFAULT NULL,
-  `description` text COLLATE utf8mb4_unicode_ci,
+  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   PRIMARY KEY (`id_jeu`),
   KEY `idx_titre` (`titre`),
   KEY `idx_editeur` (`editeur`)
@@ -198,10 +215,10 @@ DROP TABLE IF EXISTS `journal_securite`;
 CREATE TABLE IF NOT EXISTS `journal_securite` (
   `id_journal` int NOT NULL AUTO_INCREMENT,
   `id_utilisateur` int NOT NULL,
-  `action` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `action` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `date_action` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `details` text COLLATE utf8mb4_unicode_ci,
-  `jeton_vote` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `details` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `jeton_vote` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`id_journal`),
   KEY `idx_utilisateur` (`id_utilisateur`),
   KEY `idx_action` (`action`),
@@ -248,22 +265,6 @@ CREATE TABLE IF NOT EXISTS `registre_electoral` (
 -- --------------------------------------------------------
 
 --
--- Structure de la table `representant`
---
-
-DROP TABLE IF EXISTS `representant`;
-CREATE TABLE IF NOT EXISTS `representant` (
-  `id_representant` int NOT NULL AUTO_INCREMENT,
-  `id_jeu` int NOT NULL,
-  `nom` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `couleur` varchar(7) COLLATE utf8mb4_unicode_ci NOT NULL,
-  PRIMARY KEY (`id_representant`),
-  KEY `idx_jeu` (`id_jeu`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
 -- Structure de la table `resultat`
 --
 
@@ -276,7 +277,7 @@ CREATE TABLE IF NOT EXISTS `resultat` (
   `nb_voix` int NOT NULL DEFAULT '0',
   `pourcentage` decimal(5,2) DEFAULT NULL,
   `classement` int DEFAULT NULL,
-  `type_resultat` enum('categorie','final') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `type_resultat` enum('categorie','final') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   PRIMARY KEY (`id_resultat`),
   KEY `idx_evenement` (`id_evenement`),
   KEY `idx_categorie` (`id_categorie`),
@@ -293,15 +294,16 @@ CREATE TABLE IF NOT EXISTS `resultat` (
 DROP TABLE IF EXISTS `utilisateur`;
 CREATE TABLE IF NOT EXISTS `utilisateur` (
   `id_utilisateur` int NOT NULL AUTO_INCREMENT,
-  `email` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `mot_de_passe` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `email` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `mot_de_passe` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `date_inscription` date NOT NULL,
-  `type` enum('joueur','admin','candidat') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'joueur',
+  `type` enum('joueur','admin','candidat') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'joueur',
+  `salt` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`id_utilisateur`),
   UNIQUE KEY `email` (`email`),
   KEY `idx_email` (`email`),
   KEY `idx_type` (`type`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -311,9 +313,9 @@ CREATE TABLE IF NOT EXISTS `utilisateur` (
 --
 DROP VIEW IF EXISTS `v_peut_voter_categorie`;
 CREATE TABLE IF NOT EXISTS `v_peut_voter_categorie` (
-`id_utilisateur` int
+`id_categorie` int
 ,`id_evenement` int
-,`id_categorie` int
+,`id_utilisateur` int
 ,`peut_voter` varchar(3)
 );
 
@@ -325,8 +327,8 @@ CREATE TABLE IF NOT EXISTS `v_peut_voter_categorie` (
 --
 DROP VIEW IF EXISTS `v_votes_categorie`;
 CREATE TABLE IF NOT EXISTS `v_votes_categorie` (
-`id_evenement` int
-,`id_categorie` int
+`id_categorie` int
+,`id_evenement` int
 ,`id_jeu` int
 ,`nb_votes` bigint
 );
@@ -448,12 +450,6 @@ ALTER TABLE `nomination`
 ALTER TABLE `registre_electoral`
   ADD CONSTRAINT `registre_electoral_ibfk_1` FOREIGN KEY (`id_utilisateur`) REFERENCES `utilisateur` (`id_utilisateur`) ON DELETE CASCADE,
   ADD CONSTRAINT `registre_electoral_ibfk_2` FOREIGN KEY (`id_evenement`) REFERENCES `evenement` (`id_evenement`) ON DELETE CASCADE;
-
---
--- Contraintes pour la table `representant`
---
-ALTER TABLE `representant`
-  ADD CONSTRAINT `representant_ibfk_1` FOREIGN KEY (`id_jeu`) REFERENCES `jeu` (`id_jeu`) ON DELETE CASCADE;
 
 --
 -- Contraintes pour la table `resultat`
