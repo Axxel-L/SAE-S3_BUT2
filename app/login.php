@@ -30,7 +30,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $_SESSION['user_type'] = $user['type'];
                     $_SESSION['user_date'] = $user['date_inscription'];
                     
-                    header('Location: index.php');
+                    echo '<script>
+    window.opener.location.reload();
+    window.close();
+</script>';
+exit;
                     exit();
                 } else {
                     $login_error = "Email ou mot de passe incorrect !";
@@ -411,7 +415,7 @@ $show_register = isset($_GET['register']) || $register_error || $register_succes
             });
             
             strengthText.textContent = strength > 0 ? texts[strength - 1] : '';
-        }
+        }s
 
         registerPasswordInput?.addEventListener('input', () => {
             updateStrengthIndicator(checkPasswordStrength(registerPasswordInput.value));
