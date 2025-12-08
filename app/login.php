@@ -411,7 +411,11 @@ $show_register = isset($_GET['register']) || $register_error || $register_succes
             });
             
             strengthText.textContent = strength > 0 ? texts[strength - 1] : '';
+<<<<<<< HEAD
         }
+=======
+        }s
+>>>>>>> origin/V-Malek
 
         registerPasswordInput?.addEventListener('input', () => {
             updateStrengthIndicator(checkPasswordStrength(registerPasswordInput.value));
