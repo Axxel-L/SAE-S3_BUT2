@@ -90,7 +90,6 @@ $logged_in = isset($_SESSION['user_id']);
                     GAME<span class="accent-gradient">CROWN</span>
                 </span>
             </div>
-
             <!-- Menu Desktop -->
             <div class="nav-desktop flex items-center gap-2">
                 <div class="flex items-center gap-2">
@@ -113,7 +112,7 @@ $logged_in = isset($_SESSION['user_id']);
                 </div>
                 <div class="h-8 w-px bg-accent/30 mx-2"></div>
                 
-                <!-- Si connecté : affiche info utilisateur + déconnexion -->
+                <!-- Si connecté -->
                 <?php if ($logged_in): ?>
                     <div class="flex items-center gap-3">
                         <span class="badge badge-<?php echo strtolower($_SESSION['user_type']); ?> px-4 py-2 rounded-3xl text-sm font-medium">
@@ -127,7 +126,7 @@ $logged_in = isset($_SESSION['user_id']);
                             <span class="text-red-400">Déconnexion</span>
                         </a>
                     </div>
-                <!-- Si pas connecté : bouton Connexion -->
+                <!-- Si pas connecté -->
                 <?php else: ?>
                     <a href="#" onclick="openResponsiveWindow('login.php'); return false;" class="glass-button px-6 py-3 rounded-3xl font-medium flex items-center gap-3 text-sm lg:text-base bg-gradient-to-r from-accent/20 to-accent/10 border border-accent/30 hover:from-accent/30 hover:to-accent/20 transition-all duration-300">
                         <i class="fa-solid fa-user text-accent text-lg"></i>
@@ -135,7 +134,6 @@ $logged_in = isset($_SESSION['user_id']);
                     </a>
                 <?php endif; ?>
             </div>
-
             <!-- Bouton menu mobile -->
             <button id="mobile-menu-btn" class="mobile-menu-button glass-button p-3 rounded-3xl">
                 <div class="hamburger flex flex-col gap-1.5 w-6 h-6 justify-center items-center">
@@ -143,7 +141,6 @@ $logged_in = isset($_SESSION['user_id']);
                 </div>
             </button>
         </div>
-
         <!-- Menu Mobile -->
         <div id="mobile-menu" class="mobile-menu mt-4">
             <div class="flex flex-col gap-3 pb-4">
@@ -165,7 +162,7 @@ $logged_in = isset($_SESSION['user_id']);
                 </a>
                 <div class="h-px bg-accent/30 my-2"></div>
                 
-                <!-- Si connecté : affiche info utilisateur + déconnexion (mobile) -->
+                <!-- Si connecté -->
                 <?php if ($logged_in): ?>
                     <div class="flex flex-col gap-3">
                         <div class="glass-button px-6 py-4 rounded-3xl text-center">
@@ -181,7 +178,7 @@ $logged_in = isset($_SESSION['user_id']);
                             <span class="text-red-400 font-semibold">Déconnexion</span>
                         </a>
                     </div>
-                <!-- Si pas connecté : bouton Connexion (mobile) -->
+                <!-- Si pas connecté -->
                 <?php else: ?>
                     <a href="#" onclick="openResponsiveWindow('login.php'); return false;" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3 bg-gradient-to-r from-accent/20 to-accent/10 border border-accent/30">
                         <i class="fas fa-sign-in-alt text-accent"></i>
@@ -193,17 +190,13 @@ $logged_in = isset($_SESSION['user_id']);
     </nav>
 
     <script>
-function openResponsiveWindow(url) {
-    // Calculer 80% de la largeur et hauteur de l'écran
-    const width = Math.round(window.innerWidth * 0.3);
-    const height = Math.round(window.innerHeight * 0.7);
-    
-    // Centrer la fenêtre
-    const left = Math.round((window.innerWidth - width) / 2);
-    const top = Math.round((window.innerHeight - height) / 2);
-    
-    window.open(url, '_blank', `width=${width},height=${height},left=${left},top=${top}`);
-}
-</script>
+        function openResponsiveWindow(url) {
+            const width = Math.round(window.innerWidth * 0.3);
+            const height = Math.round(window.innerHeight * 0.7);
+            const left = Math.round((window.innerWidth - width) / 2);
+            const top = Math.round((window.innerHeight - height) / 2);
+            window.open(url, '_blank', `width=${width},height=${height},left=${left},top=${top}`);
+        }
+    </script>
 </body>
 </html>

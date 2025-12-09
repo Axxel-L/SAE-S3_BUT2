@@ -6,7 +6,7 @@ $login_error = '';
 $register_error = '';
 $register_success = '';
 
-// Traitement de la CONNEXION
+// Traitement de la connexion
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'login') {
     $email = trim($_POST['login_email'] ?? '');
     $password = $_POST['login_password'] ?? '';
@@ -31,10 +31,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $_SESSION['user_date'] = $user['date_inscription'];
                     
                     echo '<script>
-    window.opener.location.reload();
-    window.close();
-</script>';
-exit;
+                            window.opener.location.reload();
+                            window.close();
+                        </script>';
+                    exit;
                     exit();
                 } else {
                     $login_error = "Email ou mot de passe incorrect !";
@@ -46,7 +46,7 @@ exit;
     }
 }
 
-// Traitement de l'INSCRIPTION
+// Traitement de l'inscription
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'register') {
     $email = trim($_POST['register_email'] ?? '');
     $password = $_POST['register_password'] ?? '';
@@ -84,7 +84,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }
     }
 }
-
 $show_register = isset($_GET['register']) || $register_error || $register_success;
 ?>
 
@@ -94,7 +93,7 @@ $show_register = isset($_GET['register']) || $register_error || $register_succes
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GameCrown - Authentification</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="http://cdn.agence-prestige-numerique.fr/tailwindcss/3.4.17.js"></script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap">
     <link rel="stylesheet" href="http://cdn.agence-prestige-numerique.fr/fontawesome/all.min.css">
     <link rel="stylesheet" href="../assets/css/index.css">
