@@ -21,25 +21,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (!empty($email) && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors[] = "L'email n'est pas valide";
     }
-    
     if (!empty($errors)) {
         http_response_code(400);
         echo json_encode(['success' => false, 'errors' => $errors]);
         exit;
     }
-
-    
     $directory = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'messages';
-
-    
-    // Créer le dossier automatiquement
     if (!is_dir($directory)) {
         mkdir($directory, 0755, true);
     }
 
     $filename = $directory . DIRECTORY_SEPARATOR . 'messages.txt';
-    
-    // Contenu du message
     $content = "\n" . str_repeat("=", 80) . "\n";
     $content .= "Date: " . date('d/m/Y à H:i:s') . "\n";
     $content .= "Nom: " . htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . "\n";
@@ -54,7 +46,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         http_response_code(500);
         echo json_encode(['success' => false, 'errors' => ['Erreur lors de la sauvegarde']]);
     }
-    
 } else {
     http_response_code(405);
     echo json_encode(['success' => false, 'errors' => ['Méthode non autorisée']]);
