@@ -1,125 +1,178 @@
 <?php
-if (!isset($_SESSION)) {
+if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
-$logged_in = isset($_SESSION['user_id']);
-?>
 
+// 🔄 MISE À JOUR AUTOMATIQUE DES STATUTS D'ÉVÉNEMENTS
+if (!isset($connexion)) {
+    require_once 'dbconnect.php';
+}
+
+// Mise à jour automatique
+try {
+    // Ouvrir les événements
+    $stmt = $connexion->prepare("
+        UPDATE evenement 
+        SET statut = 'ouvert' 
+        WHERE statut = 'preparation' 
+        AND date_ouverture <= NOW()
+    ");
+    $stmt->execute();
+    
+    // Fermer les événements
+    $stmt = $connexion->prepare("
+        UPDATE evenement 
+        SET statut = 'cloture' 
+        WHERE statut = 'ouvert' 
+        AND date_fermeture <= NOW()
+    ");
+    $stmt->execute();
+} catch (Exception $e) {
+    // Erreur silencieuse
+}
+
+// Vérifier si connecté
+$loggedin = isset($_SESSION['id_utilisateur']) ? true : false;
+$usertype = $_SESSION['type'] ?? ''; // Utilise 'type' au lieu de 'usertype'
+?>
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GameCrown - Édition Épurée</title>
-    <script src="http://cdn.agence-prestige-numerique.fr/tailwindcss/3.4.17.js"></script>
+    <title>GameCrown - Édition pure</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap">
     <link rel="stylesheet" href="http://cdn.agence-prestige-numerique.fr/fontawesome/all.min.css">
     <link rel="stylesheet" href="../assets/css/index.css">
     <link rel="icon" type="image/png" href="../assets/img/logo.png">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'primary': '#000000',
-                        'accent': '#00D4FF',
-                        'accent-dark': '#0099CC',
-                        'dark': '#0A0A0A',
-                        'light': '#F5F5F5',
-                        'gray-dark': '#1A1A1A',
-                    },
-                    fontFamily: {
-                        'orbitron': ['Orbitron', 'sans-serif'],
-                        'inter': ['Inter', 'sans-serif'],
-                    },
-                    borderRadius: {
-                        '4xl': '2rem',
-                        '5xl': '3rem',
-                        '6xl': '4rem',
-                    },
-                    animation: {
-                        'float': 'float 8s ease-in-out infinite',
-                        'fade-in': 'fade-in 1s ease-out',
-                        'glow': 'glow 3s ease-in-out infinite',
-                        'slide': 'slide 40s linear infinite',
-                        'pulse-slow': 'pulse-slow 4s ease-in-out infinite',
-                        'trophy-glow': 'trophy-glow 6s ease-in-out infinite',
-                        'vote-pulse': 'vote-pulse 2s ease-in-out infinite',
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        .modal-backdrop {
-            background: rgba(0, 0, 0, 0.6);
-        }
-        
-        .modal-content {
-            background: rgba(10, 10, 10, 0.85);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 
-                0 25px 50px -12px rgba(0, 0, 0, 0.5),
-                0 0 80px rgba(0, 212, 255, 0.1),
-                inset 0 1px 0 rgba(255, 255, 255, 0.1);
-        }
-
-        .input-glow:focus {
-            box-shadow: 0 0 20px rgba(0, 212, 255, 0.15);
-        }
-
-        .btn-glow:hover {
-            box-shadow: 0 10px 40px rgba(0, 212, 255, 0.4);
-        }
-
-        .close-btn:hover {
-            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
-        }
-    </style>
 </head>
 
 <body class="font-inter">
     <!-- Navbar -->
     <nav class="glass-effect-nav fixed top-0 left-0 right-0 z-50 mx-2 mt-4 px-2 py-3 lg:mx-4 lg:px-4 lg:py-4 rounded-6xl">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <!-- Logo -->
             <div class="logo-container">
                 <div class="glass-button p-2 rounded-3xl">
                     <img src="../assets/img/logo.png" alt="Logo GameCrown" class="logo-image">
                 </div>
-                <span class="logo-text">
-                    GAME<span class="accent-gradient">CROWN</span>
-                </span>
+                <span class="logo-text">GAME<span class="accent-gradient">CROWN</span></span>
             </div>
 
             <!-- Menu Desktop -->
             <div class="nav-desktop flex items-center gap-2">
                 <div class="flex items-center gap-2">
-                    <a href="#accueil" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                    
+                <?php if (!$loggedin && $usertype === ''): ?>
+                <!-- Accueil -->
+                    <a href="index.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
                         <i class="fas fa-home text-accent"></i>
                         <span>Accueil</span>
                     </a>
-                    <a href="#presentation" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+
+                    <!-- Présentation -->
+                    <a href="index.php#presentation" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
                         <i class="fas fa-info-circle text-accent"></i>
                         <span>Présentation</span>
                     </a>
-                    <a href="#scrutin" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+
+                    <!-- Mode de scrutin -->
+                    <a href="index.php#scrutin" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
                         <i class="fas fa-award text-accent"></i>
                         <span>Mode de scrutin</span>
                     </a>
-                    <a href="#contact" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
-                        <i class="fas fa-envelope text-accent"></i>
-                        <span>Contact</span>
+
+                     <?php endif; ?>
+
+                  
+
+                          <!-- ✨ NOUVEAU : Résultats (pour tous) -->
+                    <a href="resultats.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                        <i class="fas fa-trophy text-accent"></i>
+                        <span>Résultats</span>
                     </a>
+
+
+                    
+
+                    <!-- ✨ NOUVEAU : Menu Électeur (si connecté joueur) -->
+                    <?php if ($loggedin && $usertype === 'joueur'): ?>
+                        <a href="joueur-events.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                            <i class="fas fa-calendar-alt text-accent"></i>
+                            <span>Événements</span>
+                        </a>
+                    
+                        <a href="vote.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                            <i class="fas fa-vote-yea text-accent"></i>
+                            <span>Voter</span>
+                        </a>
+
+                        <a href="dashboard.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                            <i class="fas fa-user-circle text-accent"></i>
+                            <span>Mon Espace</span>
+                        </a>
+                    <?php endif; ?>
+
+                    <!-- ✨ NOUVEAU : Menu Admin (si connecté admin) -->
+                    <?php if ($loggedin && $usertype === 'admin'): ?>
+                        <a href="admin-events.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                            <i class="fas fa-cogs text-accent"></i>
+                            <span>Admin</span>
+                        </a>
+                        <a href="admin-events.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                            <i class="fas fa-calendar"></i> Événements
+                        </a>
+
+                        <!-- ➕ NOUVEAU -->
+                        <a href="admin-utilisateurs.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base.">
+                            <i class="fas fa-users"></i> Utilisateurs
+                        </a>
+
+                        <!-- ➕ NOUVEAU -->
+                        <a href="admin-candidats.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                            <i class="fas fa-star"></i> Candidatures
+                        </a>
+
+                        <a href="admin-logs.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                            <i class="fas fa-star"></i> Logs
+                        </a>
+                    <?php endif; ?>
+
+                    <?php if ($loggedin && $usertype === 'candidat'): ?>
+                        <a href="candidat-profil.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                            <i class="fas fa-user-crown text-accent"></i>
+                            <span>Mon Profil</span>
+                        </a>
+
+                         <a href="candidat-campagne.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                            <i class="fas fa-calendar-check"></i> Campagne
+                        </a>
+
+                        <a href="candidat-statistiques.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                            <i class="fas fa-calendar-check"></i> Statistique
+                        </a>
+
+
+                        <!-- ➕ NOUVEAU -->
+                        <a href="candidat-events.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                            <i class="fas fa-calendar-check"></i> Événements
+                        </a>
+                    <?php endif; ?>
+
+                  
                 </div>
+
                 <div class="h-8 w-px bg-accent/30 mx-2"></div>
-                
+
                 <!-- Si connecté : affiche info utilisateur + déconnexion -->
-                <?php if ($logged_in): ?>
+                <?php if ($loggedin): ?>
                     <div class="flex items-center gap-3">
-                        <span class="badge badge-<?php echo strtolower($_SESSION['user_type']); ?> px-4 py-2 rounded-3xl text-sm font-medium">
-                            <?php 
-                                $types = ['joueur' => '🎮 Joueur', 'admin' => '👨‍💼 Admin', 'candidat' => '🏆 Candidat'];
-                                echo $types[$_SESSION['user_type']] ?? $_SESSION['user_type'];
+                        <span class="badge badge-<?php echo strtolower($usertype); ?> px-4 py-2 rounded-3xl text-sm font-medium">
+                            <?php
+                            $types = ['joueur' => 'Joueur', 'admin' => 'Administrateur', 'candidat' => 'Candidat'];
+                            echo $types[$usertype] ?? ucfirst($usertype);
                             ?>
                         </span>
                         <a href="logout.php" class="glass-button px-6 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm bg-red-500/20 border border-red-500/30 hover:bg-red-500/30 transition-all duration-300">
@@ -127,7 +180,7 @@ $logged_in = isset($_SESSION['user_id']);
                             <span class="text-red-400">Déconnexion</span>
                         </a>
                     </div>
-                <!-- Si pas connecté : bouton Connexion -->
+                    <!-- Si pas connecté : bouton Connexion -->
                 <?php else: ?>
                     <a href="#" onclick="openResponsiveWindow('login.php'); return false;" class="glass-button px-6 py-3 rounded-3xl font-medium flex items-center gap-3 text-sm lg:text-base bg-gradient-to-r from-accent/20 to-accent/10 border border-accent/30 hover:from-accent/30 hover:to-accent/20 transition-all duration-300">
                         <i class="fa-solid fa-user text-accent text-lg"></i>
@@ -147,32 +200,100 @@ $logged_in = isset($_SESSION['user_id']);
         <!-- Menu Mobile -->
         <div id="mobile-menu" class="mobile-menu mt-4">
             <div class="flex flex-col gap-3 pb-4">
-                <a href="#accueil" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+                <?php if (!$loggedin && $usertype === ''): ?>
+                <a href="index.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
                     <i class="fas fa-home text-accent"></i>
                     <span>Accueil</span>
                 </a>
-                <a href="#presentation" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+
+                <a href="index.php#presentation" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
                     <i class="fas fa-info-circle text-accent"></i>
                     <span>Présentation</span>
                 </a>
-                <a href="#scrutin" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+
+                <a href="index.php#scrutin" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
                     <i class="fas fa-award text-accent"></i>
                     <span>Mode de scrutin</span>
                 </a>
-                <a href="#contact" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
-                    <i class="fas fa-envelope text-accent"></i>
-                    <span>Contact</span>
+                 <?php endif; ?>
+
+                <!-- ✨ NOUVEAU : Menu mobile électeur -->
+                <?php if ($loggedin && $usertype === 'joueur'): ?>
+                    <a href="vote.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+                        <i class="fas fa-vote-yea text-accent"></i>
+                        <span>Voter</span>
+                    </a>
+
+                    <a href="dashboard.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+                        <i class="fas fa-user-circle text-accent"></i>
+                        <span>Mon Espace</span>
+                    </a>
+                <?php endif; ?>
+
+                <!-- ✨ NOUVEAU : Menu mobile admin -->
+                <?php if ($loggedin && $usertype === 'admin'): ?>
+                    <a href="admin-events.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+                        <i class="fas fa-cogs text-accent"></i>
+                        <span>Admin</span>
+                    </a>
+                    <a href="admin-events.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3.">
+                        <i class="fas fa-calendar"></i> Événements
+                    </a>
+
+                    <!-- ➕ NOUVEAU -->
+                    <a href="admin-utilisateurs.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+                        <i class="fas fa-users"></i> Utilisateurs
+                    </a>
+
+                    <!-- ➕ NOUVEAU -->
+                    <a href="admin-candidats.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+                        <i class="fas fa-star"></i> Candidatures
+                    </a>
+
+                     <a href="admin-logs.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+                        <i class="fas fa-star"></i> Logs
+                    </a>
+
+
+                <?php endif; ?>
+
+                <?php if ($loggedin && $usertype === 'candidat'): ?>
+                    <a href="candidat-profil.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+                        <i class="fas fa-user-crown text-accent"></i>
+                        <span>Mon Profil</span>
+                    </a>
+
+                    <a href="candidat-statistique.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+                        <i class="fas fa-calendar-check"></i> Statistique
+                    </a>
+
+                    <a href="candidat-campagne.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+                        <i class="fas fa-calendar-check"></i> Campagne
+                    </a>
+                    <a href="candidat-events.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+                        <i class="fas fa-calendar-check"></i> Événements
+                    </a>
+
+
+                <?php endif; ?>
+
+                <!-- ✨ NOUVEAU : Résultats mobile -->
+                <a href="resultats.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+                    <i class="fas fa-trophy text-accent"></i>
+                    <span>Résultats</span>
                 </a>
+
+
                 <div class="h-px bg-accent/30 my-2"></div>
-                
-                <!-- Si connecté : affiche info utilisateur + déconnexion (mobile) -->
-                <?php if ($logged_in): ?>
+
+                <!-- Si connecté : mobile -->
+                <?php if ($loggedin): ?>
                     <div class="flex flex-col gap-3">
                         <div class="glass-button px-6 py-4 rounded-3xl text-center">
-                            <span class="badge badge-<?php echo strtolower($_SESSION['user_type']); ?> px-4 py-2 rounded-3xl text-sm font-medium inline-block">
-                                <?php 
-                                    $types = ['joueur' => '🎮 Joueur', 'admin' => '👨‍💼 Admin', 'candidat' => '🏆 Candidat'];
-                                    echo $types[$_SESSION['user_type']] ?? $_SESSION['user_type'];
+                            <span class="badge badge-<?php echo strtolower($usertype); ?> px-4 py-2 rounded-3xl text-sm font-medium inline-block">
+                                <?php
+                                $types = ['joueur' => 'Joueur', 'admin' => 'Administrateur', 'candidat' => 'Candidat'];
+                                echo $types[$usertype] ?? ucfirst($usertype);
                                 ?>
                             </span>
                         </div>
@@ -181,7 +302,7 @@ $logged_in = isset($_SESSION['user_id']);
                             <span class="text-red-400 font-semibold">Déconnexion</span>
                         </a>
                     </div>
-                <!-- Si pas connecté : bouton Connexion (mobile) -->
+                    <!-- Si pas connecté : mobile -->
                 <?php else: ?>
                     <a href="#" onclick="openResponsiveWindow('login.php'); return false;" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3 bg-gradient-to-r from-accent/20 to-accent/10 border border-accent/30">
                         <i class="fas fa-sign-in-alt text-accent"></i>
@@ -193,17 +314,18 @@ $logged_in = isset($_SESSION['user_id']);
     </nav>
 
     <script>
-function openResponsiveWindow(url) {
-    // Calculer 80% de la largeur et hauteur de l'écran
-    const width = Math.round(window.innerWidth * 0.3);
-    const height = Math.round(window.innerHeight * 0.7);
-    
-    // Centrer la fenêtre
-    const left = Math.round((window.innerWidth - width) / 2);
-    const top = Math.round((window.innerHeight - height) / 2);
-    
-    window.open(url, '_blank', `width=${width},height=${height},left=${left},top=${top}`);
-}
-</script>
+        function openResponsiveWindow(url) {
+            // Calculer 80% de la largeur et hauteur de l'écran
+            const width = Math.round(window.innerWidth * 0.3);
+            const height = Math.round(window.innerHeight * 0.7);
+
+            // Centrer la fenêtre
+            const left = Math.round((window.innerWidth - width) / 2);
+            const top = Math.round((window.innerHeight - height) / 2);
+
+            window.open(url, 'blank', `width=${width},height=${height},left=${left},top=${top}`);
+        }
+    </script>
 </body>
+
 </html>

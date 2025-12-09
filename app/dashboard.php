@@ -1,0 +1,339 @@
+<?php
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
+require_once 'dbconnect.php';
+
+// Vérifier que l'utilisateur est connecté
+if (!isset($_SESSION['id_utilisateur'])) {
+    header('Location: login.php');
+    exit;
+}
+
+$id_utilisateur = $_SESSION['id_utilisateur'];
+$useremail = $_SESSION['useremail'] ?? '';
+$error = '';
+
+// Récupérer les informations de l'utilisateur
+try {
+    $stmt = $connexion->prepare("
+        SELECT * FROM utilisateur WHERE id_utilisateur = ?
+    ");
+    $stmt->execute([$id_utilisateur]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $error = "Erreur : " . $e->getMessage();
+    $user = [];
+}
+
+// Récupérer les événements auxquels l'utilisateur est inscrit
+try {
+    $stmt = $connexion->prepare("
+        SELECT e.*, r.date_inscription
+        FROM evenement e
+        JOIN registreelectoral r ON e.id_evenement = r.id_evenement
+        WHERE r.id_utilisateur = ?
+        ORDER BY e.date_ouverture DESC
+    ");
+    $stmt->execute([$id_utilisateur]);
+    $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $events = [];
+}
+
+// Récupérer l'historique des votes
+try {
+    $stmt = $connexion->prepare("
+        SELECT 'categorie' as type, j.titre, c.nom as categorie, e.nom as evenement, 
+               ec.date_emargement as datevote
+        FROM emargement_categorie ec
+        JOIN categorie c ON ec.id_categorie = c.id_categorie
+        JOIN evenement e ON ec.id_evenement = e.id_evenement
+        JOIN (
+            SELECT DISTINCT id_jeu FROM bulletin_categorie bc
+        ) AS jeux ON TRUE
+        LEFT JOIN jeu j ON j.id_jeu IN (SELECT id_jeu FROM bulletin_categorie WHERE id_evenement = ec.id_evenement)
+        WHERE ec.id_utilisateur = ?
+        
+        UNION ALL
+        
+        SELECT 'final' as type, j.titre, 'Finale' as categorie, e.nom as evenement,
+               ef.date_emargement as datevote
+        FROM emargement_final ef
+        JOIN evenement e ON ef.id_evenement = e.id_evenement
+        LEFT JOIN bulletin_final bf ON bf.id_evenement = ef.id_evenement
+        LEFT JOIN jeu j ON j.id_jeu = bf.id_jeu
+        WHERE ef.id_utilisateur = ?
+        
+        ORDER BY datevote DESC
+    ");
+    $stmt->execute([$id_utilisateur, $id_utilisateur]);
+    $votes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $votes = [];
+}
+
+// Récupérer le statut de vote par événement
+$voteStatus = [];
+try {
+    foreach ($events as $event) {
+        $status = [];
+        
+        // Catégories
+        $stmt = $connexion->prepare("
+            SELECT COUNT(DISTINCT ec.id_categorie) as total_categories,
+                   COUNT(DISTINCT ec.id_categorie) as voted_categories
+            FROM categorie c
+            LEFT JOIN emargement_categorie ec ON c.id_categorie = ec.id_categorie 
+                AND ec.id_utilisateur = ? AND ec.id_evenement = ?
+            WHERE c.id_evenement = ?
+        ");
+        $stmt->execute([$id_utilisateur, $event['id_evenement'], $event['id_evenement']]);
+        $catResult = $stmt->fetch(PDO::FETCH_ASSOC);
+        $status['categories'] = $catResult;
+        
+        // Finale
+        $stmt = $connexion->prepare("
+            SELECT COUNT(*) as has_voted_final
+            FROM emargement_final
+            WHERE id_utilisateur = ? AND id_evenement = ?
+        ");
+        $stmt->execute([$id_utilisateur, $event['id_evenement']]);
+        $finalResult = $stmt->fetch(PDO::FETCH_ASSOC);
+        $status['final'] = $finalResult['has_voted_final'] > 0;
+        
+        $voteStatus[$event['id_evenement']] = $status;
+    }
+} catch (Exception $e) {
+    // Ignorer les erreurs
+}
+
+?>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GameCrown - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap">
+    <link rel="stylesheet" href="http://cdn.agence-prestige-numerique.fr/fontawesome/all.min.css">
+    <link rel="stylesheet" href="assets/css/index.css">
+    <link rel="icon" type="image/png" href="assets/img/logo.png">
+</head>
+<body class="font-inter bg-dark text-light">
+    <?php require_once 'header.php'; ?>
+
+    <section class="py-20 px-6">
+        <div class="container mx-auto max-w-6xl">
+            <!-- En-tête -->
+            <div class="mb-12">
+                <h1 class="text-5xl md:text-6xl font-bold font-orbitron mb-4">
+                    <i class="fas fa-user-circle text-accent mr-3"></i>Mon Espace
+                </h1>
+                <p class="text-xl text-light80">Gérez vos votes et informations personnelles</p>
+            </div>
+
+            <!-- Messages -->
+            <?php if ($error): ?>
+                <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
+                    <i class="fas fa-exclamation-circle text-red-400"></i>
+                    <span class="text-red-400"><?php echo htmlspecialchars($error); ?></span>
+                </div>
+            <?php endif; ?>
+
+            <!-- Grille principale -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Colonne gauche : Infos utilisateur -->
+                <div class="lg:col-span-1">
+                    <!-- Carte profil -->
+                    <div class="glass-card rounded-4xl p-8 modern-border mb-6">
+                        <div class="text-center mb-6">
+                            <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-accent/30 to-accent/10 border border-accent/30 mb-4">
+                                <i class="fas fa-user text-3xl text-accent"></i>
+                            </div>
+                            <h2 class="text-xl font-bold text-light break-words">
+                                <?php echo htmlspecialchars($useremail); ?>
+                            </h2>
+                            <p class="text-sm text-light80 mt-1">Inscrit depuis <?php echo date('d/m/Y', strtotime($user['date_inscription'])); ?></p>
+                        </div>
+
+                        <!-- Info type compte -->
+                        <div class="mb-6 pb-6 border-b border-white/10">
+                            <div class="text-sm text-light80 mb-2">Type de compte</div>
+                            <div class="inline-block px-3 py-1 rounded-full bg-accent/20 text-accent border border-accent/30">
+                                <i class="fas fa-tag mr-1"></i>
+                                <?php 
+                                $typeLabels = [
+                                    'joueur' => 'Joueur',
+                                    'admin' => 'Administrateur',
+                                    'candidat' => 'Candidat'
+                                ];
+                                echo $typeLabels[$user['type']] ?? ucfirst($user['type']);
+                                ?>
+                            </div>
+                        </div>
+
+                        <!-- Statistiques -->
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between">
+                                <span class="text-light80 flex items-center gap-2">
+                                    <i class="fas fa-calendar text-accent"></i> Événements
+                                </span>
+                                <span class="text-2xl font-bold text-accent"><?php echo count($events); ?></span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-light80 flex items-center gap-2">
+                                    <i class="fas fa-vote-yea text-accent"></i> Votes
+                                </span>
+                                <span class="text-2xl font-bold text-accent"><?php echo count($votes); ?></span>
+                            </div>
+                        </div>
+
+                        <!-- Boutons action -->
+                        <div class="mt-8 space-y-3">
+                            <a href="vote.php" class="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-accent text-dark font-bold hover:bg-accent/90 transition-colors">
+                                <i class="fas fa-vote-yea"></i> Aller voter
+                            </a>
+                            <a href="logout.php" class="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-white/5 border border-white/10 hover:border-red-500/50 hover:bg-red-500/5 transition-colors text-light80 hover:text-red-400">
+                                <i class="fas fa-sign-out-alt"></i> Déconnexion
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Colonne droite : Événements et historique -->
+                <div class="lg:col-span-2 space-y-8">
+                    <!-- Mes événements -->
+                    <div>
+                        <h3 class="text-2xl font-bold font-orbitron mb-4 flex items-center gap-2">
+                            <i class="fas fa-calendar-check text-accent"></i> Mes Événements
+                        </h3>
+                        
+                        <?php if (empty($events)): ?>
+                            <div class="glass-card rounded-3xl p-8 modern-border text-center">
+                                <i class="fas fa-inbox text-4xl text-light80 mb-3"></i>
+                                <p class="text-light80">Vous n'êtes inscrit à aucun événement.</p>
+                            </div>
+                        <?php else: ?>
+                            <div class="space-y-4">
+                                <?php foreach ($events as $event): ?>
+                                    <?php
+                                    $status = $voteStatus[$event['id_evenement']] ?? [];
+                                    $now = new DateTime();
+                                    $ouverture = new DateTime($event['date_ouverture']);
+                                    $fermeture = new DateTime($event['date_fermeture']);
+                                    $isOpen = $now >= $ouverture && $now <= $fermeture;
+                                    ?>
+                                    <div class="glass-card rounded-3xl p-6 modern-border">
+                                        <div class="flex items-start justify-between mb-4">
+                                            <div>
+                                                <h4 class="text-lg font-bold text-light"><?php echo htmlspecialchars($event['nom']); ?></h4>
+                                                <p class="text-sm text-light80 mt-1">
+                                                    <i class="fas fa-calendar-alt mr-1 text-accent"></i>
+                                                    <?php echo date('d/m/Y H:i', strtotime($event['date_ouverture'])); ?> 
+                                                    à 
+                                                    <?php echo date('d/m/Y H:i', strtotime($event['date_fermeture'])); ?>
+                                                </p>
+                                            </div>
+                                            <span class="px-3 py-1 rounded-full text-xs font-medium <?php echo $isOpen ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-white/10 text-light80 border border-white/10'; ?>">
+                                                <?php echo $isOpen ? '🟢 Ouvert' : '⚫ Fermé'; ?>
+                                            </span>
+                                        </div>
+
+                                        <!-- Progress votes -->
+                                        <div class="mb-4">
+                                            <div class="flex items-center justify-between mb-2">
+                                                <span class="text-sm text-light80">Progression des votes</span>
+                                                <span class="text-sm font-bold text-accent">
+                                                    <?php 
+                                                    $catVoted = 0;
+                                                    $catTotal = 0;
+                                                    if (isset($status['categories'])) {
+                                                        $catVoted = intval($status['categories']['voted_categories']);
+                                                        $catTotal = intval($status['categories']['total_categories']);
+                                                    }
+                                                    echo "$catVoted/$catTotal";
+                                                    ?>
+                                                </span>
+                                            </div>
+                                            <div class="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                                                <div 
+                                                    class="h-full bg-gradient-to-r from-accent to-accent-dark transition-all duration-300"
+                                                    style="width: <?php echo $catTotal > 0 ? ($catVoted / $catTotal * 100) : 0; ?>%"
+                                                ></div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Status finale -->
+                                        <div class="mb-4 flex items-center gap-2">
+                                            <span class="text-sm text-light80">Vote final</span>
+                                            <?php if ($status['final'] ?? false): ?>
+                                                <span class="px-2 py-1 rounded-lg bg-green-500/20 text-green-400 text-xs font-medium">
+                                                    <i class="fas fa-check mr-1"></i> Voté
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="px-2 py-1 rounded-lg bg-gray-500/20 text-light80 text-xs font-medium">
+                                                    Non commencé
+                                                </span>
+                                            <?php endif; ?>
+                                        </div>
+
+                                        <!-- Bouton action -->
+                                        <?php if ($isOpen): ?>
+                                            <a href="vote.php" class="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-2xl bg-accent/20 text-accent hover:bg-accent/30 transition-colors text-sm font-medium">
+                                                <i class="fas fa-vote-yea"></i> Voter maintenant
+                                            </a>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <!-- Historique des votes -->
+                    <div>
+                        <h3 class="text-2xl font-bold font-orbitron mb-4 flex items-center gap-2">
+                            <i class="fas fa-history text-accent"></i> Historique des Votes
+                        </h3>
+                        
+                        <?php if (empty($votes)): ?>
+                            <div class="glass-card rounded-3xl p-8 modern-border text-center">
+                                <i class="fas fa-inbox text-4xl text-light80 mb-3"></i>
+                                <p class="text-light80">Vous n'avez pas encore voté.</p>
+                            </div>
+                        <?php else: ?>
+                            <div class="space-y-3">
+                                <?php foreach ($votes as $vote): ?>
+                                    <div class="glass-card rounded-2xl p-4 modern-border border-white/5">
+                                        <div class="flex items-start justify-between">
+                                            <div class="flex-1">
+                                                <div class="flex items-center gap-2 mb-1">
+                                                    <?php if ($vote['type'] === 'final'): ?>
+                                                        <i class="fas fa-crown text-yellow-400"></i>
+                                                        <span class="text-sm font-bold text-light">Vote Final</span>
+                                                    <?php else: ?>
+                                                        <i class="fas fa-check-circle text-accent"></i>
+                                                        <span class="text-sm font-bold text-light"><?php echo htmlspecialchars($vote['categorie']); ?></span>
+                                                    <?php endif; ?>
+                                                </div>
+                                                <p class="text-light80 text-sm"><?php echo htmlspecialchars($vote['evenement']); ?></p>
+                                            </div>
+                                            <div class="text-right text-xs text-light80">
+                                                <?php echo date('d/m/Y H:i', strtotime($vote['datevote'])); ?>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <?php require_once 'footer.php'; ?>
+</body>
+</html>

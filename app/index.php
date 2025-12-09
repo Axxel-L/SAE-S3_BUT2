@@ -183,7 +183,29 @@ require_once('header.php');
                     <div class="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
                     <span class="px-4 text-white/40 text-sm">ou</span>
                     <div class="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-                </div>
+                </div><a href="admin-categories.php?event=<?php echo $event['id_evenement']; ?>" class="flex-1 btn btn--secondary btn--sm">
+    <i class="fas fa-tags mr-1"></i> Catégories
+</a>
+
+<!-- Exemple complet de la section Actions dans admin-events.php : -->
+<div class="flex gap-2 pt-2">
+    <a href="admin-resultats.php?event=<?php echo $event['id_evenement']; ?>" class="flex-1 btn btn--secondary btn--sm">
+        <i class="fas fa-chart-bar mr-1"></i> Résultats
+    </a>
+    
+    <a href="admin-categories.php?event=<?php echo $event['id_evenement']; ?>" class="flex-1 btn btn--secondary btn--sm">
+        <i class="fas fa-tags mr-1"></i> Catégories
+    </a>
+    
+    <?php if ($can_delete): ?>
+        <form method="POST" style="display: inline; flex: 1;">
+            <input type="hidden" name="action" value="delete_event">
+            <input type="hidden" name="id_evenement" value="<?php echo $event['id_evenement']; ?>">
+            <button type="submit" class="w-full btn btn--sm bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30" 
+                onclick="return confirm('Supprimer cet événement ? Cette action est irréversible !');"><i class="fas fa-trash mr-1"></i> Supprimer</button>
+        </form>
+    <?php endif; ?>
+</div>
 
                 <!-- Lien connexion -->
                 <div class="text-center">
@@ -198,32 +220,48 @@ require_once('header.php');
 
     <!-- Section Hero -->
     <section id="accueil" class="py-32 px-6 hero-bg relative overflow-hidden" style="padding-top: 10rem;">
-        <div class="container mx-auto text-center relative z-10">
-            <div class="floating-element inline-block mb-10">
-                <div class="glass-card rounded-full p-8 w-40 h-40 mx-auto flex items-center justify-center modern-border">
-                    <i class="fas fa-trophy text-6xl accent-gradient trophy-icon"></i>
-                </div>
+    <div class="container mx-auto text-center relative z-10">
+        <div class="floating-element inline-block mb-10">
+            <div class="glass-card rounded-full p-8 w-40 h-40 mx-auto flex items-center justify-center modern-border">
+                <i class="fas fa-trophy text-6xl accent-gradient trophy-icon"></i>
             </div>
+        </div>
 
-            <h1 class="text-7xl md:text-9xl font-bold mb-8 font-orbitron tracking-tight fade-in">
-                <span class="accent-gradient glow-text">GAME</span><br>
-                <span class="text-light">CROWN</span>
-            </h1>
-            <div class="typewriter text-2xl md:text-3xl max-w-3xl mx-auto mb-16 text-light/80">
-                Célébrons l'<span class="text-accent font-medium">excellence</span> et l'<span class="text-accent font-medium">innovation</span> du jeu vidéo
-            </div>
-            <div class="flex flex-col md:flex-row justify-center gap-6">
+        <h1 class="text-7xl md:text-9xl font-bold mb-8 font-orbitron tracking-tight fade-in">
+            <span class="accent-gradient glow-text">GAME</span><br>
+            <span class="text-light">CROWN</span>
+        </h1>
+
+        <div class="typewriter text-2xl md:text-3xl max-w-3xl mx-auto mb-16 text-light/80">
+            Célébrons l'<span class="text-accent font-medium">excellence</span> et l'<span class="text-accent font-medium">innovation</span> du jeu vidéo. :)
+        </div>
+
+        <!-- ✨ NOUVEAU : Boutons dynamiques selon connexion -->
+        <div class="flex flex-col md:flex-row justify-center gap-6">
+            <?php if (isset($_SESSION['id_utilisateur'])): ?>
+                <!-- Si connecté : affiche les boutons de vote/dashboard -->
+                <a href="vote.php" class="glass-button px-12 py-5 rounded-3xl text-xl font-medium flex items-center justify-center space-x-3 modern-border">
+                    <i class="fas fa-vote-yea text-accent"></i>
+                    <span class="text-light">Commencer à voter</span>
+                </a>
+                <a href="dashboard.php" class="glass-button px-12 py-5 rounded-3xl text-xl font-medium flex items-center justify-center space-x-3 modern-border">
+                    <i class="fas fa-user-circle text-accent"></i>
+                    <span class="text-light">Mon Espace</span>
+                </a>
+            <?php else: ?>
+                <!-- Si non connecté : affiche les boutons de découverte -->
                 <a href="#presentation" class="glass-button px-12 py-5 rounded-3xl text-xl font-medium flex items-center justify-center space-x-3 modern-border">
                     <i class="fas fa-gamepad text-accent"></i>
                     <span class="text-light">Découvrir les nominés</span>
                 </a>
-                <a href="#contact" class="glass-button px-12 py-5 rounded-3xl text-xl font-medium flex items-center justify-center space-x-3 modern-border">
-                    <i class="fas fa-comment-dots text-accent"></i>
-                    <span class="text-light">Nous contacter</span>
+                <a href="resultats.php" class="glass-button px-12 py-5 rounded-3xl text-xl font-medium flex items-center justify-center space-x-3 modern-border">
+                    <i class="fas fa-trophy text-accent"></i>
+                    <span class="text-light">Voir les résultats</span>
                 </a>
-            </div>
+            <?php endif; ?>
         </div>
-    </section>
+    </div>
+</section>
 
     <!-- Section Présentation -->
     <section id="presentation" class="py-28 px-6">
