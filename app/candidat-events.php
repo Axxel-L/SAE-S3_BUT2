@@ -346,35 +346,48 @@ require_once 'header.php';
                                             $candidaturesCategories = array_column($event['mes_candidatures'], 'id_categorie');
                                             foreach ($event['categories'] as $cat):
                                                 $dejaPostule = in_array($cat['id_categorie'], $candidaturesCategories);
+                                                $cat_id = 'cat_' . $event['id_evenement'] . '_' . $cat['id_categorie'];
                                             ?>
-                                                <label class="block cursor-pointer <?php echo $dejaPostule ? 'opacity-50 pointer-events-none' : ''; ?>">
-                                                    <input
-                                                        type="radio"
-                                                        name="categorie_id"
-                                                        value="<?php echo $cat['id_categorie']; ?>"
-                                                        class="hidden peer"
-                                                        <?php echo $dejaPostule ? 'disabled' : ''; ?>>
+                                                <input
+                                                    type="radio"
+                                                    name="categorie_id"
+                                                    value="<?php echo $cat['id_categorie']; ?>"
+                                                    id="<?php echo $cat_id; ?>"
+                                                    class="sr-only"
+                                                    onchange="changeColor(this)"
+                                                    <?php echo $dejaPostule ? 'disabled' : ''; ?>>
 
-                                                    <div class="p-4 rounded-xl border-2 border-white/10 bg-white/5 hover:border-accent/50 peer-checked:border-accent peer-checked:bg-accent/10 transition-all">
-                                                        <div class="flex items-start justify-between gap-3">
-                                                            <div class="flex-1">
-                                                                <p class="font-bold text-light"><?php echo htmlspecialchars($cat['nom']); ?></p>
-                                                                <?php if ($cat['description']): ?>
-                                                                    <p class="text-xs text-light/60 mt-1"><?php echo htmlspecialchars($cat['description']); ?></p>
-                                                                <?php endif; ?>
-                                                            </div>
+                                                <label for="<?php echo $cat_id; ?>"
+                                                    class="block cursor-pointer p-4 rounded-xl border-2 border-white/10 bg-white/5 transition-all
+            <?php echo $dejaPostule ? 'opacity-50 pointer-events-none border-green-500/50 bg-green-500/10' : ''; ?>">
 
-                                                            <?php if ($dejaPostule): ?>
-                                                                <i class="fas fa-check text-green-400"></i>
-                                                            <?php else: ?>
-                                                                <div class="w-5 h-5 rounded-full border-2 border-white/30 
-                        peer-checked:border-accent peer-checked:bg-accent
-                        flex-shrink-0"></div>
+                                                    <div class="flex items-start justify-between gap-3">
+                                                        <div class="flex-1">
+                                                            <p class="font-bold text-light"><?php echo htmlspecialchars($cat['nom']); ?></p>
+                                                            <?php if ($cat['description']): ?>
+                                                                <p class="text-xs text-light/60 mt-1"><?php echo htmlspecialchars($cat['description']); ?></p>
                                                             <?php endif; ?>
                                                         </div>
+
+                                                        <?php if ($dejaPostule): ?>
+                                                            <i class="fas fa-check text-green-400 flex-shrink-0 text-lg"></i>
+                                                        <?php endif; ?>
                                                     </div>
                                                 </label>
                                             <?php endforeach; ?>
+
+                                            <script>
+                                                function changeColor(input) {
+                                                    document.querySelectorAll('input[name="categorie_id"]').forEach(r => {
+                                                        r.nextElementSibling.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                                                    });
+                                                    input.nextElementSibling.style.borderColor = '#00ff88';
+                                                }
+                                            </script>
+
+
+
+
                                         </div>
 
                                         <button
