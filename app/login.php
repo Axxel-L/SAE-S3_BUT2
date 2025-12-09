@@ -357,7 +357,7 @@ $showregister = isset($_GET['register']) ? true : false;
                 bar.classList.add(index < strength ? colors[strength - 1] : 'bg-white/10');
             });
             strengthText.textContent = strength > 0 ? texts[strength - 1] : '';
-        }
+        }s
 
         registerPasswordInput?.addEventListener('input', () => {
             updateStrengthIndicator(checkPasswordStrength(registerPasswordInput.value));
