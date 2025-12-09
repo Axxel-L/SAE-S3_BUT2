@@ -32,7 +32,7 @@ try {
     $stmt = $connexion->prepare("
         SELECT e.*, r.date_inscription
         FROM evenement e
-        JOIN registreelectoral r ON e.id_evenement = r.id_evenement
+        JOIN registre_electoral r ON e.id_evenement = r.id_evenement
         WHERE r.id_utilisateur = ?
         ORDER BY e.date_ouverture DESC
     ");

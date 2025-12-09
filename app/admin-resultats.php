@@ -97,7 +97,7 @@ if ($event) {
         $stmt->execute([$id_evenement]);
         $stats['total_votes_final'] = intval($stmt->fetch(PDO::FETCH_ASSOC)['total']);
         
-        $stmt = $connexion->prepare("SELECT COUNT(*) as total FROM registreelectoral WHERE id_evenement = ?");
+        $stmt = $connexion->prepare("SELECT COUNT(*) as total FROM registre_electoral WHERE id_evenement = ?");
         $stmt->execute([$id_evenement]);
         $stats['nb_votants'] = intval($stmt->fetch(PDO::FETCH_ASSOC)['total']);
     } catch (Exception $e) {

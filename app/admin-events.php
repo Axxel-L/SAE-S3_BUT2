@@ -96,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $connexion->prepare("DELETE FROM emargement_categorie WHERE id_evenement = ?")->execute([$id_evenement]);
             $connexion->prepare("DELETE FROM bulletin_final WHERE id_evenement = ?")->execute([$id_evenement]);
             $connexion->prepare("DELETE FROM bulletin_categorie WHERE id_evenement = ?")->execute([$id_evenement]);
-            $connexion->prepare("DELETE FROM registreelectoral WHERE id_evenement = ?")->execute([$id_evenement]);
+            $connexion->prepare("DELETE FROM registre_electoral WHERE id_evenement = ?")->execute([$id_evenement]);
 
             // Supprimer l'événement
             $stmt = $connexion->prepare("DELETE FROM evenement WHERE id_evenement = ?");

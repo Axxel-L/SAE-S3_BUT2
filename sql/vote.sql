@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Hôte : 127.0.0.1:3306
--- Généré le : mar. 09 déc. 2025 à 08:30
+-- Généré le : mar. 09 déc. 2025 à 09:47
 -- Version du serveur : 9.1.0
 -- Version de PHP : 8.3.14
 
@@ -41,14 +41,6 @@ CREATE TABLE IF NOT EXISTS `bulletin_categorie` (
   KEY `idx_date_vote` (`date_vote`)
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Déchargement des données de la table `bulletin_categorie`
---
-
-INSERT INTO `bulletin_categorie` (`id_bulletin`, `id_jeu`, `id_categorie`, `id_evenement`, `date_vote`) VALUES
-(1, 1, 1, 5, '2025-12-09 09:17:49'),
-(2, 2, 2, 5, '2025-12-09 09:24:47');
-
 -- --------------------------------------------------------
 
 --
@@ -66,13 +58,6 @@ CREATE TABLE IF NOT EXISTS `bulletin_final` (
   KEY `idx_evenement` (`id_evenement`),
   KEY `idx_date_vote` (`date_vote`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Déchargement des données de la table `bulletin_final`
---
-
-INSERT INTO `bulletin_final` (`id_bulletin_final`, `id_jeu`, `id_evenement`, `date_vote`) VALUES
-(1, 1, 5, '2025-12-09 09:19:09');
 
 -- --------------------------------------------------------
 
@@ -118,18 +103,21 @@ CREATE TABLE IF NOT EXISTS `categorie` (
   `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   PRIMARY KEY (`id_categorie`),
   KEY `idx_evenement` (`id_evenement`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=22 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `categorie`
 --
 
 INSERT INTO `categorie` (`id_categorie`, `id_evenement`, `nom`, `description`) VALUES
-(1, 5, 'RPG', 'Un rpg quoi'),
-(2, 5, 'MOBA', 'Un moba quoi'),
-(3, 6, 'MOBA', ''),
-(4, 6, 'RPG', ''),
-(5, 6, 'MMORPG', '');
+(13, 9, 'RPG', ''),
+(14, 9, 'MMORPG', ''),
+(15, 9, 'MOBA', ''),
+(17, 9, 'MMO', ''),
+(18, 10, 'RPG', ''),
+(19, 10, 'Test', ''),
+(20, 10, 'MOBA', ''),
+(21, 10, 'Abdel-Malek', '');
 
 -- --------------------------------------------------------
 
@@ -197,14 +185,6 @@ CREATE TABLE IF NOT EXISTS `emargement_categorie` (
   KEY `idx_evenement` (`id_evenement`)
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Déchargement des données de la table `emargement_categorie`
---
-
-INSERT INTO `emargement_categorie` (`id_emargement`, `id_utilisateur`, `id_categorie`, `id_evenement`, `date_emargement`) VALUES
-(1, 7, 1, 5, '2025-12-09 09:17:49'),
-(2, 7, 2, 5, '2025-12-09 09:24:47');
-
 -- --------------------------------------------------------
 
 --
@@ -222,13 +202,6 @@ CREATE TABLE IF NOT EXISTS `emargement_final` (
   KEY `idx_utilisateur` (`id_utilisateur`),
   KEY `idx_evenement` (`id_evenement`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Déchargement des données de la table `emargement_final`
---
-
-INSERT INTO `emargement_final` (`id_emargement_final`, `id_utilisateur`, `id_evenement`, `date_emargement`) VALUES
-(1, 7, 5, '2025-12-09 09:19:09');
 
 -- --------------------------------------------------------
 
@@ -248,15 +221,15 @@ CREATE TABLE IF NOT EXISTS `evenement` (
   PRIMARY KEY (`id_evenement`),
   KEY `idx_statut` (`statut`),
   KEY `idx_dates` (`date_ouverture`,`date_fermeture`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `evenement`
 --
 
 INSERT INTO `evenement` (`id_evenement`, `nom`, `description`, `date_ouverture`, `date_fermeture`, `statut`, `nb_max_candidats`) VALUES
-(5, 'Test', 'AutreTest', '2025-12-09 09:10:00', '2025-12-09 09:30:00', 'ouvert', 0),
-(6, 'VOTE2', 'Test123_', '2025-12-09 09:30:00', '2025-12-09 09:41:00', 'preparation', 0);
+(9, 'Abdel-Malek', '', '2025-12-09 10:25:00', '2025-12-09 10:35:00', 'cloture', 0),
+(10, 'Test', '', '2025-12-09 14:28:00', '2025-12-09 16:28:00', 'preparation', 0);
 
 -- --------------------------------------------------------
 
@@ -281,15 +254,15 @@ CREATE TABLE IF NOT EXISTS `event_candidat` (
   KEY `fk_event_candidat_valideur` (`valide_par`),
   KEY `idx_statut_candidature` (`statut_candidature`),
   KEY `idx_categorie` (`id_categorie`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `event_candidat`
 --
 
 INSERT INTO `event_candidat` (`id_event_candidat`, `id_evenement`, `id_candidat`, `id_categorie`, `statut_candidature`, `motif_refus`, `date_validation`, `valide_par`, `date_inscription`) VALUES
-(9, 5, 2, NULL, 'approuve', NULL, NULL, NULL, '2025-12-09 09:08:39'),
-(10, 5, 1, NULL, 'approuve', NULL, NULL, NULL, '2025-12-09 09:08:48');
+(13, 10, 1, 21, 'en_attente', NULL, NULL, NULL, '2025-12-09 10:31:01'),
+(14, 10, 1, 18, 'en_attente', NULL, NULL, NULL, '2025-12-09 10:45:45');
 
 -- --------------------------------------------------------
 
@@ -355,7 +328,7 @@ CREATE TABLE IF NOT EXISTS `journal_securite` (
   KEY `idx_utilisateur` (`id_utilisateur`),
   KEY `idx_action` (`action`),
   KEY `idx_date` (`date_action`)
-) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=46 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `journal_securite`
@@ -378,7 +351,35 @@ INSERT INTO `journal_securite` (`id_journal`, `id_utilisateur`, `action`, `date_
 (14, 7, 'VOTE_CATEGORIE', '2025-12-09 09:17:49', 'Catégorie 1, événement 5', NULL),
 (15, 7, 'VOTE_FINAL', '2025-12-09 09:19:09', 'Événement: 5', NULL),
 (16, 7, 'VOTE_CATEGORIE', '2025-12-09 09:24:47', 'Catégorie 2, événement 5', NULL),
-(17, 8, 'ADMIN_EVENT_CREATE', '2025-12-09 09:25:58', 'Événement créé: VOTE2', NULL);
+(17, 8, 'ADMIN_EVENT_CREATE', '2025-12-09 09:25:58', 'Événement créé: VOTE2', NULL),
+(18, 8, 'ADMIN_EVENT_CREATE', '2025-12-09 09:43:47', 'Événement créé: Noveau', NULL),
+(19, 8, 'ADMIN_CATEGORY_CREATE', '2025-12-09 09:43:54', 'Catégorie \'RPG\' créée pour événement #7', NULL),
+(20, 8, 'ADMIN_CATEGORY_CREATE', '2025-12-09 09:43:57', 'Catégorie \'MMO\' créée pour événement #7', NULL),
+(21, 8, 'ADMIN_CATEGORY_CREATE', '2025-12-09 09:44:03', 'Catégorie \'MMORPG\' créée pour événement #7', NULL),
+(22, 11, 'CANDIDATURE_SOUMISE', '2025-12-09 09:44:35', 'Événement: 7, Catégorie: MMO, Jeu: Domms', NULL),
+(23, 11, 'CANDIDATURE_SOUMISE', '2025-12-09 09:44:41', 'Événement: 7, Catégorie: MMORPG, Jeu: Domms', NULL),
+(24, 8, 'ADMIN_EVENT_CREATE', '2025-12-09 09:53:23', 'Événement créé: Abdel-Malek', NULL),
+(25, 8, 'ADMIN_CATEGORY_CREATE', '2025-12-09 09:53:29', 'Catégorie \'RPG\' créée pour événement #8', NULL),
+(26, 8, 'ADMIN_CATEGORY_CREATE', '2025-12-09 09:53:33', 'Catégorie \'MMO\' créée pour événement #8', NULL),
+(27, 8, 'ADMIN_CATEGORY_CREATE', '2025-12-09 09:53:37', 'Catégorie \'MMORPG\' créée pour événement #8', NULL),
+(28, 8, 'ADMIN_CATEGORY_CREATE', '2025-12-09 09:53:40', 'Catégorie \'LOL\' créée pour événement #8', NULL),
+(29, 8, 'ADMIN_EVENT_DELETE', '2025-12-09 10:20:46', 'Événement 8 supprimé', NULL),
+(30, 8, 'ADMIN_EVENT_DELETE', '2025-12-09 10:20:49', 'Événement 7 supprimé', NULL),
+(31, 8, 'ADMIN_EVENT_DELETE', '2025-12-09 10:20:51', 'Événement 6 supprimé', NULL),
+(32, 8, 'ADMIN_EVENT_DELETE', '2025-12-09 10:20:54', 'Événement 5 supprimé', NULL),
+(33, 8, 'ADMIN_EVENT_CREATE', '2025-12-09 10:21:09', 'Événement créé: Abdel-Malek', NULL),
+(34, 8, 'ADMIN_CATEGORY_CREATE', '2025-12-09 10:21:13', 'Catégorie \'RPG\' créée pour événement #9', NULL),
+(35, 8, 'ADMIN_CATEGORY_CREATE', '2025-12-09 10:21:17', 'Catégorie \'MMORPG\' créée pour événement #9', NULL),
+(36, 8, 'ADMIN_CATEGORY_CREATE', '2025-12-09 10:21:19', 'Catégorie \'MOBA\' créée pour événement #9', NULL),
+(37, 8, 'ADMIN_CATEGORY_CREATE', '2025-12-09 10:21:22', 'Catégorie \'MMORPG\' créée pour événement #9', NULL),
+(38, 8, 'ADMIN_CATEGORY_CREATE', '2025-12-09 10:21:32', 'Catégorie \'MMO\' créée pour événement #9', NULL),
+(39, 8, 'ADMIN_EVENT_CREATE', '2025-12-09 10:28:19', 'Événement créé: Test', NULL),
+(40, 8, 'ADMIN_CATEGORY_CREATE', '2025-12-09 10:28:23', 'Catégorie \'RPG\' créée pour événement #10', NULL),
+(41, 8, 'ADMIN_CATEGORY_CREATE', '2025-12-09 10:28:25', 'Catégorie \'Test\' créée pour événement #10', NULL),
+(42, 8, 'ADMIN_CATEGORY_CREATE', '2025-12-09 10:28:27', 'Catégorie \'MOBA\' créée pour événement #10', NULL),
+(43, 8, 'ADMIN_CATEGORY_CREATE', '2025-12-09 10:28:29', 'Catégorie \'Abdel-Malek\' créée pour événement #10', NULL),
+(44, 10, 'CANDIDATURE_SOUMISE', '2025-12-09 10:31:01', 'Événement: 10, Catégorie: Abdel-Malek, Jeu: Minecraft', NULL),
+(45, 10, 'CANDIDATURE_SOUMISE', '2025-12-09 10:45:45', 'Événement: 10, Catégorie: RPG, Jeu: Minecraft', NULL);
 
 -- --------------------------------------------------------
 
@@ -399,16 +400,6 @@ CREATE TABLE IF NOT EXISTS `nomination` (
   KEY `idx_evenement` (`id_evenement`)
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Déchargement des données de la table `nomination`
---
-
-INSERT INTO `nomination` (`id_nomination`, `id_jeu`, `id_categorie`, `id_evenement`) VALUES
-(2, 1, 1, 5),
-(3, 1, 2, 5),
-(1, 2, 1, 5),
-(4, 2, 2, 5);
-
 -- --------------------------------------------------------
 
 --
@@ -426,14 +417,6 @@ CREATE TABLE IF NOT EXISTS `registre_electoral` (
   KEY `idx_utilisateur` (`id_utilisateur`),
   KEY `idx_evenement` (`id_evenement`)
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Déchargement des données de la table `registre_electoral`
---
-
-INSERT INTO `registre_electoral` (`id_registre`, `id_utilisateur`, `id_evenement`, `date_inscription`) VALUES
-(2, 7, 5, '2025-12-09 09:10:06'),
-(3, 12, 5, '2025-12-09 09:23:45');
 
 -- --------------------------------------------------------
 
