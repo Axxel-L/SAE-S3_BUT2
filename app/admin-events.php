@@ -42,16 +42,57 @@ try {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'create_event') {
     $nom = trim($_POST['nom'] ?? '');
     $date_ouverture = $_POST['date_ouverture'] ?? '';
-    $date_fermeture = $_POST['date_fermeture'] ?? '';
+    $date_fermeture = $_POST['date_fermeture'] ?? '';  // Fin du vote par catégories
+    $date_debut_vote_final = $_POST['date_debut_vote_final'] ?? '';  // Début vote final
+    $date_fermeture_vote_final = $_POST['date_fermeture_vote_final'] ?? '';  // Fin vote final
     $description = trim($_POST['description'] ?? '');
 
-    if (!empty($nom) && !empty($date_ouverture) && !empty($date_fermeture)) {
+    // Validation
+    $validation_errors = [];
+    
+    if (empty($nom)) {
+        $validation_errors[] = "Le nom est obligatoire";
+    }
+    if (empty($date_ouverture)) {
+        $validation_errors[] = "La date d'ouverture est obligatoire";
+    }
+    if (empty($date_fermeture)) {
+        $validation_errors[] = "La date de fin du vote par catégories est obligatoire";
+    }
+    if (empty($date_debut_vote_final)) {
+        $validation_errors[] = "La date de début du vote final est obligatoire";
+    }
+    if (empty($date_fermeture_vote_final)) {
+        $validation_errors[] = "La date de clôture du vote final est obligatoire";
+    }
+    
+    // Vérifier l'ordre chronologique des dates
+    if (empty($validation_errors)) {
+        $d1 = strtotime($date_ouverture);
+        $d2 = strtotime($date_fermeture);
+        $d3 = strtotime($date_debut_vote_final);
+        $d4 = strtotime($date_fermeture_vote_final);
+        
+        if ($d2 <= $d1) {
+            $validation_errors[] = "La fin du vote par catégories doit être après l'ouverture";
+        }
+        if ($d3 < $d2) {
+            $validation_errors[] = "Le vote final doit commencer après (ou en même temps que) la fin du vote par catégories";
+        }
+        if ($d4 <= $d3) {
+            $validation_errors[] = "La clôture du vote final doit être après son début";
+        }
+    }
+
+    if (!empty($validation_errors)) {
+        $error = implode("<br>", $validation_errors);
+    } else {
         try {
             $stmt = $connexion->prepare("
-                INSERT INTO evenement (nom, description, date_ouverture, date_fermeture, statut) 
-                VALUES (?, ?, ?, ?, 'preparation')
+                INSERT INTO evenement (nom, description, date_ouverture, date_fermeture, date_debut_vote_final, date_fermeture_vote_final, statut) 
+                VALUES (?, ?, ?, ?, ?, ?, 'preparation')
             ");
-            if ($stmt->execute([$nom, $description, $date_ouverture, $date_fermeture])) {
+            if ($stmt->execute([$nom, $description, $date_ouverture, $date_fermeture, $date_debut_vote_final, $date_fermeture_vote_final])) {
                 $success = "Événement créé avec succès ! ✅ Le statut se changera automatiquement selon les dates.";
 
                 // Log audit
@@ -69,8 +110,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         } catch (Exception $e) {
             $error = "Erreur lors de la création : " . $e->getMessage();
         }
-    } else {
-        $error = "Veuillez remplir tous les champs obligatoires !";
     }
 }
 
@@ -123,6 +162,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 
+// ========================================
+// 📊 Fonction pour déterminer la phase actuelle d'un événement
+// ========================================
+function getEventPhase($event) {
+    $now = time();
+    $date_ouverture = strtotime($event['date_ouverture']);
+    $date_fermeture = strtotime($event['date_fermeture']);
+    $date_debut_vote_final = isset($event['date_debut_vote_final']) ? strtotime($event['date_debut_vote_final']) : null;
+    $date_fermeture_vote_final = isset($event['date_fermeture_vote_final']) ? strtotime($event['date_fermeture_vote_final']) : null;
+    
+    if ($event['statut'] === 'cloture') {
+        return ['phase' => 'cloture', 'label' => 'Clôturé', 'color' => 'red'];
+    }
+    
+    if ($now < $date_ouverture) {
+        return ['phase' => 'preparation', 'label' => 'Préparation', 'color' => 'yellow'];
+    }
+    
+    if ($now >= $date_ouverture && $now < $date_fermeture) {
+        return ['phase' => 'vote_categories', 'label' => 'Vote Catégories', 'color' => 'green'];
+    }
+    
+    if ($date_debut_vote_final && $now >= $date_debut_vote_final && $date_fermeture_vote_final && $now < $date_fermeture_vote_final) {
+        return ['phase' => 'vote_final', 'label' => 'Vote Final', 'color' => 'purple'];
+    }
+    
+    if ($date_fermeture_vote_final && $now >= $date_fermeture_vote_final) {
+        return ['phase' => 'cloture', 'label' => 'Clôturé', 'color' => 'red'];
+    }
+    
+    // Entre fin vote catégories et début vote final
+    if ($date_debut_vote_final && $now >= $date_fermeture && $now < $date_debut_vote_final) {
+        return ['phase' => 'attente_final', 'label' => 'Attente Vote Final', 'color' => 'blue'];
+    }
+    
+    return ['phase' => 'ouvert', 'label' => 'Ouvert', 'color' => 'green'];
+}
+
 require_once 'header.php';
 ?>
 
@@ -140,7 +217,7 @@ require_once 'header.php';
         <?php if ($error): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
                 <i class="fas fa-exclamation-circle text-red-400"></i>
-                <span class="text-red-400"><?php echo htmlspecialchars($error); ?></span>
+                <span class="text-red-400"><?php echo $error; ?></span>
             </div>
         <?php endif; ?>
 
@@ -172,14 +249,43 @@ require_once 'header.php';
                             <textarea name="description" class="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 focus:border-accent/50 outline-none text-light" rows="3" placeholder="Description de l'événement"></textarea>
                         </div>
 
-                        <div>
-                            <label class="block mb-2 text-light-80">Ouverture *</label>
-                            <input type="datetime-local" name="date_ouverture" class="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 focus:border-accent/50 outline-none text-light" required>
+                        <!-- Phase 1 : Vote par catégories -->
+                        <div class="p-4 rounded-xl bg-green-500/10 border border-green-500/30">
+                            <h4 class="font-bold text-green-400 mb-3 flex items-center gap-2">
+                                <i class="fas fa-layer-group"></i> Phase 1 : Vote par Catégories
+                            </h4>
+                            
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block mb-1 text-light-80 text-sm">Ouverture des votes *</label>
+                                    <input type="datetime-local" name="date_ouverture" class="w-full px-4 py-2 rounded-xl bg-white/5 border border-white/10 focus:border-accent/50 outline-none text-light text-sm" required>
+                                </div>
+
+                                <div>
+                                    <label class="block mb-1 text-light-80 text-sm">Fin du vote par catégories *</label>
+                                    <input type="datetime-local" name="date_fermeture" class="w-full px-4 py-2 rounded-xl bg-white/5 border border-white/10 focus:border-accent/50 outline-none text-light text-sm" required>
+                                </div>
+                            </div>
                         </div>
 
-                        <div>
-                            <label class="block mb-2 text-light-80">Fermeture *</label>
-                            <input type="datetime-local" name="date_fermeture" class="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 focus:border-accent/50 outline-none text-light" required>
+                        <!-- Phase 2 : Vote Final -->
+                        <div class="p-4 rounded-xl bg-purple-500/10 border border-purple-500/30">
+                            <h4 class="font-bold text-purple-400 mb-3 flex items-center gap-2">
+                                <i class="fas fa-crown"></i> Phase 2 : Vote Final
+                            </h4>
+                            <p class="text-xs text-purple-300 mb-3">Les joueurs votent parmi les vainqueurs de chaque catégorie</p>
+                            
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block mb-1 text-light-80 text-sm">Début du vote final *</label>
+                                    <input type="datetime-local" name="date_debut_vote_final" class="w-full px-4 py-2 rounded-xl bg-white/5 border border-white/10 focus:border-accent/50 outline-none text-light text-sm" required>
+                                </div>
+
+                                <div>
+                                    <label class="block mb-1 text-light-80 text-sm">Clôture définitive *</label>
+                                    <input type="datetime-local" name="date_fermeture_vote_final" class="w-full px-4 py-2 rounded-xl bg-white/5 border border-white/10 focus:border-accent/50 outline-none text-light text-sm" required>
+                                </div>
+                            </div>
                         </div>
 
                         <button type="submit" class="w-full px-6 py-3 rounded-2xl bg-accent text-dark font-bold hover:bg-accent/80 transition-colors">
@@ -190,12 +296,14 @@ require_once 'header.php';
                     <div class="mt-6 p-4 rounded-lg bg-blue-500/10 border border-blue-500/30">
                         <p class="text-sm text-blue-400">
                             <i class="fas fa-info-circle mr-2"></i>
-                            <strong>Statuts automatiques :</strong>
+                            <strong>Déroulement automatique :</strong>
                         </p>
                         <ul class="text-xs text-blue-300 mt-2 space-y-1">
-                            <li>🔵 Préparation → Ouvert (à l'heure d'ouverture)</li>
-                            <li>🟢 Ouvert → Fermé (à l'heure de fermeture)</li>
-                            <li>🔴 Fermé → Supprimable (optionnel)</li>
+                            <li>🔵 <strong>Préparation</strong> → Candidatures ouvertes</li>
+                            <li>🟢 <strong>Vote Catégories</strong> → Les joueurs votent par catégorie</li>
+                            <li>🔵 <strong>Attente</strong> → Pause entre les 2 phases (optionnel)</li>
+                            <li>🟣 <strong>Vote Final</strong> → Vote parmi les vainqueurs</li>
+                            <li>🔴 <strong>Clôturé</strong> → Résultats finaux</li>
                         </ul>
                     </div>
                 </div>
@@ -214,35 +322,52 @@ require_once 'header.php';
                             <p class="text-light-80">Aucun événement créé.</p>
                         </div>
                     <?php else: ?>
-                        <div class="space-y-4 max-h-[600px] overflow-y-auto">
+                        <div class="space-y-4 max-h-[700px] overflow-y-auto">
                             <?php foreach ($events as $event): ?>
                                 <?php
-                                $status_colors = [
-                                    'preparation' => ['bg' => 'bg-yellow-500/20', 'text' => 'text-yellow-400', 'border' => 'border-yellow-500/30', 'icon' => 'fa-hourglass-start'],
-                                    'ouvert' => ['bg' => 'bg-green-500/20', 'text' => 'text-green-400', 'border' => 'border-green-500/30', 'icon' => 'fa-check-circle'],
-                                    'cloture' => ['bg' => 'bg-red-500/20', 'text' => 'text-red-400', 'border' => 'border-red-500/30', 'icon' => 'fa-times-circle']
+                                $phase = getEventPhase($event);
+                                $phase_colors = [
+                                    'yellow' => ['bg' => 'bg-yellow-500/20', 'text' => 'text-yellow-400', 'border' => 'border-yellow-500/30', 'icon' => 'fa-hourglass-start'],
+                                    'green' => ['bg' => 'bg-green-500/20', 'text' => 'text-green-400', 'border' => 'border-green-500/30', 'icon' => 'fa-vote-yea'],
+                                    'blue' => ['bg' => 'bg-blue-500/20', 'text' => 'text-blue-400', 'border' => 'border-blue-500/30', 'icon' => 'fa-pause-circle'],
+                                    'purple' => ['bg' => 'bg-purple-500/20', 'text' => 'text-purple-400', 'border' => 'border-purple-500/30', 'icon' => 'fa-crown'],
+                                    'red' => ['bg' => 'bg-red-500/20', 'text' => 'text-red-400', 'border' => 'border-red-500/30', 'icon' => 'fa-times-circle']
                                 ];
-                                $status = $status_colors[$event['statut']] ?? $status_colors['preparation'];
+                                $colors = $phase_colors[$phase['color']] ?? $phase_colors['yellow'];
                                 $can_delete = $event['statut'] === 'cloture';
                                 ?>
                                 <div class="glass-card rounded-2xl p-4 modern-border">
                                     <div class="flex items-start justify-between mb-3">
                                         <div class="flex-1">
-                                            <div class="flex items-center gap-2 mb-1">
-                                                <span class="font-bold text-light"><?php echo htmlspecialchars($event['nom']); ?></span>
-                                                <span class="px-3 py-1 rounded-full text-xs font-medium <?php echo $status['bg']; ?> <?php echo $status['text']; ?> border <?php echo $status['border']; ?>">
-                                                    <i class="fas <?php echo $status['icon']; ?> mr-1"></i>
-                                                    <?php echo ucfirst($event['statut']); ?>
+                                            <div class="flex items-center gap-2 mb-2">
+                                                <span class="font-bold text-light text-lg"><?php echo htmlspecialchars($event['nom']); ?></span>
+                                                <span class="px-3 py-1 rounded-full text-xs font-medium <?php echo $colors['bg']; ?> <?php echo $colors['text']; ?> border <?php echo $colors['border']; ?>">
+                                                    <i class="fas <?php echo $colors['icon']; ?> mr-1"></i>
+                                                    <?php echo $phase['label']; ?>
                                                 </span>
                                             </div>
-                                            <p class="text-sm text-light-80">
-                                                <i class="fas fa-door-open mr-1 text-green-400"></i>
-                                                <?php echo date('d/m/Y H:i', strtotime($event['date_ouverture'])); ?>
-                                            </p>
-                                            <p class="text-sm text-light-80">
-                                                <i class="fas fa-door-closed mr-1 text-red-400"></i>
-                                                <?php echo date('d/m/Y H:i', strtotime($event['date_fermeture'])); ?>
-                                            </p>
+                                            
+                                            <!-- Timeline des dates -->
+                                            <div class="grid grid-cols-2 gap-2 text-xs">
+                                                <div class="p-2 rounded-lg bg-green-500/10">
+                                                    <p class="text-green-400 font-medium mb-1"><i class="fas fa-layer-group mr-1"></i>Vote Catégories</p>
+                                                    <p class="text-light/60">
+                                                        <?php echo date('d/m/Y H:i', strtotime($event['date_ouverture'])); ?>
+                                                        → <?php echo date('d/m/Y H:i', strtotime($event['date_fermeture'])); ?>
+                                                    </p>
+                                                </div>
+                                                <div class="p-2 rounded-lg bg-purple-500/10">
+                                                    <p class="text-purple-400 font-medium mb-1"><i class="fas fa-crown mr-1"></i>Vote Final</p>
+                                                    <?php if (!empty($event['date_debut_vote_final']) && !empty($event['date_fermeture_vote_final'])): ?>
+                                                        <p class="text-light/60">
+                                                            <?php echo date('d/m/Y H:i', strtotime($event['date_debut_vote_final'])); ?>
+                                                            → <?php echo date('d/m/Y H:i', strtotime($event['date_fermeture_vote_final'])); ?>
+                                                        </p>
+                                                    <?php else: ?>
+                                                        <p class="text-light/40 italic">Non défini</p>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 

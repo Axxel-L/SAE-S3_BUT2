@@ -15,12 +15,84 @@ $id_utilisateur = $_SESSION['id_utilisateur'];
 $error = '';
 $success = '';
 
-// Récupérer les événements ouverts au vote (phase 1)
+// Fonction pour déterminer la phase de vote d'un événement
+function getVotePhase($event) {
+    $now = time();
+    $date_ouverture = strtotime($event['date_ouverture']);
+    $date_fermeture = strtotime($event['date_fermeture']);
+    $date_debut_vote_final = isset($event['date_debut_vote_final']) ? strtotime($event['date_debut_vote_final']) : null;
+    $date_fermeture_vote_final = isset($event['date_fermeture_vote_final']) ? strtotime($event['date_fermeture_vote_final']) : null;
+    
+    // Avant ouverture
+    if ($now < $date_ouverture) {
+        return [
+            'phase' => 'preparation',
+            'vote_categories_open' => false,
+            'vote_final_open' => false,
+            'message' => 'Les votes ouvriront le ' . date('d/m/Y à H:i', $date_ouverture)
+        ];
+    }
+    
+    // Vote par catégories ouvert
+    if ($now >= $date_ouverture && $now < $date_fermeture) {
+        $time_left = $date_fermeture - $now;
+        $days_left = floor($time_left / 86400);
+        $hours_left = floor(($time_left % 86400) / 3600);
+        
+        return [
+            'phase' => 'vote_categories',
+            'vote_categories_open' => true,
+            'vote_final_open' => false,
+            'time_left' => $time_left,
+            'days_left' => $days_left,
+            'hours_left' => $hours_left,
+            'message' => "Vote par catégories en cours ! Temps restant : {$days_left}j {$hours_left}h",
+            'vote_final_info' => $date_debut_vote_final ? 
+                'Le vote final ouvrira le ' . date('d/m/Y à H:i', $date_debut_vote_final) : null
+        ];
+    }
+    
+    // Entre les deux phases
+    if ($date_debut_vote_final && $now >= $date_fermeture && $now < $date_debut_vote_final) {
+        return [
+            'phase' => 'attente_final',
+            'vote_categories_open' => false,
+            'vote_final_open' => false,
+            'message' => 'Vote par catégories terminé. Le vote final ouvrira le ' . date('d/m/Y à H:i', $date_debut_vote_final)
+        ];
+    }
+    
+    // Vote final ouvert
+    if ($date_debut_vote_final && $date_fermeture_vote_final && $now >= $date_debut_vote_final && $now < $date_fermeture_vote_final) {
+        $time_left = $date_fermeture_vote_final - $now;
+        $days_left = floor($time_left / 86400);
+        $hours_left = floor(($time_left % 86400) / 3600);
+        
+        return [
+            'phase' => 'vote_final',
+            'vote_categories_open' => false,
+            'vote_final_open' => true,
+            'time_left' => $time_left,
+            'days_left' => $days_left,
+            'hours_left' => $hours_left,
+            'message' => "Vote final en cours ! Temps restant : {$days_left}j {$hours_left}h"
+        ];
+    }
+    
+    // Clôturé
+    return [
+        'phase' => 'cloture',
+        'vote_categories_open' => false,
+        'vote_final_open' => false,
+        'message' => 'Cet événement est terminé.'
+    ];
+}
+
+// Récupérer les événements ouverts au vote (phase 1 ou phase 2)
 try {
     $stmt = $connexion->prepare("
         SELECT * FROM evenement 
         WHERE statut = 'ouvert' 
-        AND NOW() BETWEEN date_ouverture AND date_fermeture 
         ORDER BY date_ouverture DESC
     ");
     $stmt->execute();
@@ -37,6 +109,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $id_evenement = intval($_POST['id_evenement'] ?? 0);
 
     try {
+        // Récupérer l'événement pour vérifier les dates
+        $stmt = $connexion->prepare("SELECT * FROM evenement WHERE id_evenement = ? AND statut = 'ouvert'");
+        $stmt->execute([$id_evenement]);
+        $event = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$event) {
+            throw new Exception("Cet événement n'est pas disponible.");
+        }
+        
+        $phase = getVotePhase($event);
+        
+        if (!$phase['vote_categories_open']) {
+            throw new Exception("Le vote par catégories n'est pas ouvert actuellement. " . $phase['message']);
+        }
+        
         // Vérifier que l'utilisateur est inscrit à cet événement
         $stmt = $connexion->prepare("
             SELECT id_registre FROM registre_electoral 
@@ -58,7 +145,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $error = "Vous avez déjà voté pour cette catégorie !";
             } else {
                 // Vérifier que le jeu est bien nominé dans cette catégorie
-                // (soit via la table nomination, soit via une candidature approuvée)
                 $stmt = $connexion->prepare("
                     SELECT id_nomination FROM nomination 
                     WHERE id_jeu = ? AND id_categorie = ? AND id_evenement = ?
@@ -131,7 +217,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 <h1 class="text-5xl md:text-6xl font-bold font-orbitron mb-4 accent-gradient">
                     <i class="fas fa-vote-yea mr-3"></i>Vote par Catégorie
                 </h1>
-                <p class="text-xl text-light/80">Votez pour vos jeux préférés dans chaque catégorie</p>
+                <p class="text-xl text-light/80">Phase 1 : Votez pour vos jeux préférés dans chaque catégorie</p>
             </div>
 
             <!-- Messages -->
@@ -151,16 +237,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
             <!-- Événements -->
             <?php if (empty($events)): ?>
-                <div class="glass-card rounded-3xl p-12 modern-border text-center">
-                    <i class="fas fa-info-circle text-accent text-4xl mb-4"></i>
-                    <p class="text-xl text-light/80 mb-4">Aucun événement ouvert au vote actuellement.</p>
-                    <a href="joueur-events.php" class="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-accent text-dark font-bold hover:bg-accent/80 transition-colors">
-                        <i class="fas fa-calendar"></i> Voir les événements disponibles
-                    </a>
+                <div class="glass-card rounded-4xl p-12 text-center modern-border">
+                    <i class="fas fa-calendar-times text-accent text-5xl mb-4"></i>
+                    <h2 class="text-2xl font-bold font-orbitron mb-2">Aucun événement ouvert</h2>
+                    <p class="text-light/80">Il n'y a pas d'événement de vote en cours actuellement.</p>
                 </div>
             <?php else: ?>
                 <?php foreach ($events as $event): 
-                    // Vérifier si l'utilisateur est inscrit
+                    $phase = getVotePhase($event);
+                    
+                    // Vérifier si l'utilisateur est inscrit à cet événement
                     try {
                         $stmt = $connexion->prepare("
                             SELECT id_registre FROM registre_electoral 
@@ -171,11 +257,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     } catch (Exception $e) {
                         $isRegistered = false;
                     }
+                    
+                    // Récupérer les catégories avec des jeux nominés
+                    $categories = [];
+                    if ($isRegistered && $phase['vote_categories_open']) {
+                        try {
+                            $stmt = $connexion->prepare("
+                                SELECT DISTINCT c.id_categorie, c.nom, c.description
+                                FROM categorie c
+                                JOIN nomination n ON c.id_categorie = n.id_categorie
+                                WHERE c.id_evenement = ? AND n.id_evenement = ?
+                                ORDER BY c.nom ASC
+                            ");
+                            $stmt->execute([$event['id_evenement'], $event['id_evenement']]);
+                            $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        } catch (Exception $e) {
+                            $categories = [];
+                        }
+                    }
                 ?>
-                    <div class="glass-card rounded-3xl p-8 modern-border mb-8">
-                        <!-- Header événement -->
-                        <div class="mb-8 pb-6 border-b border-white/10">
-                            <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div class="glass-card rounded-4xl p-8 mb-8 modern-border">
+                        <!-- Infos événement -->
+                        <div class="mb-6">
+                            <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
                                 <div>
                                     <h2 class="text-3xl font-bold font-orbitron text-light mb-2">
                                         <?php echo htmlspecialchars($event['nom']); ?>
@@ -184,16 +288,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                                         <p class="text-light/60"><?php echo htmlspecialchars($event['description']); ?></p>
                                     <?php endif; ?>
                                 </div>
-                                <div class="flex items-center gap-4">
-                                    <span class="text-light/80">
-                                        <i class="fas fa-clock mr-2 text-accent"></i>
-                                        Jusqu'au <?php echo date('d/m/Y H:i', strtotime($event['date_fermeture'])); ?>
-                                    </span>
-                                    <span class="px-3 py-1 rounded-full bg-green-500/20 text-green-400 border border-green-500/30">
-                                        <i class="fas fa-check-circle mr-1"></i>Ouvert
-                                    </span>
+                                
+                                <!-- Badge de phase -->
+                                <?php
+                                $phase_badges = [
+                                    'preparation' => ['bg' => 'bg-yellow-500/20', 'text' => 'text-yellow-400', 'border' => 'border-yellow-500/30', 'icon' => 'fa-hourglass-start'],
+                                    'vote_categories' => ['bg' => 'bg-green-500/20', 'text' => 'text-green-400', 'border' => 'border-green-500/30', 'icon' => 'fa-vote-yea'],
+                                    'attente_final' => ['bg' => 'bg-blue-500/20', 'text' => 'text-blue-400', 'border' => 'border-blue-500/30', 'icon' => 'fa-pause-circle'],
+                                    'vote_final' => ['bg' => 'bg-purple-500/20', 'text' => 'text-purple-400', 'border' => 'border-purple-500/30', 'icon' => 'fa-crown'],
+                                    'cloture' => ['bg' => 'bg-red-500/20', 'text' => 'text-red-400', 'border' => 'border-red-500/30', 'icon' => 'fa-times-circle']
+                                ];
+                                $badge = $phase_badges[$phase['phase']] ?? $phase_badges['preparation'];
+                                ?>
+                                <span class="px-4 py-2 rounded-full text-sm font-medium <?php echo $badge['bg']; ?> <?php echo $badge['text']; ?> border <?php echo $badge['border']; ?>">
+                                    <i class="fas <?php echo $badge['icon']; ?> mr-2"></i>
+                                    <?php echo $phase['message']; ?>
+                                </span>
+                            </div>
+                            
+                            <!-- Informations sur les phases -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <!-- Phase 1 -->
+                                <div class="p-4 rounded-xl <?php echo $phase['vote_categories_open'] ? 'bg-green-500/20 border-green-500/50' : 'bg-white/5 border-white/10'; ?> border">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <i class="fas fa-layer-group <?php echo $phase['vote_categories_open'] ? 'text-green-400' : 'text-light/60'; ?>"></i>
+                                        <span class="font-bold <?php echo $phase['vote_categories_open'] ? 'text-green-400' : 'text-light/80'; ?>">Phase 1 : Vote Catégories</span>
+                                        <?php if ($phase['vote_categories_open']): ?>
+                                            <span class="px-2 py-0.5 rounded-full text-xs bg-green-500 text-dark font-bold animate-pulse">EN COURS</span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <p class="text-sm text-light/60">
+                                        Du <?php echo date('d/m/Y H:i', strtotime($event['date_ouverture'])); ?>
+                                        au <?php echo date('d/m/Y H:i', strtotime($event['date_fermeture'])); ?>
+                                    </p>
+                                </div>
+                                
+                                <!-- Phase 2 -->
+                                <div class="p-4 rounded-xl <?php echo $phase['vote_final_open'] ? 'bg-purple-500/20 border-purple-500/50' : 'bg-white/5 border-white/10'; ?> border">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <i class="fas fa-crown <?php echo $phase['vote_final_open'] ? 'text-purple-400' : 'text-light/60'; ?>"></i>
+                                        <span class="font-bold <?php echo $phase['vote_final_open'] ? 'text-purple-400' : 'text-light/80'; ?>">Phase 2 : Vote Final</span>
+                                        <?php if ($phase['vote_final_open']): ?>
+                                            <span class="px-2 py-0.5 rounded-full text-xs bg-purple-500 text-white font-bold animate-pulse">EN COURS</span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <?php if (!empty($event['date_debut_vote_final']) && !empty($event['date_fermeture_vote_final'])): ?>
+                                        <p class="text-sm text-light/60">
+                                            Du <?php echo date('d/m/Y H:i', strtotime($event['date_debut_vote_final'])); ?>
+                                            au <?php echo date('d/m/Y H:i', strtotime($event['date_fermeture_vote_final'])); ?>
+                                        </p>
+                                    <?php else: ?>
+                                        <p class="text-sm text-light/40 italic">Dates non définies</p>
+                                    <?php endif; ?>
                                 </div>
                             </div>
+                            
+                            <!-- Lien vers le vote final si disponible -->
+                            <?php if ($phase['vote_final_open']): ?>
+                                <div class="p-4 rounded-xl bg-purple-500/20 border border-purple-500/50 text-center">
+                                    <p class="text-purple-300 mb-3">
+                                        <i class="fas fa-crown mr-2"></i>
+                                        Le vote final est ouvert ! Votez pour élire le Jeu de l'Année.
+                                    </p>
+                                    <a href="vote-final.php" class="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-purple-500 text-white font-bold hover:bg-purple-400 transition-colors">
+                                        <i class="fas fa-crown"></i> Accéder au Vote Final
+                                    </a>
+                                </div>
+                            <?php elseif (!empty($phase['vote_final_info'])): ?>
+                                <div class="p-3 rounded-xl bg-purple-500/10 border border-purple-500/30">
+                                    <p class="text-purple-300 text-sm">
+                                        <i class="fas fa-info-circle mr-2"></i>
+                                        <?php echo $phase['vote_final_info']; ?>
+                                    </p>
+                                </div>
+                            <?php endif; ?>
                         </div>
 
                         <?php if (!$isRegistered): ?>
@@ -205,27 +373,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                                     <i class="fas fa-user-plus"></i> S'inscrire à l'événement
                                 </a>
                             </div>
+                        <?php elseif (!$phase['vote_categories_open']): ?>
+                            <!-- Vote par catégories fermé -->
+                            <div class="p-6 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-center">
+                                <i class="fas fa-info-circle text-blue-400 text-3xl mb-3"></i>
+                                <p class="text-blue-400 text-lg"><?php echo $phase['message']; ?></p>
+                            </div>
                         <?php else: ?>
-                            <!-- Catégories et jeux -->
-                            <div class="space-y-8">
-                                <?php 
-                                // Récupérer les catégories qui ont des jeux nominés
-                                try {
-                                    $stmt = $connexion->prepare("
-                                        SELECT DISTINCT c.* 
-                                        FROM categorie c
-                                        JOIN nomination n ON c.id_categorie = n.id_categorie
-                                        WHERE c.id_evenement = ? 
-                                        ORDER BY c.nom ASC
-                                    ");
-                                    $stmt->execute([$event['id_evenement']]);
-                                    $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                                } catch (Exception $e) {
-                                    $categories = [];
-                                }
-
-                                if (empty($categories)):
-                                ?>
+                            <!-- Liste des catégories -->
+                            <div class="space-y-6">
+                                <?php if (empty($categories)): ?>
                                     <div class="text-center py-8">
                                         <i class="fas fa-info-circle text-accent text-3xl mb-3"></i>
                                         <p class="text-light/80">Aucune catégorie avec des jeux nominés pour le moment.</p>
@@ -340,9 +497,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             <!-- Lien vers vote final -->
             <div class="text-center mt-12">
                 <p class="text-light/60 mb-4">Vous avez terminé de voter par catégorie ?</p>
-                <a href="vote-final.php" class="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-accent text-dark font-bold hover:bg-accent/80 transition-colors">
+                <a href="vote-final.php" class="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-purple-500/20 text-purple-400 border border-purple-500/30 font-bold hover:bg-purple-500/30 transition-colors">
                     <i class="fas fa-crown mr-2"></i>
-                    Accéder au vote final (Jeu de l'Année)
+                    Voir le vote final (Jeu de l'Année)
                 </a>
             </div>
         </div>
