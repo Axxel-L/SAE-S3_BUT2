@@ -1,7 +1,9 @@
 <?php
-// ========================================
-// GESTION DES CANDIDATURES - ADMIN
-// ========================================
+/**
+ * GESTION DES CANDIDATS - ADMIN
+ * Permet de valider/refuser les inscriptions de candidats
+ * et de gérer leurs candidatures aux événements
+ */
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -9,401 +11,417 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once 'dbconnect.php';
 
-// ✅ SÉCURITÉ : Vérifier que l'utilisateur est admin
+// Vérifier que l'utilisateur est admin
 if (!isset($_SESSION['id_utilisateur']) || ($_SESSION['type'] ?? '') !== 'admin') {
-    echo "<script>
-        alert('Accès réservé aux administrateurs');
-        window.location.href = 'index.php';
-    </script>";
+    echo "<script>alert('Accès réservé aux administrateurs'); window.location.href = 'index.php';</script>";
     exit;
 }
 
-$id_utilisateur = $_SESSION['id_utilisateur'];
+$id_admin = $_SESSION['id_utilisateur'];
 $error = '';
 $success = '';
-$candidats = [];
-$filter = $_GET['filter'] ?? 'all'; // all, pending, approved, rejected
+$filter = $_GET['filter'] ?? 'all';
 
 // ========================================
-// 1️⃣ RÉCUPÉRER LES CANDIDATS
+// TRAITEMENT DES ACTIONS POST
 // ========================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    $candidat_id = intval($_POST['candidat_id'] ?? 0);
+    
+    if ($candidat_id > 0) {
+        try {
+            switch ($_POST['action']) {
+                // Valider un candidat
+                case 'valider':
+                    $stmt = $connexion->prepare("UPDATE candidat SET statut = 'valide' WHERE id_candidat = ?");
+                    $stmt->execute([$candidat_id]);
+                    $success = "✅ Candidature validée avec succès !";
+                    
+                    // Log
+                    $stmt = $connexion->prepare("INSERT INTO journal_securite (id_utilisateur, action, details, adresse_ip) VALUES (?, 'ADMIN_CANDIDAT_VALIDE', ?, ?)");
+                    $stmt->execute([$id_admin, "Candidat ID: $candidat_id validé", $_SERVER['REMOTE_ADDR'] ?? '']);
+                    break;
+                
+                // Refuser un candidat
+                case 'refuser':
+                    $motif = htmlspecialchars(trim($_POST['motif'] ?? 'Candidature refusée'), ENT_QUOTES, 'UTF-8');
+                    $stmt = $connexion->prepare("UPDATE candidat SET statut = 'refuse' WHERE id_candidat = ?");
+                    $stmt->execute([$candidat_id]);
+                    $success = "❌ Candidature refusée.";
+                    
+                    // Log
+                    $stmt = $connexion->prepare("INSERT INTO journal_securite (id_utilisateur, action, details, adresse_ip) VALUES (?, 'ADMIN_CANDIDAT_REFUSE', ?, ?)");
+                    $stmt->execute([$id_admin, "Candidat ID: $candidat_id refusé - Motif: $motif", $_SERVER['REMOTE_ADDR'] ?? '']);
+                    break;
+                
+                // Remettre en attente
+                case 'attente':
+                    $stmt = $connexion->prepare("UPDATE candidat SET statut = 'en_attente' WHERE id_candidat = ?");
+                    $stmt->execute([$candidat_id]);
+                    $success = "⏳ Candidature remise en attente.";
+                    break;
+                
+                // Supprimer un candidat
+                case 'supprimer':
+                    // Récupérer l'id_utilisateur associé
+                    $stmt = $connexion->prepare("SELECT id_utilisateur FROM candidat WHERE id_candidat = ?");
+                    $stmt->execute([$candidat_id]);
+                    $candidat_data = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if ($candidat_data) {
+                        $connexion->beginTransaction();
+                        
+                        // Supprimer les candidatures aux événements
+                        $stmt = $connexion->prepare("DELETE FROM event_candidat WHERE id_candidat = ?");
+                        $stmt->execute([$candidat_id]);
+                        
+                        // Supprimer le profil candidat
+                        $stmt = $connexion->prepare("DELETE FROM candidat WHERE id_candidat = ?");
+                        $stmt->execute([$candidat_id]);
+                        
+                        // Changer le type de l'utilisateur en joueur (ou supprimer)
+                        $stmt = $connexion->prepare("UPDATE utilisateur SET type = 'joueur' WHERE id_utilisateur = ?");
+                        $stmt->execute([$candidat_data['id_utilisateur']]);
+                        
+                        $connexion->commit();
+                        $success = "🗑️ Candidat supprimé (compte converti en joueur).";
+                        
+                        // Log
+                        $stmt = $connexion->prepare("INSERT INTO journal_securite (id_utilisateur, action, details, adresse_ip) VALUES (?, 'ADMIN_CANDIDAT_DELETE', ?, ?)");
+                        $stmt->execute([$id_admin, "Candidat ID: $candidat_id supprimé", $_SERVER['REMOTE_ADDR'] ?? '']);
+                    }
+                    break;
+            }
+        } catch (Exception $e) {
+            if ($connexion->inTransaction()) {
+                $connexion->rollBack();
+            }
+            $error = "Erreur : " . $e->getMessage();
+        }
+    }
+}
+
+// ========================================
+// RÉCUPÉRER LES CANDIDATS
+// ========================================
+$candidats = [];
+$counts = ['all' => 0, 'en_attente' => 0, 'valide' => 0, 'refuse' => 0];
+
 try {
+    // Compter par statut
+    $stmt = $connexion->query("SELECT statut, COUNT(*) as nb FROM candidat GROUP BY statut");
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $counts[$row['statut']] = $row['nb'];
+        $counts['all'] += $row['nb'];
+    }
+    
+    // Requête principale
     $query = "
         SELECT 
             c.id_candidat,
             c.id_utilisateur,
-            u.email,
             c.nom,
             c.bio,
             c.photo,
-            c.status,
-            c.motivation,
-            j.titre as jeu_titre,
+            c.statut,
             c.date_inscription,
-            COUNT(DISTINCT ec.id_evenement) as events_joined
+            u.email,
+            j.id_jeu,
+            j.titre as jeu_titre,
+            j.image as jeu_image,
+            j.editeur,
+            (SELECT COUNT(*) FROM event_candidat ec WHERE ec.id_candidat = c.id_candidat) as nb_candidatures,
+            (SELECT COUNT(*) FROM commentaire cm WHERE cm.id_jeu = c.id_jeu) as nb_commentaires
         FROM candidat c
         JOIN utilisateur u ON c.id_utilisateur = u.id_utilisateur
         LEFT JOIN jeu j ON c.id_jeu = j.id_jeu
-        LEFT JOIN event_candidat ec ON c.id_candidat = ec.id_candidat
     ";
     
+    $params = [];
     if ($filter !== 'all') {
-        $query .= " WHERE c.status = ?";
+        $query .= " WHERE c.statut = ?";
+        $params[] = $filter;
     }
     
-    $query .= " GROUP BY c.id_candidat ORDER BY c.date_inscription DESC";
+    $query .= " ORDER BY 
+        CASE c.statut 
+            WHEN 'en_attente' THEN 1 
+            WHEN 'valide' THEN 2 
+            WHEN 'refuse' THEN 3 
+        END,
+        c.date_inscription DESC";
     
     $stmt = $connexion->prepare($query);
-    if ($filter !== 'all') {
-        $stmt->execute([$filter]);
-    } else {
-        $stmt->execute();
-    }
+    $stmt->execute($params);
     $candidats = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
 } catch (Exception $e) {
-    $error = "Erreur lors du chargement des candidatures: " . $e->getMessage();
+    $error = "Erreur lors du chargement : " . $e->getMessage();
 }
 
-// ========================================
-// 2️⃣ VALIDER/REJETER UNE CANDIDATURE
-// ========================================
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    
-    // Valider candidature
-    if ($_POST['action'] === 'approve') {
-        $candidat_id = intval($_POST['candidat_id'] ?? 0);
-        
-        if ($candidat_id > 0) {
-            try {
-                $stmt = $connexion->prepare("UPDATE candidat SET status = 'approved' WHERE id_candidat = ?");
-                if ($stmt->execute([$candidat_id])) {
-                    $success = "Candidature validée avec succès ! ✅";
-                    
-                    // Log audit
-                    $log_stmt = $connexion->prepare("
-                        INSERT INTO journal_securite (id_utilisateur, action, details) 
-                        VALUES (?, 'ADMIN_CANDIDAT_APPROVE', ?)
-                    ");
-                    $log_stmt->execute([$id_utilisateur, "Candidat $candidat_id approuvé"]);
-                    
-                    // Rafraîchir
-                    $query = "
-                        SELECT 
-                            c.id_candidat,
-                            c.id_utilisateur,
-                            u.email,
-                            c.nom,
-                            c.bio,
-                            c.photo,
-                            c.status,
-                            c.motivation,
-                            j.titre as jeu_titre,
-                            c.date_inscription,
-                            COUNT(DISTINCT ec.id_evenement) as events_joined
-                        FROM candidat c
-                        JOIN utilisateur u ON c.id_utilisateur = u.id_utilisateur
-                        LEFT JOIN jeu j ON c.id_jeu = j.id_jeu
-                        LEFT JOIN event_candidat ec ON c.id_candidat = ec.id_candidat
-                    ";
-                    
-                    if ($filter !== 'all') {
-                        $query .= " WHERE c.status = ?";
-                    }
-                    
-                    $query .= " GROUP BY c.id_candidat ORDER BY c.date_inscription DESC";
-                    
-                    $stmt = $connexion->prepare($query);
-                    if ($filter !== 'all') {
-                        $stmt->execute([$filter]);
-                    } else {
-                        $stmt->execute();
-                    }
-                    $candidats = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                }
-            } catch (Exception $e) {
-                $error = "Erreur : " . $e->getMessage();
-            }
-        }
-    }
-    
-    // Rejeter candidature
-    elseif ($_POST['action'] === 'reject') {
-        $candidat_id = intval($_POST['candidat_id'] ?? 0);
-        $reason = trim($_POST['reject_reason'] ?? '');
-        
-        if ($candidat_id > 0) {
-            try {
-                $stmt = $connexion->prepare("
-                    UPDATE candidat 
-                    SET status = 'rejected', bio = CONCAT(bio, '\n\n[REJETÉ] ', ?) 
-                    WHERE id_candidat = ?
-                ");
-                if ($stmt->execute([$reason ?: "Candidature rejetée par l'administrateur", $candidat_id])) {
-                    $success = "Candidature rejetée avec succès ! ✅";
-                    
-                    // Log audit
-                    $log_stmt = $connexion->prepare("
-                        INSERT INTO journal_securite (id_utilisateur, action, details) 
-                        VALUES (?, 'ADMIN_CANDIDAT_REJECT', ?)
-                    ");
-                    $log_stmt->execute([$id_utilisateur, "Candidat $candidat_id rejeté: $reason"]);
-                    
-                    // Rafraîchir
-                    $query = "
-                        SELECT 
-                            c.id_candidat,
-                            c.id_utilisateur,
-                            u.email,
-                            c.nom,
-                            c.bio,
-                            c.photo,
-                            c.status,
-                            c.motivation,
-                            j.titre as jeu_titre,
-                            c.date_inscription,
-                            COUNT(DISTINCT ec.id_evenement) as events_joined
-                        FROM candidat c
-                        JOIN utilisateur u ON c.id_utilisateur = u.id_utilisateur
-                        LEFT JOIN jeu j ON c.id_jeu = j.id_jeu
-                        LEFT JOIN event_candidat ec ON c.id_candidat = ec.id_candidat
-                    ";
-                    
-                    if ($filter !== 'all') {
-                        $query .= " WHERE c.status = ?";
-                    }
-                    
-                    $query .= " GROUP BY c.id_candidat ORDER BY c.date_inscription DESC";
-                    
-                    $stmt = $connexion->prepare($query);
-                    if ($filter !== 'all') {
-                        $stmt->execute([$filter]);
-                    } else {
-                        $stmt->execute();
-                    }
-                    $candidats = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                }
-            } catch (Exception $e) {
-                $error = "Erreur : " . $e->getMessage();
-            }
-        }
-    }
-    
-    // Supprimer candidature
-    elseif ($_POST['action'] === 'delete') {
-        $candidat_id = intval($_POST['candidat_id'] ?? 0);
-        
-        if ($candidat_id > 0) {
-            try {
-                $connexion->prepare("DELETE FROM event_candidat WHERE id_candidat = ?")->execute([$candidat_id]);
-                $stmt = $connexion->prepare("DELETE FROM candidat WHERE id_candidat = ?");
-                if ($stmt->execute([$candidat_id])) {
-                    $success = "Candidature supprimée avec succès ! ✅";
-                    
-                    // Log audit
-                    $log_stmt = $connexion->prepare("
-                        INSERT INTO journal_securite (id_utilisateur, action, details) 
-                        VALUES (?, 'ADMIN_CANDIDAT_DELETE', ?)
-                    ");
-                    $log_stmt->execute([$id_utilisateur, "Candidat $candidat_id supprimé"]);
-                    
-                    // Rafraîchir
-                    $query = "
-                        SELECT 
-                            c.id_candidat,
-                            c.id_utilisateur,
-                            u.email,
-                            c.nom,
-                            c.bio,
-                            c.photo,
-                            c.status,
-                            c.motivation,
-                            j.titre as jeu_titre,
-                            c.date_inscription,
-                            COUNT(DISTINCT ec.id_evenement) as events_joined
-                        FROM candidat c
-                        JOIN utilisateur u ON c.id_utilisateur = u.id_utilisateur
-                        LEFT JOIN jeu j ON c.id_jeu = j.id_jeu
-                        LEFT JOIN event_candidat ec ON c.id_candidat = ec.id_candidat
-                    ";
-                    
-                    if ($filter !== 'all') {
-                        $query .= " WHERE c.status = ?";
-                    }
-                    
-                    $query .= " GROUP BY c.id_candidat ORDER BY c.date_inscription DESC";
-                    
-                    $stmt = $connexion->prepare($query);
-                    if ($filter !== 'all') {
-                        $stmt->execute([$filter]);
-                    } else {
-                        $stmt->execute();
-                    }
-                    $candidats = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                }
-            } catch (Exception $e) {
-                $error = "Erreur : " . $e->getMessage();
-            }
-        }
-    }
-}
+// Configuration des statuts
+$statut_config = [
+    'en_attente' => ['label' => 'En attente', 'color' => 'yellow', 'icon' => 'fa-clock', 'bg' => 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'],
+    'valide' => ['label' => 'Validé', 'color' => 'green', 'icon' => 'fa-check-circle', 'bg' => 'bg-green-500/20 text-green-400 border-green-500/30'],
+    'refuse' => ['label' => 'Refusé', 'color' => 'red', 'icon' => 'fa-times-circle', 'bg' => 'bg-red-500/20 text-red-400 border-red-500/30']
+];
 
 require_once 'header.php';
 ?>
 
-<section class="py-20 px-6">
+<section class="py-20 px-6 min-h-screen">
     <div class="container mx-auto max-w-7xl">
-        <!-- En-tête -->
-        <div class="mb-12">
-            <h1 class="text-5xl md:text-6xl font-bold font-orbitron mb-4">
-                <i class="fas fa-star text-accent mr-3"></i>Gestion des Candidatures
+        
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold font-orbitron mb-2">
+                <i class="fas fa-user-check text-accent mr-3"></i>Gestion des Candidats
             </h1>
-            <p class="text-xl text-light-80">Validez ou rejetez les candidatures des participants</p>
+            <p class="text-light/60">Validez ou refusez les inscriptions des candidats</p>
         </div>
-
+        
         <!-- Messages -->
         <?php if ($error): ?>
-            <div class="mb-8 p-4 rounded-2xl bg-red-50010 border border-red-50030 flex items-center gap-3">
+            <div class="mb-6 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
                 <i class="fas fa-exclamation-circle text-red-400"></i>
-                <span class="text-red-400"><?php echo htmlspecialchars($error); ?></span>
+                <span class="text-red-400"><?php echo $error; ?></span>
             </div>
         <?php endif; ?>
         
         <?php if ($success): ?>
-            <div class="mb-8 p-4 rounded-2xl bg-green-50010 border border-green-50030 flex items-center gap-3">
+            <div class="mb-6 p-4 rounded-2xl bg-green-500/10 border border-green-500/30 flex items-center gap-3">
                 <i class="fas fa-check-circle text-green-400"></i>
-                <span class="text-green-400"><?php echo htmlspecialchars($success); ?></span>
+                <span class="text-green-400"><?php echo $success; ?></span>
             </div>
         <?php endif; ?>
-
+        
         <!-- Filtres -->
-        <div class="flex gap-2 mb-8 flex-wrap">
-            <a href="?filter=all" class="btn <?php echo $filter === 'all' ? 'btn--primary' : 'btn--secondary'; ?>">
-                <i class="fas fa-list mr-2"></i> Tous (<?php 
-                    $all_count = $connexion->query("SELECT COUNT(*) FROM candidat")->fetch()[0];
-                    echo $all_count;
-                ?>)
-            </a>
-            <a href="?filter=pending" class="btn <?php echo $filter === 'pending' ? 'btn--primary' : 'btn--secondary'; ?>">
-                <i class="fas fa-hourglass-start mr-2"></i> En attente (<?php 
-                    $pending_count = $connexion->query("SELECT COUNT(*) FROM candidat WHERE status = 'pending'")->fetch()[0];
-                    echo $pending_count;
-                ?>)
-            </a>
-            <a href="?filter=approved" class="btn <?php echo $filter === 'approved' ? 'btn--primary' : 'btn--secondary'; ?>">
-                <i class="fas fa-check-circle text-green-400 mr-2"></i> Approuvés (<?php 
-                    $approved_count = $connexion->query("SELECT COUNT(*) FROM candidat WHERE status = 'approved'")->fetch()[0];
-                    echo $approved_count;
-                ?>)
-            </a>
-            <a href="?filter=rejected" class="btn <?php echo $filter === 'rejected' ? 'btn--primary' : 'btn--secondary'; ?>">
-                <i class="fas fa-times-circle text-red-400 mr-2"></i> Rejetés (<?php 
-                    $rejected_count = $connexion->query("SELECT COUNT(*) FROM candidat WHERE status = 'rejected'")->fetch()[0];
-                    echo $rejected_count;
-                ?>)
-            </a>
+        <div class="glass-card rounded-2xl p-4 modern-border mb-8">
+            <div class="flex flex-wrap gap-3">
+                <a href="?filter=all" 
+                   class="px-4 py-2 rounded-xl border transition-all flex items-center gap-2 <?php echo $filter === 'all' ? 'bg-accent text-dark border-accent font-bold' : 'bg-white/5 border-white/10 hover:border-accent/50'; ?>">
+                    <i class="fas fa-list"></i>
+                    <span>Tous</span>
+                    <span class="px-2 py-0.5 rounded-full bg-white/20 text-xs"><?php echo $counts['all']; ?></span>
+                </a>
+                <a href="?filter=en_attente" 
+                   class="px-4 py-2 rounded-xl border transition-all flex items-center gap-2 <?php echo $filter === 'en_attente' ? 'bg-yellow-500 text-dark border-yellow-500 font-bold' : 'bg-white/5 border-white/10 hover:border-yellow-500/50'; ?>">
+                    <i class="fas fa-clock"></i>
+                    <span>En attente</span>
+                    <span class="px-2 py-0.5 rounded-full <?php echo $filter === 'en_attente' ? 'bg-white/30' : 'bg-yellow-500/30 text-yellow-400'; ?> text-xs"><?php echo $counts['en_attente']; ?></span>
+                </a>
+                <a href="?filter=valide" 
+                   class="px-4 py-2 rounded-xl border transition-all flex items-center gap-2 <?php echo $filter === 'valide' ? 'bg-green-500 text-dark border-green-500 font-bold' : 'bg-white/5 border-white/10 hover:border-green-500/50'; ?>">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Validés</span>
+                    <span class="px-2 py-0.5 rounded-full <?php echo $filter === 'valide' ? 'bg-white/30' : 'bg-green-500/30 text-green-400'; ?> text-xs"><?php echo $counts['valide']; ?></span>
+                </a>
+                <a href="?filter=refuse" 
+                   class="px-4 py-2 rounded-xl border transition-all flex items-center gap-2 <?php echo $filter === 'refuse' ? 'bg-red-500 text-white border-red-500 font-bold' : 'bg-white/5 border-white/10 hover:border-red-500/50'; ?>">
+                    <i class="fas fa-times-circle"></i>
+                    <span>Refusés</span>
+                    <span class="px-2 py-0.5 rounded-full <?php echo $filter === 'refuse' ? 'bg-white/30' : 'bg-red-500/30 text-red-400'; ?> text-xs"><?php echo $counts['refuse']; ?></span>
+                </a>
+            </div>
         </div>
-
-        <!-- Liste candidats -->
+        
+        <!-- Liste des candidats -->
         <?php if (empty($candidats)): ?>
-            <div class="glass-card rounded-4xl p-12 modern-border text-center">
-                <i class="fas fa-inbox text-6xl text-light-80 mb-4"></i>
-                <p class="text-light-80 text-lg">Aucune candidature trouvée.</p>
+            <div class="glass-card rounded-3xl p-12 modern-border text-center">
+                <i class="fas fa-inbox text-5xl text-light/30 mb-4"></i>
+                <p class="text-light/60 text-lg">Aucun candidat trouvé.</p>
             </div>
         <?php else: ?>
             <div class="space-y-6">
-                <?php foreach ($candidats as $candidat): ?>
-                    <?php 
-                    $status_badge = $candidat['status'] === 'approved' ? 'bg-green-50020 text-green-400 border-green-50030'
-                                  : ($candidat['status'] === 'rejected' ? 'bg-red-50020 text-red-400 border-red-50030'
-                                  : 'bg-yellow-50020 text-yellow-400 border-yellow-50030');
-                    $status_icon = $candidat['status'] === 'approved' ? 'fa-check-circle'
-                                 : ($candidat['status'] === 'rejected' ? 'fa-times-circle'
-                                 : 'fa-hourglass-start');
-                    ?>
-                    <div class="glass-card rounded-3xl p-6 modern-border">
-                        <div class="flex items-start justify-between mb-4 pb-4 border-b border-white10">
-                            <div class="flex-1">
-                                <div class="flex items-center gap-3 mb-2">
-                                    <h3 class="text-xl font-bold text-light"><?php echo htmlspecialchars($candidat['nom']); ?></h3>
-                                    <span class="status <?php echo $status_badge; ?> border">
-                                        <i class="fas <?php echo $status_icon; ?> mr-1"></i>
-                                        <?php echo ucfirst($candidat['status']); ?>
-                                    </span>
-                                </div>
-                                <p class="text-light-80">
-                                    <i class="fas fa-envelope mr-1"></i> <?php echo htmlspecialchars($candidat['email']); ?>
-                                </p>
-                                <?php if ($candidat['jeu_titre']): ?>
-                                    <p class="text-light-80">
-                                        <i class="fas fa-gamepad mr-1"></i> Jeu: <?php echo htmlspecialchars($candidat['jeu_titre']); ?>
-                                    </p>
+                <?php foreach ($candidats as $candidat): 
+                    $statut = $statut_config[$candidat['statut']] ?? $statut_config['en_attente'];
+                ?>
+                    <div class="glass-card rounded-3xl p-6 modern-border <?php echo $candidat['statut'] === 'en_attente' ? 'border-yellow-500/50' : ''; ?>">
+                        
+                        <!-- Header candidat -->
+                        <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-4 pb-4 border-b border-white/10">
+                            <div class="flex items-start gap-4">
+                                <!-- Photo -->
+                                <?php if (!empty($candidat['photo'])): ?>
+                                    <img src="<?php echo htmlspecialchars($candidat['photo']); ?>" 
+                                         alt="<?php echo htmlspecialchars($candidat['nom']); ?>"
+                                         class="w-16 h-16 rounded-2xl object-cover border border-white/10">
+                                <?php else: ?>
+                                    <div class="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10">
+                                        <i class="fas fa-user text-2xl text-light/30"></i>
+                                    </div>
                                 <?php endif; ?>
-                                <p class="text-sm text-light-80 mt-2">
-                                    <i class="fas fa-calendar mr-1"></i> Inscrit le <?php echo date('d/m/Y', strtotime($candidat['date_inscription'])); ?>
-                                    <i class="fas fa-check ml-3 mr-1"></i> <?php echo $candidat['events_joined']; ?> événement(s)
-                                </p>
+                                
+                                <div>
+                                    <div class="flex items-center gap-3 mb-1">
+                                        <h3 class="text-xl font-bold text-light"><?php echo htmlspecialchars($candidat['nom']); ?></h3>
+                                        <span class="px-3 py-1 rounded-full text-xs font-medium border <?php echo $statut['bg']; ?>">
+                                            <i class="fas <?php echo $statut['icon']; ?> mr-1"></i>
+                                            <?php echo $statut['label']; ?>
+                                        </span>
+                                    </div>
+                                    <p class="text-light/60 text-sm">
+                                        <i class="fas fa-envelope mr-1"></i><?php echo htmlspecialchars($candidat['email']); ?>
+                                    </p>
+                                    <p class="text-light/40 text-xs mt-1">
+                                        <i class="fas fa-calendar mr-1"></i>Inscrit le <?php echo date('d/m/Y à H:i', strtotime($candidat['date_inscription'])); ?>
+                                    </p>
+                                </div>
                             </div>
-                            <?php if ($candidat['photo']): ?>
-                                <img src="<?php echo htmlspecialchars($candidat['photo']); ?>" alt="Photo" class="w-20 h-20 rounded-lg object-cover">
-                            <?php endif; ?>
+                            
+                            <!-- Stats rapides -->
+                            <div class="flex gap-4 text-center">
+                                <div class="px-4 py-2 rounded-xl bg-white/5">
+                                    <div class="text-lg font-bold text-accent"><?php echo $candidat['nb_candidatures']; ?></div>
+                                    <div class="text-xs text-light/60">Événements</div>
+                                </div>
+                                <div class="px-4 py-2 rounded-xl bg-white/5">
+                                    <div class="text-lg font-bold text-purple-400"><?php echo $candidat['nb_commentaires']; ?></div>
+                                    <div class="text-xs text-light/60">Commentaires</div>
+                                </div>
+                            </div>
                         </div>
-
-                        <!-- Bio -->
-                        <?php if ($candidat['bio']): ?>
-                            <div class="mb-4 pb-4 border-b border-white10">
-                                <p class="text-sm font-bold text-accent mb-2">Biographie:</p>
-                                <p class="text-light-80 text-sm"><?php echo nl2br(htmlspecialchars($candidat['bio'])); ?></p>
+                        
+                        <!-- Infos jeu -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                            <!-- Jeu représenté -->
+                            <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
+                                <h4 class="text-sm font-bold text-accent mb-3">
+                                    <i class="fas fa-gamepad mr-1"></i>Jeu représenté
+                                </h4>
+                                <?php if (!empty($candidat['jeu_titre'])): ?>
+                                    <div class="flex items-center gap-3">
+                                        <?php if (!empty($candidat['jeu_image'])): ?>
+                                            <img src="<?php echo htmlspecialchars($candidat['jeu_image']); ?>" 
+                                                 alt="<?php echo htmlspecialchars($candidat['jeu_titre']); ?>"
+                                                 class="w-12 h-12 rounded-lg object-cover">
+                                        <?php endif; ?>
+                                        <div>
+                                            <p class="text-light font-medium"><?php echo htmlspecialchars($candidat['jeu_titre']); ?></p>
+                                            <?php if (!empty($candidat['editeur'])): ?>
+                                                <p class="text-light/60 text-xs"><?php echo htmlspecialchars($candidat['editeur']); ?></p>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                <?php else: ?>
+                                    <p class="text-light/40 italic">Aucun jeu sélectionné</p>
+                                <?php endif; ?>
                             </div>
-                        <?php endif; ?>
-
-                        <!-- Motivation -->
-                        <?php if ($candidat['motivation']): ?>
-                            <div class="mb-4 pb-4 border-b border-white10">
-                                <p class="text-sm font-bold text-accent mb-2">Motivation:</p>
-                                <p class="text-light-80 text-sm"><?php echo nl2br(htmlspecialchars($candidat['motivation'])); ?></p>
+                            
+                            <!-- Bio -->
+                            <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
+                                <h4 class="text-sm font-bold text-accent mb-3">
+                                    <i class="fas fa-align-left mr-1"></i>Biographie
+                                </h4>
+                                <?php if (!empty($candidat['bio'])): ?>
+                                    <p class="text-light/80 text-sm line-clamp-3"><?php echo nl2br(htmlspecialchars($candidat['bio'])); ?></p>
+                                <?php else: ?>
+                                    <p class="text-light/40 italic text-sm">Aucune biographie</p>
+                                <?php endif; ?>
                             </div>
-                        <?php endif; ?>
-
+                        </div>
+                        
                         <!-- Actions -->
-                        <div class="flex gap-3 flex-wrap">
-                            <?php if ($candidat['status'] === 'pending'): ?>
-                                <form method="POST" class="flex-1" style="display: inline; min-width: 150px;">
-                                    <input type="hidden" name="action" value="approve">
+                        <div class="flex flex-wrap gap-3 pt-4 border-t border-white/10">
+                            <?php if ($candidat['statut'] === 'en_attente'): ?>
+                                <!-- Valider -->
+                                <form method="POST" class="inline">
+                                    <input type="hidden" name="action" value="valider">
                                     <input type="hidden" name="candidat_id" value="<?php echo $candidat['id_candidat']; ?>">
-                                    <button type="submit" class="w-full btn btn--primary btn--sm" onclick="return confirm('Valider cette candidature ?');">
-                                        <i class="fas fa-check mr-1"></i> Valider
+                                    <button type="submit" 
+                                            onclick="return confirm('Valider cette candidature ?')"
+                                            class="px-4 py-2 rounded-xl bg-green-500 text-white font-medium hover:bg-green-600 transition-colors flex items-center gap-2">
+                                        <i class="fas fa-check"></i> Valider
                                     </button>
                                 </form>
-
-                                <button type="button" class="flex-1 btn btn--secondary btn--sm" onclick="document.getElementById('reject-form-<?php echo $candidat['id_candidat']; ?>').style.display = 'block'; this.style.display = 'none';" style="min-width: 150px;">
-                                    <i class="fas fa-times mr-1"></i> Rejeter
+                                
+                                <!-- Refuser -->
+                                <button type="button" 
+                                        onclick="document.getElementById('refus-<?php echo $candidat['id_candidat']; ?>').classList.toggle('hidden')"
+                                        class="px-4 py-2 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 font-medium hover:bg-red-500/30 transition-colors flex items-center gap-2">
+                                    <i class="fas fa-times"></i> Refuser
                                 </button>
-
-                                <form method="POST" id="reject-form-<?php echo $candidat['id_candidat']; ?>" style="display: none; width: 100%;" class="mt-3">
-                                    <input type="hidden" name="action" value="reject">
+                                
+                                <!-- Formulaire refus (caché) -->
+                                <div id="refus-<?php echo $candidat['id_candidat']; ?>" class="hidden w-full mt-3">
+                                    <form method="POST" class="p-4 rounded-xl bg-red-500/10 border border-red-500/30">
+                                        <input type="hidden" name="action" value="refuser">
+                                        <input type="hidden" name="candidat_id" value="<?php echo $candidat['id_candidat']; ?>">
+                                        <label class="block text-sm text-light/80 mb-2">Motif du refus (optionnel) :</label>
+                                        <textarea name="motif" rows="2" 
+                                                  class="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-light mb-3 resize-none"
+                                                  placeholder="Ex: Jeu non éligible, informations incomplètes..."></textarea>
+                                        <div class="flex gap-2">
+                                            <button type="submit" 
+                                                    onclick="return confirm('Confirmer le refus ?')"
+                                                    class="px-4 py-2 rounded-lg bg-red-500 text-white font-medium hover:bg-red-600 transition-colors">
+                                                <i class="fas fa-check mr-1"></i> Confirmer le refus
+                                            </button>
+                                            <button type="button" 
+                                                    onclick="document.getElementById('refus-<?php echo $candidat['id_candidat']; ?>').classList.add('hidden')"
+                                                    class="px-4 py-2 rounded-lg bg-white/10 text-light hover:bg-white/20 transition-colors">
+                                                Annuler
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                                
+                            <?php elseif ($candidat['statut'] === 'valide'): ?>
+                                <!-- Remettre en attente -->
+                                <form method="POST" class="inline">
+                                    <input type="hidden" name="action" value="attente">
                                     <input type="hidden" name="candidat_id" value="<?php echo $candidat['id_candidat']; ?>">
-                                    <textarea name="reject_reason" class="form-control mb-2" placeholder="Motif du rejet..." rows="2"></textarea>
-                                    <div class="flex gap-2">
-                                        <button type="submit" class="flex-1 btn btn--primary btn--sm" onclick="return confirm('Confirmer le rejet ?');">
-                                            <i class="fas fa-send mr-1"></i> Rejeter
-                                        </button>
-                                        <button type="button" class="flex-1 btn btn--secondary btn--sm" onclick="document.getElementById('reject-form-<?php echo $candidat['id_candidat']; ?>').style.display = 'none';">
-                                            Annuler
-                                        </button>
-                                    </div>
+                                    <button type="submit" 
+                                            onclick="return confirm('Remettre en attente ?')"
+                                            class="px-4 py-2 rounded-xl bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 font-medium hover:bg-yellow-500/30 transition-colors flex items-center gap-2">
+                                        <i class="fas fa-clock"></i> Remettre en attente
+                                    </button>
+                                </form>
+                                
+                            <?php elseif ($candidat['statut'] === 'refuse'): ?>
+                                <!-- Revalider -->
+                                <form method="POST" class="inline">
+                                    <input type="hidden" name="action" value="valider">
+                                    <input type="hidden" name="candidat_id" value="<?php echo $candidat['id_candidat']; ?>">
+                                    <button type="submit" 
+                                            onclick="return confirm('Valider cette candidature ?')"
+                                            class="px-4 py-2 rounded-xl bg-green-500/20 text-green-400 border border-green-500/30 font-medium hover:bg-green-500/30 transition-colors flex items-center gap-2">
+                                        <i class="fas fa-undo"></i> Revalider
+                                    </button>
                                 </form>
                             <?php endif; ?>
-
-                            <form method="POST" style="display: inline;">
-                                <input type="hidden" name="action" value="delete">
+                            
+                            <!-- Supprimer (toujours disponible) -->
+                            <form method="POST" class="inline ml-auto">
+                                <input type="hidden" name="action" value="supprimer">
                                 <input type="hidden" name="candidat_id" value="<?php echo $candidat['id_candidat']; ?>">
-                                <button type="submit" class="btn btn--sm bg-red-50020 text-red-400 border border-red-50030 hover:bg-red-50030" onclick="return confirm('Supprimer cette candidature ? Cette action est irréversible !');"><i class="fas fa-trash mr-1"></i> Supprimer</button>
+                                <button type="submit" 
+                                        onclick="return confirm('⚠️ ATTENTION : Supprimer définitivement ce candidat ?\n\nLe compte sera converti en joueur.')"
+                                        class="px-4 py-2 rounded-xl bg-white/5 text-red-400 border border-white/10 hover:bg-red-500/10 hover:border-red-500/30 transition-colors flex items-center gap-2">
+                                    <i class="fas fa-trash"></i> Supprimer
+                                </button>
                             </form>
                         </div>
                     </div>
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
+        
+        <!-- Info -->
+        <div class="mt-8 p-4 rounded-2xl bg-accent/10 border border-accent/30">
+            <div class="flex items-start gap-3">
+                <i class="fas fa-info-circle text-accent mt-0.5"></i>
+                <div class="text-sm text-light/80">
+                    <p class="font-bold text-accent mb-1">À propos de la validation</p>
+                    <ul class="space-y-1 text-light/60">
+                        <li>• <strong>En attente</strong> : Le candidat ne peut pas se connecter tant que sa candidature n'est pas validée</li>
+                        <li>• <strong>Validé</strong> : Le candidat peut se connecter et gérer sa campagne</li>
+                        <li>• <strong>Refusé</strong> : Le candidat ne peut pas se connecter</li>
+                        <li>• <strong>Supprimer</strong> : Le compte est converti en compte joueur standard</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
     </div>
 </section>
 
