@@ -137,6 +137,11 @@ $usertype = $_SESSION['type'] ?? '';
                         <i class="fas fa-calendar-alt text-accent"></i>
                         <span>Événements</span>
                     </a>
+
+                    <a href="salon-jeux.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                        <i class="fas fa-calendar-alt text-accent"></i>
+                        <span>Salon des jeux</span>
+                    </a>
                 
                     <a href="vote.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
                         <i class="fas fa-vote-yea text-accent"></i>
@@ -268,6 +273,11 @@ $usertype = $_SESSION['type'] ?? '';
                     <a href="joueur-events.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
                         <i class="fas fa-calendar-alt text-accent"></i>
                         <span>Événements</span>
+                    </a>
+
+                    <a href="salon-jeux.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+                        <i class="fas fa-calendar-alt text-accent"></i>
+                        <span>Salon des jeux</span>
                     </a>
 
                     <a href="vote.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Hôte : 127.0.0.1:3306
--- Généré le : jeu. 11 déc. 2025 à 11:51
+-- Généré le : jeu. 11 déc. 2025 à 11:53
 -- Version du serveur : 9.1.0
 -- Version de PHP : 8.3.14
 
@@ -588,24 +588,26 @@ CREATE TABLE IF NOT EXISTS `utilisateur` (
   `is_active` tinyint(1) DEFAULT '1',
   `last_login` datetime DEFAULT NULL,
   `is_banned` tinyint(1) DEFAULT '0',
+  `pseudo` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Pseudonyme affiché publiquement',
   PRIMARY KEY (`id_utilisateur`),
   UNIQUE KEY `email` (`email`),
   KEY `idx_email` (`email`),
-  KEY `idx_type` (`type`)
+  KEY `idx_type` (`type`),
+  KEY `idx_utilisateur_pseudo` (`pseudo`)
 ) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `utilisateur`
 --
 
-INSERT INTO `utilisateur` (`id_utilisateur`, `email`, `mot_de_passe`, `date_inscription`, `type`, `salt`, `is_active`, `last_login`, `is_banned`) VALUES
-(7, 'joueur@gmail.com', '060e66eaea04d5a2d341b88fa528f43046c17ad10e87d17d368bba866ee2417f', '2025-11-28', 'joueur', '4a0af2da25573f8331acd0935f98b62a', 1, NULL, 0),
-(8, 'admin@gmail.com', '156db2432c7b76e5f52baf1de004bedde825fb8f5e5bbc959d6b502760dd4388', '2025-11-28', 'admin', '72b2a54a9d629df77a7900b5e3d1ed29', 1, NULL, 0),
-(9, 'candidat@gmail.com', 'a147de687146bd9e5dc97c97fb5e9d7e6cd6e98b3dc7780b046dcce4cdb692bf', '2025-11-28', 'candidat', 'd3faad88d5f5162a1bfb533ee9ffbda1', 1, NULL, 0),
-(10, 'Test123_@gmail.com', '1c3ee693d6620f9f76603ae44265498849423e1f70d81de49da4367c3aa1b9d3', '2025-12-01', 'candidat', '710f23669962bf8b4999fcecab73fd72', 1, NULL, 0),
-(11, 'Test1234_@gmail.com', '06a485700038dc926dd1577cd2180990da0b689d9264225464c1a26cc31a1b51', '2025-12-01', 'candidat', 'ee42c630f88136e738be16ec1ed532b7', 1, NULL, 0),
-(12, 'joueur2@gmail.com', '8351c3cb020816a8afb090e2f1e9f87e2a15854de04db8f23a524275a0e1e1d0', '2025-12-09', 'joueur', 'bde3d4163b97007c1d9e5427e7d02336', 1, NULL, 0),
-(13, 'candidat2@gmail.com', '1a9bc389e802bd87b76952667b3d2eabe0071998aad11583af9a140061dc51d0', '2025-12-11', 'candidat', '730f0e28ad99035078156e24481b4e86', 1, NULL, 0);
+INSERT INTO `utilisateur` (`id_utilisateur`, `email`, `mot_de_passe`, `date_inscription`, `type`, `salt`, `is_active`, `last_login`, `is_banned`, `pseudo`) VALUES
+(7, 'joueur@gmail.com', '060e66eaea04d5a2d341b88fa528f43046c17ad10e87d17d368bba866ee2417f', '2025-11-28', 'joueur', '4a0af2da25573f8331acd0935f98b62a', 1, NULL, 0, 'Joueur_7'),
+(8, 'admin@gmail.com', '156db2432c7b76e5f52baf1de004bedde825fb8f5e5bbc959d6b502760dd4388', '2025-11-28', 'admin', '72b2a54a9d629df77a7900b5e3d1ed29', 1, NULL, 0, 'Admin_8'),
+(9, 'candidat@gmail.com', 'a147de687146bd9e5dc97c97fb5e9d7e6cd6e98b3dc7780b046dcce4cdb692bf', '2025-11-28', 'candidat', 'd3faad88d5f5162a1bfb533ee9ffbda1', 1, NULL, 0, NULL),
+(10, 'Test123_@gmail.com', '1c3ee693d6620f9f76603ae44265498849423e1f70d81de49da4367c3aa1b9d3', '2025-12-01', 'candidat', '710f23669962bf8b4999fcecab73fd72', 1, NULL, 0, 'Jean Marc'),
+(11, 'Test1234_@gmail.com', '06a485700038dc926dd1577cd2180990da0b689d9264225464c1a26cc31a1b51', '2025-12-01', 'candidat', 'ee42c630f88136e738be16ec1ed532b7', 1, NULL, 0, 'Abdel-Malek'),
+(12, 'joueur2@gmail.com', '8351c3cb020816a8afb090e2f1e9f87e2a15854de04db8f23a524275a0e1e1d0', '2025-12-09', 'joueur', 'bde3d4163b97007c1d9e5427e7d02336', 1, NULL, 0, 'Joueur_12'),
+(13, 'candidat2@gmail.com', '1a9bc389e802bd87b76952667b3d2eabe0071998aad11583af9a140061dc51d0', '2025-12-11', 'candidat', '730f0e28ad99035078156e24481b4e86', 1, NULL, 0, 'Misange Déchu');
 
 -- --------------------------------------------------------
 
