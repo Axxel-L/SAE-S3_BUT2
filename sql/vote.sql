@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Hôte : 127.0.0.1:3306
--- Généré le : mar. 09 déc. 2025 à 09:47
+-- Généré le : jeu. 11 déc. 2025 à 06:42
 -- Version du serveur : 9.1.0
 -- Version de PHP : 8.3.14
 
@@ -20,6 +20,51 @@ SET time_zone = "+00:00";
 --
 -- Base de données : `vote`
 --
+
+DELIMITER $$
+--
+-- Procédures
+--
+DROP PROCEDURE IF EXISTS `update_event_statuts`$$
+CREATE DEFINER=`root`@`localhost` PROCEDURE `update_event_statuts` ()   BEGIN
+    -- Passer en ouvert_categories si la date d'ouverture est atteinte
+    UPDATE evenement 
+    SET statut = 'ouvert_categories'
+    WHERE statut = 'preparation' 
+    AND NOW() >= date_ouverture 
+    AND NOW() < date_fermeture;
+    
+    -- Passer en ferme_categories si la date de fermeture catégories est atteinte
+    UPDATE evenement 
+    SET statut = 'ferme_categories'
+    WHERE statut = 'ouvert_categories' 
+    AND NOW() >= date_fermeture 
+    AND (date_debut_vote_final IS NULL OR NOW() < date_debut_vote_final);
+    
+    -- Passer en ouvert_final si la date de début du vote final est atteinte
+    UPDATE evenement 
+    SET statut = 'ouvert_final'
+    WHERE statut IN ('ouvert_categories', 'ferme_categories')
+    AND date_debut_vote_final IS NOT NULL
+    AND NOW() >= date_debut_vote_final 
+    AND NOW() < date_fermeture_vote_final;
+    
+    -- Passer en cloture si la date de clôture finale est atteinte
+    UPDATE evenement 
+    SET statut = 'cloture'
+    WHERE statut IN ('ouvert_categories', 'ferme_categories', 'ouvert_final')
+    AND date_fermeture_vote_final IS NOT NULL
+    AND NOW() >= date_fermeture_vote_final;
+    
+    -- Cas où il n'y a pas de vote final défini : clôturer après les catégories
+    UPDATE evenement 
+    SET statut = 'cloture'
+    WHERE statut = 'ferme_categories'
+    AND date_debut_vote_final IS NULL
+    AND NOW() >= DATE_ADD(date_fermeture, INTERVAL 1 DAY);
+END$$
+
+DELIMITER ;
 
 -- --------------------------------------------------------
 
@@ -216,7 +261,9 @@ CREATE TABLE IF NOT EXISTS `evenement` (
   `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `date_ouverture` datetime NOT NULL,
   `date_fermeture` datetime NOT NULL,
-  `statut` enum('preparation','ouvert','cloture') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'preparation',
+  `date_debut_vote_final` datetime DEFAULT NULL COMMENT 'Date de début du vote final',
+  `date_fermeture_vote_final` datetime DEFAULT NULL COMMENT 'Date de clôture définitive du vote final',
+  `statut` enum('preparation','ouvert_categories','ferme_categories','ouvert_final','cloture') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'preparation',
   `nb_max_candidats` int DEFAULT '0',
   PRIMARY KEY (`id_evenement`),
   KEY `idx_statut` (`statut`),
@@ -227,9 +274,9 @@ CREATE TABLE IF NOT EXISTS `evenement` (
 -- Déchargement des données de la table `evenement`
 --
 
-INSERT INTO `evenement` (`id_evenement`, `nom`, `description`, `date_ouverture`, `date_fermeture`, `statut`, `nb_max_candidats`) VALUES
-(9, 'Abdel-Malek', '', '2025-12-09 10:25:00', '2025-12-09 10:35:00', 'cloture', 0),
-(10, 'Test', '', '2025-12-09 14:28:00', '2025-12-09 16:28:00', 'preparation', 0);
+INSERT INTO `evenement` (`id_evenement`, `nom`, `description`, `date_ouverture`, `date_fermeture`, `date_debut_vote_final`, `date_fermeture_vote_final`, `statut`, `nb_max_candidats`) VALUES
+(9, 'Abdel-Malek', '', '2025-12-09 10:25:00', '2025-12-09 10:35:00', '2025-12-10 10:35:00', '2025-12-17 10:35:00', 'cloture', 0),
+(10, 'Test', '', '2025-12-09 14:28:00', '2025-12-09 16:28:00', '2025-12-10 16:28:00', '2025-12-17 16:28:00', 'cloture', 0);
 
 -- --------------------------------------------------------
 
@@ -243,8 +290,8 @@ CREATE TABLE IF NOT EXISTS `event_candidat` (
   `id_evenement` int NOT NULL,
   `id_candidat` int NOT NULL,
   `id_categorie` int DEFAULT NULL,
-  `statut_candidature` enum('en_attente','approuve','refuse') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'en_attente',
-  `motif_refus` text COLLATE utf8mb4_unicode_ci,
+  `statut_candidature` enum('en_attente','approuve','refuse') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'en_attente',
+  `motif_refus` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `date_validation` datetime DEFAULT NULL,
   `valide_par` int DEFAULT NULL,
   `date_inscription` datetime DEFAULT CURRENT_TIMESTAMP,
@@ -484,15 +531,15 @@ INSERT INTO `utilisateur` (`id_utilisateur`, `email`, `mot_de_passe`, `date_insc
 --
 DROP VIEW IF EXISTS `v_candidats_stats`;
 CREATE TABLE IF NOT EXISTS `v_candidats_stats` (
-`bio` text
-,`date_inscription` datetime
-,`email` varchar(255)
-,`id_candidat` int
+`id_candidat` int
 ,`id_utilisateur` int
+,`email` varchar(255)
 ,`jeu_titre` varchar(255)
-,`nb_commentaires` bigint
-,`nb_contenus` bigint
+,`bio` text
 ,`photo` varchar(500)
+,`date_inscription` datetime
+,`nb_contenus` bigint
+,`nb_commentaires` bigint
 );
 
 -- --------------------------------------------------------
@@ -503,22 +550,22 @@ CREATE TABLE IF NOT EXISTS `v_candidats_stats` (
 --
 DROP VIEW IF EXISTS `v_candidatures_details`;
 CREATE TABLE IF NOT EXISTS `v_candidatures_details` (
-`candidat_email` varchar(255)
-,`candidat_nom` varchar(255)
+`id_event_candidat` int
+,`id_evenement` int
+,`evenement_nom` varchar(255)
+,`evenement_statut` enum('preparation','ouvert_categories','ferme_categories','ouvert_final','cloture')
+,`id_categorie` int
 ,`categorie_nom` varchar(255)
+,`id_candidat` int
+,`candidat_nom` varchar(255)
+,`id_jeu` int
+,`jeu_titre` varchar(255)
+,`jeu_image` varchar(500)
+,`candidat_email` varchar(255)
+,`statut_candidature` enum('en_attente','approuve','refuse')
 ,`date_inscription` datetime
 ,`date_validation` datetime
-,`evenement_nom` varchar(255)
-,`evenement_statut` enum('preparation','ouvert','cloture')
-,`id_candidat` int
-,`id_categorie` int
-,`id_evenement` int
-,`id_event_candidat` int
-,`id_jeu` int
-,`jeu_image` varchar(500)
-,`jeu_titre` varchar(255)
 ,`motif_refus` text
-,`statut_candidature` enum('en_attente','approuve','refuse')
 ,`valide_par_email` varchar(255)
 );
 
@@ -530,9 +577,9 @@ CREATE TABLE IF NOT EXISTS `v_candidatures_details` (
 --
 DROP VIEW IF EXISTS `v_peut_voter_categorie`;
 CREATE TABLE IF NOT EXISTS `v_peut_voter_categorie` (
-`id_categorie` int
+`id_utilisateur` int
 ,`id_evenement` int
-,`id_utilisateur` int
+,`id_categorie` int
 ,`peut_voter` varchar(3)
 );
 
@@ -544,8 +591,8 @@ CREATE TABLE IF NOT EXISTS `v_peut_voter_categorie` (
 --
 DROP VIEW IF EXISTS `v_votes_categorie`;
 CREATE TABLE IF NOT EXISTS `v_votes_categorie` (
-`id_categorie` int
-,`id_evenement` int
+`id_evenement` int
+,`id_categorie` int
 ,`id_jeu` int
 ,`nb_votes` bigint
 );
@@ -710,6 +757,15 @@ ALTER TABLE `resultat`
   ADD CONSTRAINT `resultat_ibfk_1` FOREIGN KEY (`id_evenement`) REFERENCES `evenement` (`id_evenement`) ON DELETE CASCADE,
   ADD CONSTRAINT `resultat_ibfk_2` FOREIGN KEY (`id_categorie`) REFERENCES `categorie` (`id_categorie`) ON DELETE SET NULL,
   ADD CONSTRAINT `resultat_ibfk_3` FOREIGN KEY (`id_jeu`) REFERENCES `jeu` (`id_jeu`) ON DELETE CASCADE;
+
+DELIMITER $$
+--
+-- Évènements
+--
+DROP EVENT IF EXISTS `auto_update_event_statuts`$$
+CREATE DEFINER=`root`@`localhost` EVENT `auto_update_event_statuts` ON SCHEDULE EVERY 1 MINUTE STARTS '2025-12-11 07:41:54' ON COMPLETION NOT PRESERVE ENABLE DO CALL update_event_statuts()$$
+
+DELIMITER ;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

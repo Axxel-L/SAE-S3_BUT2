@@ -8,32 +8,72 @@ if (!isset($connexion)) {
     require_once 'dbconnect.php';
 }
 
-// Mise à jour automatique
+// Mise à jour automatique des statuts selon les dates
 try {
-    // Ouvrir les événements
-    $stmt = $connexion->prepare("
-        UPDATE evenement 
-        SET statut = 'ouvert' 
-        WHERE statut = 'preparation' 
-        AND date_ouverture <= NOW()
-    ");
-    $stmt->execute();
-    
-    // Fermer les événements
-    $stmt = $connexion->prepare("
-        UPDATE evenement 
-        SET statut = 'cloture' 
-        WHERE statut = 'ouvert' 
-        AND date_fermeture <= NOW()
-    ");
-    $stmt->execute();
+    // Essayer d'appeler la procédure stockée
+    $connexion->query("CALL update_event_statuts()");
 } catch (Exception $e) {
-    // Erreur silencieuse
+    // Si la procédure n'existe pas, faire les mises à jour manuellement
+    try {
+        // 1. Préparation → Ouvert Catégories
+        $stmt = $connexion->prepare("
+            UPDATE evenement 
+            SET statut = 'ouvert_categories' 
+            WHERE statut = 'preparation' 
+            AND NOW() >= date_ouverture 
+            AND NOW() < date_fermeture
+        ");
+        $stmt->execute();
+        
+        // 2. Ouvert Catégories → Fermé Catégories (attente vote final)
+        $stmt = $connexion->prepare("
+            UPDATE evenement 
+            SET statut = 'ferme_categories' 
+            WHERE statut = 'ouvert_categories' 
+            AND NOW() >= date_fermeture 
+            AND (date_debut_vote_final IS NULL OR NOW() < date_debut_vote_final)
+        ");
+        $stmt->execute();
+        
+        // 3. Fermé Catégories → Ouvert Final
+        $stmt = $connexion->prepare("
+            UPDATE evenement 
+            SET statut = 'ouvert_final' 
+            WHERE statut IN ('ouvert_categories', 'ferme_categories')
+            AND date_debut_vote_final IS NOT NULL
+            AND NOW() >= date_debut_vote_final 
+            AND NOW() < date_fermeture_vote_final
+        ");
+        $stmt->execute();
+        
+        // 4. Ouvert Final → Clôture
+        $stmt = $connexion->prepare("
+            UPDATE evenement 
+            SET statut = 'cloture' 
+            WHERE statut IN ('ouvert_categories', 'ferme_categories', 'ouvert_final')
+            AND date_fermeture_vote_final IS NOT NULL
+            AND NOW() >= date_fermeture_vote_final
+        ");
+        $stmt->execute();
+        
+        // 5. Cas spécial : pas de vote final défini, clôturer après catégories
+        $stmt = $connexion->prepare("
+            UPDATE evenement 
+            SET statut = 'cloture' 
+            WHERE statut = 'ferme_categories'
+            AND date_debut_vote_final IS NULL
+            AND NOW() >= DATE_ADD(date_fermeture, INTERVAL 1 DAY)
+        ");
+        $stmt->execute();
+        
+    } catch (Exception $e2) {
+        // Erreur silencieuse - on continue
+    }
 }
 
 // Vérifier si connecté
 $loggedin = isset($_SESSION['id_utilisateur']) ? true : false;
-$usertype = $_SESSION['type'] ?? ''; // Utilise 'type' au lieu de 'usertype'
+$usertype = $_SESSION['type'] ?? '';
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -83,85 +123,86 @@ $usertype = $_SESSION['type'] ?? ''; // Utilise 'type' au lieu de 'usertype'
                         <i class="fas fa-award text-accent"></i>
                         <span>Mode de scrutin</span>
                     </a>
+                <?php endif; ?>
 
-                     <?php endif; ?>
+                <!-- Résultats (pour tous) -->
+                <a href="resultats.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                    <i class="fas fa-trophy text-accent"></i>
+                    <span>Résultats</span>
+                </a>
 
-                  
-
-                          <!-- ✨ NOUVEAU : Résultats (pour tous) -->
-                    <a href="resultats.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
-                        <i class="fas fa-trophy text-accent"></i>
-                        <span>Résultats</span>
+                <!-- Menu Électeur (si connecté joueur) -->
+                <?php if ($loggedin && $usertype === 'joueur'): ?>
+                    <a href="joueur-events.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                        <i class="fas fa-calendar-alt text-accent"></i>
+                        <span>Événements</span>
+                    </a>
+                
+                    <a href="vote.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                        <i class="fas fa-vote-yea text-accent"></i>
+                        <span>Vote Catégories</span>
                     </a>
 
+                    <a href="vote-final.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                        <i class="fas fa-crown text-accent"></i>
+                        <span>Vote Final</span>
+                    </a>
 
-                    
+                    <a href="dashboard.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                        <i class="fas fa-user-circle text-accent"></i>
+                        <span>Mon Espace</span>
+                    </a>
+                <?php endif; ?>
 
-                    <!-- ✨ NOUVEAU : Menu Électeur (si connecté joueur) -->
-                    <?php if ($loggedin && $usertype === 'joueur'): ?>
-                        <a href="joueur-events.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
-                            <i class="fas fa-calendar-alt text-accent"></i>
-                            <span>Événements</span>
-                        </a>
-                    
-                        <a href="vote.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
-                            <i class="fas fa-vote-yea text-accent"></i>
-                            <span>Voter</span>
-                        </a>
+                <!-- Menu Admin (si connecté admin) -->
+                <?php if ($loggedin && $usertype === 'admin'): ?>
+                    <a href="admin-events.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                        <i class="fas fa-calendar text-accent"></i>
+                        <span>Événements</span>
+                    </a>
 
-                        <a href="dashboard.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
-                            <i class="fas fa-user-circle text-accent"></i>
-                            <span>Mon Espace</span>
-                        </a>
-                    <?php endif; ?>
+                    <a href="admin-candidatures.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                        <i class="fas fa-tags text-accent"></i>
+                        <span>Participations</span>
+                    </a>
 
-                    <!-- ✨ NOUVEAU : Menu Admin (si connecté admin) -->
-                    <?php if ($loggedin && $usertype === 'admin'): ?>
-                        <a href="admin-events.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
-                            <i class="fas fa-cogs text-accent"></i>
-                            <span>Admin</span>
-                        </a>
-                        <a href="admin-events.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
-                            <i class="fas fa-calendar"></i> Événements
-                        </a>
+                    <a href="admin-utilisateurs.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                        <i class="fas fa-users text-accent"></i>
+                        <span>Utilisateurs</span>
+                    </a>
 
-                        <!-- ➕ NOUVEAU -->
-                        <a href="admin-utilisateurs.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base.">
-                            <i class="fas fa-users"></i> Utilisateurs
-                        </a>
+                    <a href="admin-candidats.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                        <i class="fas fa-star text-accent"></i>
+                        <span>Candidatures</span>
+                    </a>
 
-                        <!-- ➕ NOUVEAU -->
-                        <a href="admin-candidats.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
-                            <i class="fas fa-star"></i> Candidatures
-                        </a>
+                    <a href="admin-logs.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                        <i class="fas fa-clipboard-list text-accent"></i>
+                        <span>Logs</span>
+                    </a>
+                <?php endif; ?>
 
-                        <a href="admin-logs.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
-                            <i class="fas fa-star"></i> Logs
-                        </a>
-                    <?php endif; ?>
+                <?php if ($loggedin && $usertype === 'candidat'): ?>
+                    <a href="candidat-profil.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                        <i class="fas fa-user-crown text-accent"></i>
+                        <span>Mon Profil</span>
+                    </a>
 
-                    <?php if ($loggedin && $usertype === 'candidat'): ?>
-                        <a href="candidat-profil.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
-                            <i class="fas fa-user-crown text-accent"></i>
-                            <span>Mon Profil</span>
-                        </a>
+                    <a href="candidat-campagne.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                        <i class="fas fa-bullhorn text-accent"></i>
+                        <span>Campagne</span>
+                    </a>
 
-                         <a href="candidat-campagne.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
-                            <i class="fas fa-calendar-check"></i> Campagne
-                        </a>
+                    <a href="candidat-statistiques.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                        <i class="fas fa-chart-bar text-accent"></i>
+                        <span>Statistiques</span>
+                    </a>
 
-                        <a href="candidat-statistiques.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
-                            <i class="fas fa-calendar-check"></i> Statistique
-                        </a>
-
-
-                        <!-- ➕ NOUVEAU -->
-                        <a href="candidat-events.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
-                            <i class="fas fa-calendar-check"></i> Événements
-                        </a>
-                    <?php endif; ?>
-
-                  
+                    <a href="candidat-events.php" class="nav-link glass-button px-5 py-3 rounded-3xl font-medium flex items-center gap-2 text-sm lg:text-base">
+                        <i class="fas fa-calendar-check text-accent"></i>
+                        <span>Événements</span>
+                    </a>
+                <?php endif; ?>
                 </div>
 
                 <div class="h-8 w-px bg-accent/30 mx-2"></div>
@@ -180,7 +221,6 @@ $usertype = $_SESSION['type'] ?? ''; // Utilise 'type' au lieu de 'usertype'
                             <span class="text-red-400">Déconnexion</span>
                         </a>
                     </div>
-                    <!-- Si pas connecté : bouton Connexion -->
                 <?php else: ?>
                     <a href="#" onclick="openResponsiveWindow('login.php'); return false;" class="glass-button px-6 py-3 rounded-3xl font-medium flex items-center gap-3 text-sm lg:text-base bg-gradient-to-r from-accent/20 to-accent/10 border border-accent/30 hover:from-accent/30 hover:to-accent/20 transition-all duration-300">
                         <i class="fa-solid fa-user text-accent text-lg"></i>
@@ -215,13 +255,29 @@ $usertype = $_SESSION['type'] ?? ''; // Utilise 'type' au lieu de 'usertype'
                     <i class="fas fa-award text-accent"></i>
                     <span>Mode de scrutin</span>
                 </a>
-                 <?php endif; ?>
+                <?php endif; ?>
 
-                <!-- ✨ NOUVEAU : Menu mobile électeur -->
+                <!-- Résultats mobile -->
+                <a href="resultats.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+                    <i class="fas fa-trophy text-accent"></i>
+                    <span>Résultats</span>
+                </a>
+
+                <!-- Menu mobile électeur -->
                 <?php if ($loggedin && $usertype === 'joueur'): ?>
+                    <a href="joueur-events.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+                        <i class="fas fa-calendar-alt text-accent"></i>
+                        <span>Événements</span>
+                    </a>
+
                     <a href="vote.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
                         <i class="fas fa-vote-yea text-accent"></i>
-                        <span>Voter</span>
+                        <span>Vote Catégories</span>
+                    </a>
+
+                    <a href="vote-final.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+                        <i class="fas fa-crown text-accent"></i>
+                        <span>Vote Final</span>
                     </a>
 
                     <a href="dashboard.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
@@ -230,31 +286,32 @@ $usertype = $_SESSION['type'] ?? ''; // Utilise 'type' au lieu de 'usertype'
                     </a>
                 <?php endif; ?>
 
-                <!-- ✨ NOUVEAU : Menu mobile admin -->
+                <!-- Menu mobile admin -->
                 <?php if ($loggedin && $usertype === 'admin'): ?>
                     <a href="admin-events.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
-                        <i class="fas fa-cogs text-accent"></i>
-                        <span>Admin</span>
-                    </a>
-                    <a href="admin-events.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3.">
-                        <i class="fas fa-calendar"></i> Événements
+                        <i class="fas fa-calendar text-accent"></i>
+                        <span>Événements</span>
                     </a>
 
-                    <!-- ➕ NOUVEAU -->
+                    <a href="admin-candidatures.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+                        <i class="fas fa-tags text-accent"></i>
+                        <span>Participations</span>
+                    </a>
+
                     <a href="admin-utilisateurs.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
-                        <i class="fas fa-users"></i> Utilisateurs
+                        <i class="fas fa-users text-accent"></i>
+                        <span>Utilisateurs</span>
                     </a>
 
-                    <!-- ➕ NOUVEAU -->
                     <a href="admin-candidats.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
-                        <i class="fas fa-star"></i> Candidatures
+                        <i class="fas fa-star text-accent"></i>
+                        <span>Candidatures</span>
                     </a>
 
-                     <a href="admin-logs.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
-                        <i class="fas fa-star"></i> Logs
+                    <a href="admin-logs.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+                        <i class="fas fa-clipboard-list text-accent"></i>
+                        <span>Logs</span>
                     </a>
-
-
                 <?php endif; ?>
 
                 <?php if ($loggedin && $usertype === 'candidat'): ?>
@@ -263,26 +320,21 @@ $usertype = $_SESSION['type'] ?? ''; // Utilise 'type' au lieu de 'usertype'
                         <span>Mon Profil</span>
                     </a>
 
-                    <a href="candidat-statistique.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
-                        <i class="fas fa-calendar-check"></i> Statistique
-                    </a>
-
                     <a href="candidat-campagne.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
-                        <i class="fas fa-calendar-check"></i> Campagne
+                        <i class="fas fa-bullhorn text-accent"></i>
+                        <span>Campagne</span>
                     </a>
+
+                    <a href="candidat-statistiques.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
+                        <i class="fas fa-chart-bar text-accent"></i>
+                        <span>Statistiques</span>
+                    </a>
+
                     <a href="candidat-events.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
-                        <i class="fas fa-calendar-check"></i> Événements
+                        <i class="fas fa-calendar-check text-accent"></i>
+                        <span>Événements</span>
                     </a>
-
-
                 <?php endif; ?>
-
-                <!-- ✨ NOUVEAU : Résultats mobile -->
-                <a href="resultats.php" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3">
-                    <i class="fas fa-trophy text-accent"></i>
-                    <span>Résultats</span>
-                </a>
-
 
                 <div class="h-px bg-accent/30 my-2"></div>
 
@@ -302,7 +354,6 @@ $usertype = $_SESSION['type'] ?? ''; // Utilise 'type' au lieu de 'usertype'
                             <span class="text-red-400 font-semibold">Déconnexion</span>
                         </a>
                     </div>
-                    <!-- Si pas connecté : mobile -->
                 <?php else: ?>
                     <a href="#" onclick="openResponsiveWindow('login.php'); return false;" class="glass-button px-6 py-4 rounded-3xl text-center flex items-center justify-center gap-3 bg-gradient-to-r from-accent/20 to-accent/10 border border-accent/30">
                         <i class="fas fa-sign-in-alt text-accent"></i>
@@ -315,17 +366,12 @@ $usertype = $_SESSION['type'] ?? ''; // Utilise 'type' au lieu de 'usertype'
 
     <script>
         function openResponsiveWindow(url) {
-            // Calculer 80% de la largeur et hauteur de l'écran
             const width = Math.round(window.innerWidth * 0.3);
             const height = Math.round(window.innerHeight * 0.7);
-
-            // Centrer la fenêtre
             const left = Math.round((window.innerWidth - width) / 2);
             const top = Math.round((window.innerHeight - height) / 2);
-
             window.open(url, 'blank', `width=${width},height=${height},left=${left},top=${top}`);
         }
     </script>
 </body>
-
 </html>
