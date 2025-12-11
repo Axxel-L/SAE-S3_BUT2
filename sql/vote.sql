@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Hôte : 127.0.0.1:3306
--- Généré le : jeu. 11 déc. 2025 à 07:19
+-- Généré le : jeu. 11 déc. 2025 à 11:51
 -- Version du serveur : 9.1.0
 -- Version de PHP : 8.3.14
 
@@ -84,14 +84,14 @@ CREATE TABLE IF NOT EXISTS `bulletin_categorie` (
   KEY `idx_categorie` (`id_categorie`),
   KEY `idx_evenement` (`id_evenement`),
   KEY `idx_date_vote` (`date_vote`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `bulletin_categorie`
 --
 
 INSERT INTO `bulletin_categorie` (`id_bulletin`, `id_jeu`, `id_categorie`, `id_evenement`, `date_vote`) VALUES
-(3, 2, 25, 12, '2025-12-11 07:58:58');
+(4, 3, 28, 13, '2025-12-11 12:45:39');
 
 -- --------------------------------------------------------
 
@@ -110,13 +110,6 @@ CREATE TABLE IF NOT EXISTS `bulletin_final` (
   KEY `idx_evenement` (`id_evenement`),
   KEY `idx_date_vote` (`date_vote`)
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Déchargement des données de la table `bulletin_final`
---
-
-INSERT INTO `bulletin_final` (`id_bulletin_final`, `id_jeu`, `id_evenement`, `date_vote`) VALUES
-(2, 2, 12, '2025-12-11 08:01:06');
 
 -- --------------------------------------------------------
 
@@ -140,7 +133,7 @@ CREATE TABLE IF NOT EXISTS `candidat` (
   KEY `id_utilisateur` (`id_utilisateur`),
   KEY `id_jeu` (`id_jeu`),
   KEY `idx_candidat_statut` (`statut`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Déchargement des données de la table `candidat`
@@ -148,7 +141,9 @@ CREATE TABLE IF NOT EXISTS `candidat` (
 
 INSERT INTO `candidat` (`id_candidat`, `id_utilisateur`, `nom`, `id_jeu`, `date_inscription`, `status`, `bio`, `motivation`, `photo`, `statut`) VALUES
 (1, 10, 'Jean Marc', 1, '2025-12-01 09:37:02', 'approved', 'Je sais pas qui je suis', NULL, NULL, 'valide'),
-(2, 11, 'Abdel-Malek', 2, '2025-12-01 09:38:15', 'approved', 'Je suis un gars chill', NULL, NULL, 'valide');
+(2, 11, 'Abdel-Malek', 2, '2025-12-01 09:38:15', 'approved', 'Je suis un gars chill', NULL, 'https://www.photographie-cours.fr/wp-content/uploads/2020/06/photographie-cours-banner-scaled.jpg', 'valide'),
+(3, 12, 'joueur2@gmail.com', NULL, '2025-12-11 12:21:38', 'pending', NULL, NULL, NULL, 'valide'),
+(4, 13, 'Misange Déchu', 3, '2025-12-11 12:42:27', 'pending', 'Un test basique en tant qu&#039;ange finalement', NULL, 'https://www.galerie-com.com/grand_img/0849590001641489156.jpeg', 'valide');
 
 -- --------------------------------------------------------
 
@@ -164,16 +159,14 @@ CREATE TABLE IF NOT EXISTS `categorie` (
   `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   PRIMARY KEY (`id_categorie`),
   KEY `idx_evenement` (`id_evenement`)
-) ENGINE=InnoDB AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=29 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `categorie`
 --
 
 INSERT INTO `categorie` (`id_categorie`, `id_evenement`, `nom`, `description`) VALUES
-(25, 12, 'RPG', ''),
-(26, 12, 'MMO', ''),
-(27, 12, 'MOBA', '');
+(28, 13, 'MOBA', '');
 
 -- --------------------------------------------------------
 
@@ -239,14 +232,14 @@ CREATE TABLE IF NOT EXISTS `emargement_categorie` (
   KEY `idx_utilisateur` (`id_utilisateur`),
   KEY `idx_categorie` (`id_categorie`),
   KEY `idx_evenement` (`id_evenement`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `emargement_categorie`
 --
 
 INSERT INTO `emargement_categorie` (`id_emargement`, `id_utilisateur`, `id_categorie`, `id_evenement`, `date_emargement`) VALUES
-(3, 7, 25, 12, '2025-12-11 07:58:58');
+(4, 7, 28, 13, '2025-12-11 12:45:39');
 
 -- --------------------------------------------------------
 
@@ -265,13 +258,6 @@ CREATE TABLE IF NOT EXISTS `emargement_final` (
   KEY `idx_utilisateur` (`id_utilisateur`),
   KEY `idx_evenement` (`id_evenement`)
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Déchargement des données de la table `emargement_final`
---
-
-INSERT INTO `emargement_final` (`id_emargement_final`, `id_utilisateur`, `id_evenement`, `date_emargement`) VALUES
-(2, 7, 12, '2025-12-11 08:01:06');
 
 -- --------------------------------------------------------
 
@@ -293,14 +279,14 @@ CREATE TABLE IF NOT EXISTS `evenement` (
   PRIMARY KEY (`id_evenement`),
   KEY `idx_statut` (`statut`),
   KEY `idx_dates` (`date_ouverture`,`date_fermeture`)
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `evenement`
 --
 
 INSERT INTO `evenement` (`id_evenement`, `nom`, `description`, `date_ouverture`, `date_fermeture`, `date_debut_vote_final`, `date_fermeture_vote_final`, `statut`, `nb_max_candidats`) VALUES
-(12, 'Test', 'Test', '2025-12-11 07:57:00', '2025-12-11 07:59:00', '2025-12-11 08:01:00', '2025-12-11 08:03:00', 'cloture', 0);
+(13, 'MOBA', '', '2025-12-11 12:45:00', '2025-12-11 12:46:00', '2025-12-11 12:47:00', '2025-12-11 12:48:00', 'cloture', 0);
 
 -- --------------------------------------------------------
 
@@ -325,17 +311,16 @@ CREATE TABLE IF NOT EXISTS `event_candidat` (
   KEY `fk_event_candidat_valideur` (`valide_par`),
   KEY `idx_statut_candidature` (`statut_candidature`),
   KEY `idx_categorie` (`id_categorie`)
-) ENGINE=InnoDB AUTO_INCREMENT=23 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `event_candidat`
 --
 
 INSERT INTO `event_candidat` (`id_event_candidat`, `id_evenement`, `id_candidat`, `id_categorie`, `statut_candidature`, `motif_refus`, `date_validation`, `valide_par`, `date_inscription`) VALUES
-(19, 12, 1, 26, 'approuve', NULL, '2025-12-11 07:56:37', 8, '2025-12-11 07:55:52'),
-(20, 12, 1, 27, 'approuve', NULL, '2025-12-11 07:56:35', 8, '2025-12-11 07:55:54'),
-(21, 12, 2, 26, 'approuve', NULL, '2025-12-11 07:56:33', 8, '2025-12-11 07:56:03'),
-(22, 12, 2, 25, 'approuve', NULL, '2025-12-11 07:56:30', 8, '2025-12-11 07:56:05');
+(23, 13, 4, 28, 'approuve', NULL, '2025-12-11 12:45:30', 8, '2025-12-11 12:44:25'),
+(24, 13, 1, 28, 'approuve', NULL, '2025-12-11 12:45:28', 8, '2025-12-11 12:44:41'),
+(25, 13, 2, 28, 'approuve', NULL, '2025-12-11 12:45:26', 8, '2025-12-11 12:44:51');
 
 -- --------------------------------------------------------
 
@@ -373,7 +358,7 @@ CREATE TABLE IF NOT EXISTS `jeu` (
   PRIMARY KEY (`id_jeu`),
   KEY `idx_titre` (`titre`),
   KEY `idx_editeur` (`editeur`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `jeu`
@@ -381,7 +366,8 @@ CREATE TABLE IF NOT EXISTS `jeu` (
 
 INSERT INTO `jeu` (`id_jeu`, `titre`, `editeur`, `image`, `date_sortie`, `description`) VALUES
 (1, 'Minecraft', 'Mojang', NULL, NULL, NULL),
-(2, 'Domms', 'Mojang', NULL, '2006-01-12', 'C\'est un fake');
+(2, 'Domms', 'Mojang', NULL, '2006-01-12', 'C\'est un fake'),
+(3, 'League of Legends', 'RIOT GAME', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSd42Ia4ljXpfsa0Nsu1uUkZ4KQKhOBl50M1g&s', '2009-04-14', 'J&#039;ai mis une date au pif');
 
 -- --------------------------------------------------------
 
@@ -402,7 +388,7 @@ CREATE TABLE IF NOT EXISTS `journal_securite` (
   KEY `idx_utilisateur` (`id_utilisateur`),
   KEY `idx_action` (`action`),
   KEY `idx_date` (`date_action`)
-) ENGINE=InnoDB AUTO_INCREMENT=74 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=100 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `journal_securite`
@@ -481,7 +467,33 @@ INSERT INTO `journal_securite` (`id_journal`, `id_utilisateur`, `action`, `date_
 (70, 8, 'ADMIN_CANDIDATURE_APPROUVE', '2025-12-11 07:56:35', 'Candidature #20 approuvée - Jeu: Minecraft', NULL, NULL),
 (71, 8, 'ADMIN_CANDIDATURE_APPROUVE', '2025-12-11 07:56:37', 'Candidature #19 approuvée - Jeu: Minecraft', NULL, NULL),
 (72, 7, 'VOTE_CATEGORIE', '2025-12-11 07:58:58', 'Catégorie 25, événement 12', NULL, NULL),
-(73, 7, 'VOTE_FINAL', '2025-12-11 08:01:06', 'Événement: 12', NULL, NULL);
+(73, 7, 'VOTE_FINAL', '2025-12-11 08:01:06', 'Événement: 12', NULL, NULL),
+(74, 8, 'LOGIN_SUCCESS', '2025-12-11 08:21:10', 'Connexion admin', NULL, '::1'),
+(75, 8, 'LOGIN_SUCCESS', '2025-12-11 12:20:54', 'Connexion admin', NULL, '::1'),
+(76, 11, 'LOGIN_SUCCESS', '2025-12-11 12:22:34', 'Connexion candidat', NULL, '::1'),
+(77, 11, 'CANDIDAT_PROFIL_UPDATE', '2025-12-11 12:23:32', 'Mise à jour du profil', NULL, '::1'),
+(78, 13, 'USER_REGISTRATION', '2025-12-11 12:40:22', 'Type: candidat', NULL, '::1'),
+(79, 13, 'CANDIDAT_REGISTRATION', '2025-12-11 12:42:27', 'Candidat: Misange Déchu, Jeu: 3', NULL, '::1'),
+(80, 8, 'LOGIN_SUCCESS', '2025-12-11 12:42:55', 'Connexion admin', NULL, '::1'),
+(81, 8, 'ADMIN_CANDIDAT_VALIDE', '2025-12-11 12:43:20', 'Candidat ID: 4 validé', NULL, '::1'),
+(82, 8, 'LOGIN_SUCCESS', '2025-12-11 12:43:35', 'Connexion admin', NULL, '::1'),
+(83, 8, 'ADMIN_EVENT_CREATE', '2025-12-11 12:43:54', 'Événement créé: MOBA', NULL, NULL),
+(84, 8, 'ADMIN_EVENT_DELETE', '2025-12-11 12:43:57', 'Événement 12 supprimé', NULL, NULL),
+(85, 8, 'ADMIN_CATEGORY_CREATE', '2025-12-11 12:44:01', 'Catégorie \'MOBA\' créée pour événement #13', NULL, NULL),
+(86, 13, 'LOGIN_SUCCESS', '2025-12-11 12:44:21', 'Connexion candidat', NULL, '::1'),
+(87, 13, 'CANDIDATURE_SOUMISE', '2025-12-11 12:44:25', 'Événement: 13, Catégorie: MOBA, Jeu: League of Legends', NULL, NULL),
+(88, 10, 'LOGIN_SUCCESS', '2025-12-11 12:44:38', 'Connexion candidat', NULL, '::1'),
+(89, 10, 'CANDIDATURE_SOUMISE', '2025-12-11 12:44:41', 'Événement: 13, Catégorie: MOBA, Jeu: Minecraft', NULL, NULL),
+(90, 11, 'LOGIN_SUCCESS', '2025-12-11 12:44:47', 'Connexion candidat', NULL, '::1'),
+(91, 11, 'CANDIDATURE_SOUMISE', '2025-12-11 12:44:51', 'Événement: 13, Catégorie: MOBA, Jeu: Domms', NULL, NULL),
+(92, 7, 'LOGIN_SUCCESS', '2025-12-11 12:45:01', 'Connexion joueur', NULL, '::1'),
+(93, 8, 'LOGIN_SUCCESS', '2025-12-11 12:45:19', 'Connexion admin', NULL, '::1'),
+(94, 8, 'ADMIN_CANDIDATURE_APPROUVE', '2025-12-11 12:45:26', 'Candidature #25 approuvée - Jeu: Domms', NULL, NULL),
+(95, 8, 'ADMIN_CANDIDATURE_APPROUVE', '2025-12-11 12:45:28', 'Candidature #24 approuvée - Jeu: Minecraft', NULL, NULL),
+(96, 8, 'ADMIN_CANDIDATURE_APPROUVE', '2025-12-11 12:45:30', 'Candidature #23 approuvée - Jeu: League of Legends', NULL, NULL),
+(97, 7, 'LOGIN_SUCCESS', '2025-12-11 12:45:35', 'Connexion joueur', NULL, '::1'),
+(98, 7, 'VOTE_CATEGORIE', '2025-12-11 12:45:39', 'Catégorie 28, événement 13', NULL, NULL),
+(99, 8, 'LOGIN_SUCCESS', '2025-12-11 12:48:10', 'Connexion admin', NULL, '::1');
 
 -- --------------------------------------------------------
 
@@ -500,17 +512,16 @@ CREATE TABLE IF NOT EXISTS `nomination` (
   KEY `idx_jeu` (`id_jeu`),
   KEY `idx_categorie` (`id_categorie`),
   KEY `idx_evenement` (`id_evenement`)
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `nomination`
 --
 
 INSERT INTO `nomination` (`id_nomination`, `id_jeu`, `id_categorie`, `id_evenement`) VALUES
-(12, 1, 26, 12),
-(11, 1, 27, 12),
-(9, 2, 25, 12),
-(10, 2, 26, 12);
+(14, 1, 28, 13),
+(13, 2, 28, 13),
+(15, 3, 28, 13);
 
 -- --------------------------------------------------------
 
@@ -528,14 +539,14 @@ CREATE TABLE IF NOT EXISTS `registre_electoral` (
   UNIQUE KEY `unique_inscription` (`id_utilisateur`,`id_evenement`),
   KEY `idx_utilisateur` (`id_utilisateur`),
   KEY `idx_evenement` (`id_evenement`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `registre_electoral`
 --
 
 INSERT INTO `registre_electoral` (`id_registre`, `id_utilisateur`, `id_evenement`, `date_inscription`) VALUES
-(4, 7, 12, '2025-12-11 07:58:54');
+(5, 7, 13, '2025-12-11 12:45:06');
 
 -- --------------------------------------------------------
 
@@ -581,7 +592,7 @@ CREATE TABLE IF NOT EXISTS `utilisateur` (
   UNIQUE KEY `email` (`email`),
   KEY `idx_email` (`email`),
   KEY `idx_type` (`type`)
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `utilisateur`
@@ -593,7 +604,8 @@ INSERT INTO `utilisateur` (`id_utilisateur`, `email`, `mot_de_passe`, `date_insc
 (9, 'candidat@gmail.com', 'a147de687146bd9e5dc97c97fb5e9d7e6cd6e98b3dc7780b046dcce4cdb692bf', '2025-11-28', 'candidat', 'd3faad88d5f5162a1bfb533ee9ffbda1', 1, NULL, 0),
 (10, 'Test123_@gmail.com', '1c3ee693d6620f9f76603ae44265498849423e1f70d81de49da4367c3aa1b9d3', '2025-12-01', 'candidat', '710f23669962bf8b4999fcecab73fd72', 1, NULL, 0),
 (11, 'Test1234_@gmail.com', '06a485700038dc926dd1577cd2180990da0b689d9264225464c1a26cc31a1b51', '2025-12-01', 'candidat', 'ee42c630f88136e738be16ec1ed532b7', 1, NULL, 0),
-(12, 'joueur2@gmail.com', '8351c3cb020816a8afb090e2f1e9f87e2a15854de04db8f23a524275a0e1e1d0', '2025-12-09', 'joueur', 'bde3d4163b97007c1d9e5427e7d02336', 1, NULL, 0);
+(12, 'joueur2@gmail.com', '8351c3cb020816a8afb090e2f1e9f87e2a15854de04db8f23a524275a0e1e1d0', '2025-12-09', 'joueur', 'bde3d4163b97007c1d9e5427e7d02336', 1, NULL, 0),
+(13, 'candidat2@gmail.com', '1a9bc389e802bd87b76952667b3d2eabe0071998aad11583af9a140061dc51d0', '2025-12-11', 'candidat', '730f0e28ad99035078156e24481b4e86', 1, NULL, 0);
 
 -- --------------------------------------------------------
 
@@ -603,15 +615,15 @@ INSERT INTO `utilisateur` (`id_utilisateur`, `email`, `mot_de_passe`, `date_insc
 --
 DROP VIEW IF EXISTS `v_candidats_stats`;
 CREATE TABLE IF NOT EXISTS `v_candidats_stats` (
-`id_candidat` int
-,`id_utilisateur` int
-,`email` varchar(255)
-,`jeu_titre` varchar(255)
-,`bio` text
-,`photo` varchar(500)
+`bio` text
 ,`date_inscription` datetime
-,`nb_contenus` bigint
+,`email` varchar(255)
+,`id_candidat` int
+,`id_utilisateur` int
+,`jeu_titre` varchar(255)
 ,`nb_commentaires` bigint
+,`nb_contenus` bigint
+,`photo` varchar(500)
 );
 
 -- --------------------------------------------------------
@@ -622,22 +634,22 @@ CREATE TABLE IF NOT EXISTS `v_candidats_stats` (
 --
 DROP VIEW IF EXISTS `v_candidatures_details`;
 CREATE TABLE IF NOT EXISTS `v_candidatures_details` (
-`id_event_candidat` int
-,`id_evenement` int
-,`evenement_nom` varchar(255)
-,`evenement_statut` enum('preparation','ouvert_categories','ferme_categories','ouvert_final','cloture')
-,`id_categorie` int
-,`categorie_nom` varchar(255)
-,`id_candidat` int
+`candidat_email` varchar(255)
 ,`candidat_nom` varchar(255)
-,`id_jeu` int
-,`jeu_titre` varchar(255)
-,`jeu_image` varchar(500)
-,`candidat_email` varchar(255)
-,`statut_candidature` enum('en_attente','approuve','refuse')
+,`categorie_nom` varchar(255)
 ,`date_inscription` datetime
 ,`date_validation` datetime
+,`evenement_nom` varchar(255)
+,`evenement_statut` enum('preparation','ouvert_categories','ferme_categories','ouvert_final','cloture')
+,`id_candidat` int
+,`id_categorie` int
+,`id_evenement` int
+,`id_event_candidat` int
+,`id_jeu` int
+,`jeu_image` varchar(500)
+,`jeu_titre` varchar(255)
 ,`motif_refus` text
+,`statut_candidature` enum('en_attente','approuve','refuse')
 ,`valide_par_email` varchar(255)
 );
 
@@ -649,9 +661,9 @@ CREATE TABLE IF NOT EXISTS `v_candidatures_details` (
 --
 DROP VIEW IF EXISTS `v_peut_voter_categorie`;
 CREATE TABLE IF NOT EXISTS `v_peut_voter_categorie` (
-`id_utilisateur` int
+`id_categorie` int
 ,`id_evenement` int
-,`id_categorie` int
+,`id_utilisateur` int
 ,`peut_voter` varchar(3)
 );
 
@@ -663,8 +675,8 @@ CREATE TABLE IF NOT EXISTS `v_peut_voter_categorie` (
 --
 DROP VIEW IF EXISTS `v_votes_categorie`;
 CREATE TABLE IF NOT EXISTS `v_votes_categorie` (
-`id_evenement` int
-,`id_categorie` int
+`id_categorie` int
+,`id_evenement` int
 ,`id_jeu` int
 ,`nb_votes` bigint
 );
