@@ -6,6 +6,4 @@ try {
     printf("Échec de la connexion: %s\n", $e->getMessage());
     exit();
 }
-
-
 ?>

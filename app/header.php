@@ -85,7 +85,6 @@ $usertype = $_SESSION['type'] ?? '';
                 </div>
                 <span class="logo-text">GAME<span class="accent-gradient">CROWN</span></span>
             </div>
-
             <!-- Menu Desktop -->
             <div class="nav-desktop flex items-center gap-2 flex-1 min-w-0">
                 <div class="flex items-center gap-2">
@@ -218,7 +217,6 @@ $usertype = $_SESSION['type'] ?? '';
                     </a>
                 <?php endif; ?>
             </div>
-
             <!-- Bouton menu mobile -->
             <button id="mobile-menu-btn" class="mobile-menu-button glass-button p-3 rounded-[1rem] border border-white/10 flex-shrink-0">
                 <div class="hamburger flex flex-col gap-1.5 w-6 h-6 justify-center items-center">
@@ -226,7 +224,6 @@ $usertype = $_SESSION['type'] ?? '';
                 </div>
             </button>
         </div>
-
         <!-- Menu Mobile -->
         <div id="mobile-menu" class="mobile-menu mt-4">
             <div class="flex flex-col gap-3 pb-4">

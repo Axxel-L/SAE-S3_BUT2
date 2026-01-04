@@ -3,7 +3,6 @@ require_once('header.php');
 
 
 ?>
-
      <!-- Fond gaming -->
     <div class="gaming-bg">
         <div class="diagonal-lines"></div>
@@ -17,7 +16,7 @@ require_once('header.php');
         <div class="vote-aura" style="top: 80%; left: 20%;"></div>
     </div>
 
-    <!-- ==================== MODAL CONNEXION ==================== -->
+    <!-- Modal de connexion -->
     <div id="loginOverlay" class="fixed inset-0 z-[100] backdrop-blur-md modal-backdrop hidden opacity-0 transition-opacity duration-300"></div>
     <div id="loginModal" class="fixed inset-0 z-[101] flex items-center justify-center p-4 overflow-y-auto hidden">
         <div id="loginModalContent" class="relative w-full max-w-md my-8 opacity-0 transform scale-95 -translate-y-5 transition-all duration-300">
@@ -36,8 +35,6 @@ require_once('header.php');
                     <h1 class="text-3xl md:text-4xl font-bold mb-3 font-orbitron text-light tracking-wide">Connexion</h1>
                     <p class="text-light/60 text-sm md:text-base">Accédez à votre compte GameCrown</p>
                 </div>
-
-                <!-- Formulaire -->
                 <form id="loginForm" class="space-y-5">
                     <div>
                         <label for="loginEmail" class="block mb-2 font-medium text-light text-sm">
@@ -47,7 +44,6 @@ require_once('header.php');
                             class="input-glow w-full rounded-[1rem] p-4 text-light bg-white/5 backdrop-blur-sm border border-white/10 focus:border-accent/50 focus:outline-none transition-all duration-300 placeholder-white/30"
                             placeholder="votre@email.com">
                     </div>
-                    
                     <div>
                         <label for="loginPassword" class="block mb-2 font-medium text-light text-sm">
                             <i class="fas fa-key text-accent mr-2"></i>Mot de passe
@@ -61,7 +57,6 @@ require_once('header.php');
                             </button>
                         </div>
                     </div>
-                    
                     <div class="flex items-center justify-between text-sm">
                         <div class="flex items-center">
                             <input type="checkbox" id="remember" name="remember" class="w-4 h-4 rounded accent-accent bg-white/5 border border-white/10 cursor-pointer">
@@ -91,7 +86,7 @@ require_once('header.php');
         </div>
     </div>
 
-    <!-- ==================== MODAL INSCRIPTION ==================== -->
+    <!-- Modal inscription-->
     <div id="registerOverlay" class="fixed inset-0 z-[100] backdrop-blur-md modal-backdrop hidden opacity-0 transition-opacity duration-300"></div>
     <div id="registerModal" class="fixed inset-0 z-[101] flex items-center justify-center p-4 overflow-y-auto hidden">
         <div id="registerModalContent" class="relative w-full max-w-md my-8 opacity-0 transform scale-95 -translate-y-5 transition-all duration-300">
@@ -131,7 +126,6 @@ require_once('header.php');
                                 <i class="fas fa-eye"></i>
                             </button>
                         </div>
-                        <!-- Indicateur de force -->
                         <div class="mt-2 flex gap-1">
                             <div id="strengthBar1" class="h-1 flex-1 rounded-full bg-white/10 transition-all duration-300"></div>
                             <div id="strengthBar2" class="h-1 flex-1 rounded-full bg-white/10 transition-all duration-300"></div>
@@ -140,8 +134,6 @@ require_once('header.php');
                         </div>
                         <p id="strengthText" class="text-xs text-white/40 mt-1"></p>
                     </div>
-                    
-                    <!-- Confirmation mot de passe -->
                     <div>
                         <label for="registerPasswordConfirm" class="block mb-2 font-medium text-light text-sm">
                             <i class="fas fa-lock text-accent mr-2"></i>Confirmer le mot de passe
@@ -165,8 +157,6 @@ require_once('header.php');
                     
                     <div id="registerMessage" class="mt-4"></div>
                 </form>
-
-                <!-- Séparateur -->
                 <div class="flex items-center my-6">
                     <div class="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
                     <span class="px-4 text-white/40 text-sm">ou</span>
@@ -204,8 +194,6 @@ require_once('header.php');
             </div>
         </div>
     </div>
-    <!-- ==================== FIN MODAL INSCRIPTION ==================== -->
-
     <!-- Section Hero -->
     <section id="accueil" class="py-32 px-6 hero-bg relative overflow-hidden" style="padding-top: 10rem;">
     <div class="container mx-auto text-center relative z-10">
@@ -328,9 +316,7 @@ require_once('header.php');
                 </div>
             </div>
     </section>
-
     <div class="separator container mx-auto"></div>
-
     <!-- Section Mode de scrutin -->
     <section id="scrutin" class="py-28 px-6">
         <div class="container mx-auto">
@@ -418,9 +404,7 @@ require_once('header.php');
             </div>
         </div>
     </section>
-
     <div class="separator container mx-auto"></div>
-
     <!-- Section Contact -->
     <section id="contact" class="py-20 px-6">
         <div class="container mx-auto max-w-6xl">
