@@ -1,18 +1,32 @@
 <?php
-session_start();
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
 require_once 'dbconnect.php';
 
-$login_error = '';
-$register_error = '';
-$register_success = '';
+$loginerror = '';
+$registererror = '';
+$registersuccess = '';
+$registerinfo = '';
+$step = intval($_POST['step'] ?? 1);
+$jeux = [];
 
-// Traitement de la connexion
+// Récupérer la liste des jeux pour l'inscription candidat
+try {
+    $stmt = $connexion->prepare("SELECT id_jeu, titre, editeur FROM jeu ORDER BY titre ASC");
+    $stmt->execute();
+    $jeux = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {}
+
+// Action de connexion
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'login') {
-    $email = trim($_POST['login_email'] ?? '');
-    $password = $_POST['login_password'] ?? '';
+    $email = filter_var(trim($_POST['loginemail'] ?? ''), FILTER_SANITIZE_EMAIL);
+    $password = $_POST['loginpassword'] ?? '';
 
     if (empty($email) || empty($password)) {
-        $login_error = "Email et mot de passe requis !";
+        $loginerror = 'Email et mot de passe requis !';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $loginerror = 'Adresse email invalide !';
     } else {
         try {
             $stmt = $connexion->prepare("SELECT * FROM utilisateur WHERE email = ?");
@@ -20,434 +34,403 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$user) {
-                $login_error = "Email ou mot de passe incorrect !";
+                $loginerror = 'Email ou mot de passe incorrect !';
             } else {
-                $password_hash = hash('sha256', $password . $user['salt']);
+                $passwordhash = hash('sha256', $password . $user['salt']);
                 
-                if ($password_hash === $user['mot_de_passe']) {
-                    $_SESSION['user_id'] = $user['id_utilisateur'];
-                    $_SESSION['user_email'] = $user['email'];
-                    $_SESSION['user_type'] = $user['type'];
-                    $_SESSION['user_date'] = $user['date_inscription'];
+                if ($passwordhash !== $user['mot_de_passe']) {
+                    $loginerror = 'Email ou mot de passe incorrect !';
                     
-                    echo '<script>
-                            window.opener.location.reload();
-                            window.close();
-                        </script>';
-                    exit;
-                    exit();
+                    $stmt = $connexion->prepare("INSERT INTO journal_securite (id_utilisateur, action, details, adresse_ip) VALUES (?, 'LOGIN_FAILED', 'Mot de passe incorrect', ?)");
+                    $stmt->execute([$user['id_utilisateur'], $_SERVER['REMOTE_ADDR'] ?? '']);
                 } else {
-                    $login_error = "Email ou mot de passe incorrect !";
+                    // Vérifier le statut du candidat si applicable
+                    if ($user['type'] === 'candidat') {
+                        $stmt = $connexion->prepare("SELECT statut FROM candidat WHERE id_utilisateur = ?");
+                        $stmt->execute([$user['id_utilisateur']]);
+                        $candidat = $stmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        if (!$candidat) {
+                            $loginerror = "Profil candidat introuvable. Contactez l'administrateur.";
+                        } elseif ($candidat['statut'] === 'en_attente') {
+                            $loginerror = "⏳ Votre candidature est en attente de validation par un administrateur.";
+                        } elseif ($candidat['statut'] === 'refuse') {
+                            $loginerror = "❌ Votre candidature a été refusée. Contactez l'administrateur.";
+                        } else {
+                            $_SESSION['id_utilisateur'] = $user['id_utilisateur'];
+                            $_SESSION['useremail'] = $user['email'];
+                            $_SESSION['pseudo'] = $user['pseudo'] ?? $user['email'];
+                            $_SESSION['type'] = $user['type'];
+                            
+                            $stmt = $connexion->prepare("INSERT INTO journal_securite (id_utilisateur, action, details, adresse_ip) VALUES (?, 'LOGIN_SUCCESS', 'Connexion candidat', ?)");
+                            $stmt->execute([$user['id_utilisateur'], $_SERVER['REMOTE_ADDR'] ?? '']);
+                            
+                            echo "<script>
+                                if (window.opener) { window.opener.location.reload(); window.close(); }
+                                else { window.location.href = './candidat-profil.php'; }
+                            </script>";
+                            exit;
+                        }
+                    } else {
+                        $_SESSION['id_utilisateur'] = $user['id_utilisateur'];
+                        $_SESSION['useremail'] = $user['email'];
+                        $_SESSION['pseudo'] = $user['pseudo'] ?? $user['email'];
+                        $_SESSION['type'] = $user['type'];
+                        
+                        $stmt = $connexion->prepare("INSERT INTO journal_securite (id_utilisateur, action, details, adresse_ip) VALUES (?, 'LOGIN_SUCCESS', ?, ?)");
+                        $stmt->execute([$user['id_utilisateur'], "Connexion " . $user['type'], $_SERVER['REMOTE_ADDR'] ?? '']);
+                        
+                        echo "<script>
+                            if (window.opener) { window.opener.location.reload(); window.close(); }
+                            else { window.location.href = './dashboard.php'; }
+                        </script>";
+                        exit;
+                    }
                 }
             }
         } catch (Exception $e) {
-            $login_error = "Erreur : " . $e->getMessage();
+            $loginerror = 'Erreur de connexion. Réessayez.';
+            error_log("Login error: " . $e->getMessage());
         }
     }
 }
 
-// Traitement de l'inscription
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'register') {
-    $email = trim($_POST['register_email'] ?? '');
-    $password = $_POST['register_password'] ?? '';
-    $confirm_password = $_POST['register_confirm_password'] ?? '';
-    $type = $_POST['register_type'] ?? 'joueur';
+// Action d'inscription
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'register_step1') {
+    $email = filter_var(trim($_POST['registeremail'] ?? ''), FILTER_SANITIZE_EMAIL);
+    $pseudo = htmlspecialchars(trim($_POST['registerpseudo'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $password = $_POST['registerpassword'] ?? '';
+    $confirmpassword = $_POST['registerconfirmpassword'] ?? '';
+    $type = $_POST['registertype'] ?? 'joueur';
+    
+    // Seul 'joueur' et 'candidat' sont autorisés
+    if (!in_array($type, ['joueur', 'candidat'])) {
+        $type = 'joueur';
+    }
 
-    if (empty($email) || empty($password)) {
-        $register_error = "Email et mot de passe requis !";
-    } elseif ($password !== $confirm_password) {
-        $register_error = "Les mots de passe ne correspondent pas !";
+    if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $registererror = 'Adresse email invalide !';
+    } elseif ($type === 'joueur' && (empty($pseudo) || strlen($pseudo) < 3 || strlen($pseudo) > 30)) {
+        $registererror = 'Pseudo requis (3-30 caractères) !';
+    } elseif (empty($password)) {
+        $registererror = 'Mot de passe requis !';
+    } elseif ($password !== $confirmpassword) {
+        $registererror = 'Les mots de passe ne correspondent pas !';
     } elseif (strlen($password) < 8) {
-        $register_error = "Le mot de passe doit contenir au minimum 8 caractères !";
+        $registererror = 'Le mot de passe doit contenir au minimum 8 caractères !';
     } else {
         try {
+            // Vérifier email unique
             $stmt = $connexion->prepare("SELECT id_utilisateur FROM utilisateur WHERE email = ?");
             $stmt->execute([$email]);
             
             if ($stmt->rowCount() > 0) {
-                $register_error = "Cet email est déjà utilisé !";
+                $registererror = 'Cet email est déjà utilisé !';
             } else {
-                $salt = bin2hex(random_bytes(16));
-                $password_hash = hash('sha256', $password . $salt);
-
-                $stmt = $connexion->prepare("INSERT INTO utilisateur (email, mot_de_passe, salt, type, date_inscription) VALUES (?, ?, ?, ?, NOW())");
+                // Vérifier pseudo unique pour les joueurs
+                if ($type === 'joueur' && !empty($pseudo)) {
+                    $stmt = $connexion->prepare("SELECT id_utilisateur FROM utilisateur WHERE pseudo = ?");
+                    $stmt->execute([$pseudo]);
+                    if ($stmt->rowCount() > 0) {
+                        $registererror = 'Ce pseudo est déjà pris !';
+                    }
+                }
                 
-                if ($stmt->execute([$email, $password_hash, $salt, $type])) {
-                    $register_success = "✓ Compte créé avec succès ! Redirection...";
-                    echo "<script>setTimeout(() => { window.location.href = 'login.php'; }, 2000);</script>";
-                } else {
-                    $register_error = "Erreur lors de la création du compte !";
+                if (empty($registererror)) {
+                    $salt = bin2hex(random_bytes(16));
+                    $passwordhash = hash('sha256', $password . $salt);
+                    
+                    // Pour les candidats, le pseudo sera leur nom
+                    $pseudo_to_save = ($type === 'joueur') ? $pseudo : null;
+
+                    $stmt = $connexion->prepare("INSERT INTO utilisateur (email, pseudo, mot_de_passe, salt, type, date_inscription) VALUES (?, ?, ?, ?, ?, NOW())");
+                    
+                    if ($stmt->execute([$email, $pseudo_to_save, $passwordhash, $salt, $type])) {
+                        $id_utilisateur = $connexion->lastInsertId();
+                        
+                        $stmt = $connexion->prepare("INSERT INTO journal_securite (id_utilisateur, action, details, adresse_ip) VALUES (?, 'USER_REGISTRATION', ?, ?)");
+                        $stmt->execute([$id_utilisateur, "Type: $type", $_SERVER['REMOTE_ADDR'] ?? '']);
+                        
+                        if ($type === 'candidat') {
+                            $_SESSION['temp_id_utilisateur'] = $id_utilisateur;
+                            $_SESSION['temp_email'] = $email;
+                            $step = 2;
+                            $registersuccess = '✓ Compte créé ! Complétez votre profil candidat.';
+                        } else {
+                            $registersuccess = '✓ Compte créé avec succès ! Vous pouvez maintenant vous connecter.';
+                        }
+                    } else {
+                        $registererror = 'Erreur lors de la création du compte !';
+                    }
                 }
             }
         } catch (Exception $e) {
-            $register_error = "Erreur : " . $e->getMessage();
+            $registererror = 'Erreur système. Réessayez.';
+            error_log("Register error: " . $e->getMessage());
         }
     }
 }
-$show_register = isset($_GET['register']) || $register_error || $register_success;
-?>
 
+// Action inscription candidat - Candidat
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'register_step2') {
+    $id_utilisateur = intval($_SESSION['temp_id_utilisateur'] ?? 0);
+    $nom = htmlspecialchars(trim($_POST['nom'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $bio = htmlspecialchars(trim($_POST['bio'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $photo = filter_var(trim($_POST['photo'] ?? ''), FILTER_SANITIZE_URL);
+    $jeu_choice = $_POST['jeu_choice'] ?? 'existant';
+    $id_jeu = intval($_POST['id_jeu'] ?? 0);
+    
+    if (empty($id_utilisateur)) {
+        $registererror = "Session expirée ! Recommencez l'inscription.";
+        $step = 1;
+    } elseif (empty($nom) || strlen($nom) < 2) {
+        $registererror = "Le nom est requis (minimum 2 caractères) !";
+        $step = 2;
+    } elseif (!empty($photo) && !filter_var($photo, FILTER_VALIDATE_URL)) {
+        $registererror = "L'URL de la photo n'est pas valide !";
+        $step = 2;
+    } else {
+        try {
+            $connexion->beginTransaction();
+            
+            // Créer un nouveau jeu si demandé
+            if ($jeu_choice === 'nouveau') {
+                $nouveau_titre = htmlspecialchars(trim($_POST['nouveau_jeu_titre'] ?? ''), ENT_QUOTES, 'UTF-8');
+                $nouveau_editeur = htmlspecialchars(trim($_POST['nouveau_jeu_editeur'] ?? ''), ENT_QUOTES, 'UTF-8');
+                $nouveau_image = filter_var(trim($_POST['nouveau_jeu_image'] ?? ''), FILTER_SANITIZE_URL);
+                $nouveau_date = $_POST['nouveau_jeu_date'] ?? '';
+                $nouveau_desc = htmlspecialchars(trim($_POST['nouveau_jeu_description'] ?? ''), ENT_QUOTES, 'UTF-8');
+                
+                if (empty($nouveau_titre)) {
+                    throw new Exception("Le titre du jeu est requis !");
+                }
+                $stmt = $connexion->prepare("INSERT INTO jeu (titre, editeur, image, date_sortie, description) VALUES (?, ?, ?, ?, ?)");
+                $stmt->execute([
+                    $nouveau_titre,
+                    $nouveau_editeur ?: null,
+                    ($nouveau_image && filter_var($nouveau_image, FILTER_VALIDATE_URL)) ? $nouveau_image : null,
+                    $nouveau_date ?: null,
+                    $nouveau_desc ?: null
+                ]);
+                $id_jeu = $connexion->lastInsertId();
+            } else {
+                if (empty($id_jeu)) {
+                    throw new Exception("Veuillez sélectionner un jeu !");
+                }
+            }
+            
+            // Créer le profil candidat
+            $stmt = $connexion->prepare("INSERT INTO candidat (id_utilisateur, nom, bio, photo, id_jeu, statut, date_inscription) VALUES (?, ?, ?, ?, ?, 'en_attente', NOW())");
+            $stmt->execute([$id_utilisateur, $nom, $bio ?: null, $photo ?: null, $id_jeu]);
+            
+            // Mettre à jour le pseudo de l'utilisateur avec son nom de candidat
+            $stmt = $connexion->prepare("UPDATE utilisateur SET pseudo = ? WHERE id_utilisateur = ?");
+            $stmt->execute([$nom, $id_utilisateur]);
+            
+            // Ajout aux logs
+            $stmt = $connexion->prepare("INSERT INTO journal_securite (id_utilisateur, action, details, adresse_ip) VALUES (?, 'CANDIDAT_REGISTRATION', ?, ?)");
+            $stmt->execute([$id_utilisateur, "Candidat: $nom, Jeu: $id_jeu", $_SERVER['REMOTE_ADDR'] ?? '']);
+            
+            $connexion->commit();
+            
+            unset($_SESSION['temp_id_utilisateur']);
+            unset($_SESSION['temp_email']);
+            
+            $registersuccess = "✓ Candidature soumise ! Un administrateur doit valider votre inscription.";
+            $registerinfo = "Vous recevrez une notification une fois votre candidature examinée.";
+            $step = 1;
+            
+        } catch (Exception $e) {
+            $connexion->rollBack();
+            $registererror = $e->getMessage();
+            $step = 2;
+        }
+    }
+}
+
+$showregister = isset($_GET['register']) || $step === 2;
+?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GameCrown - Authentification</title>
+    <title>GameCrown - V1</title>
     <script src="http://cdn.agence-prestige-numerique.fr/tailwindcss/3.4.17.js"></script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap">
     <link rel="stylesheet" href="http://cdn.agence-prestige-numerique.fr/fontawesome/all.min.css">
-    <link rel="stylesheet" href="../assets/css/index.css">
-    <link rel="icon" type="image/png" href="../assets/img/logo.png">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'primary': '#000000',
-                        'accent': '#00D4FF',
-                        'accent-dark': '#0099CC',
-                        'dark': '#0A0A0A',
-                        'light': '#F5F5F5',
-                        'gray-dark': '#1A1A1A',
-                    },
-                    fontFamily: {
-                        'orbitron': ['Orbitron', 'sans-serif'],
-                        'inter': ['Inter', 'sans-serif'],
-                    },
-                }
-            }
-        }
-    </script>
+    <link rel="stylesheet" href="assets/css/index.css">
+    <link rel="icon" type="image/png" href="assets/img/logo.png">
     <style>
-        .modal-backdrop { background: rgba(0, 0, 0, 0.6); }
-        .modal-content {
-            background: rgba(10, 10, 10, 0.85);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 80px rgba(0, 212, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-        }
+        .modal-content { background: rgba(10, 10, 10, 0.95); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .message-box { padding: 12px 15px; border-radius: 12px; margin-bottom: 16px; font-size: 14px; display: flex; align-items: center; gap: 10px; }
+        .message-success { background: rgba(74, 222, 128, 0.1); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.3); }
+        .message-error { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .message-info { background: rgba(0, 212, 255, 0.1); color: #00d4ff; border: 1px solid rgba(0, 212, 255, 0.3); }
         .input-glow:focus { box-shadow: 0 0 20px rgba(0, 212, 255, 0.15); }
-        .btn-glow:hover { box-shadow: 0 10px 40px rgba(0, 212, 255, 0.4); }
-        .close-btn:hover { box-shadow: 0 0 20px rgba(0, 212, 255, 0.3); }
-        .message-box {
-            padding: 12px 15px;
-            border-radius: 12px;
-            margin-bottom: 16px;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .message-success {
-            background: rgba(74, 222, 128, 0.1);
-            color: #4ade80;
-            border: 1px solid rgba(74, 222, 128, 0.3);
-        }
-        .message-error {
-            background: rgba(239, 68, 68, 0.1);
-            color: #ef4444;
-            border: 1px solid rgba(239, 68, 68, 0.3);
-        }
+        .candidat-info { display: none; }
+        .candidat-info.show { display: block; }
+        .joueur-pseudo.hide { display: none; }
+        .nouveau-jeu { display: none; }
+        .nouveau-jeu.show { display: block; }
     </style>
 </head>
 <body class="font-inter">
-    <!-- Fond gaming -->
-    <div class="gaming-bg">
-        <div class="diagonal-lines"></div>
-        <div class="diagonal-lines-2"></div>
-        <div class="diagonal-lines-3"></div>
-    </div>
-
-    <!-- Overlay -->
-    <div id="authOverlay" class="fixed inset-0 z-40 backdrop-blur-md modal-backdrop transition-opacity duration-300"></div>
-
-    <!-- Modal Authentification -->
-    <div id="authModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
-        <div id="authModalContent" class="relative w-full max-w-md my-8 transition-all duration-300">
-            
-    
-
-            <!-- Contenu du modal -->
-            <div class="modal-content rounded-[2.5rem] p-8 md:p-10 backdrop-blur-xl">
-                
-                <!-- ========== FORMULAIRE CONNEXION ========== -->
-                <?php if (!$show_register): ?>
-                
-                    <!-- Header Connexion -->
+    <div class="gaming-bg"><div class="diagonal-lines"></div></div>
+    <div class="fixed inset-0 z-40 backdrop-blur-md" style="background: rgba(0,0,0,0.7);"></div>
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div class="relative w-full max-w-md my-8">
+            <div class="modal-content rounded-3xl p-8 backdrop-blur-xl shadow-2xl">
+                <?php if (!$showregister): ?>
                     <div class="text-center mb-8">
-                        <div class="inline-block mb-5">
-                            <div class="rounded-3xl p-4 mx-auto w-20 h-20 flex items-center justify-center bg-gradient-to-br from-accent/20 to-accent/5 border border-accent/30 shadow-lg shadow-accent/20">
-                                <i class="fas fa-lock text-3xl text-accent"></i>
-                            </div>
+                        <div class="rounded-2xl p-4 w-16 h-16 flex items-center justify-center bg-gradient-to-br from-cyan-500/20 to-cyan-500/5 border border-cyan-500/30 mx-auto mb-4 shadow-lg shadow-cyan-500/20">
+                            <i class="fas fa-crown text-2xl text-cyan-400"></i>
                         </div>
-                        <h1 class="text-3xl md:text-4xl font-bold mb-3 font-orbitron text-light tracking-wide">Connexion</h1>
-                        <p class="text-light/60 text-sm md:text-base">Accédez à votre compte GameCrown</p>
+                        <h1 class="text-3xl font-bold font-orbitron text-white mb-2">Connexion</h1>
+                        <p class="text-white/60 text-sm">Accédez à votre compte GameCrown</p>
                     </div>
 
-                    <!-- Messages Connexion -->
-                    <?php if ($login_error): ?>
-                        <div class="message-box message-error">
-                            <i class="fas fa-exclamation-circle flex-shrink-0"></i>
-                            <span><?php echo htmlspecialchars($login_error); ?></span>
-                        </div>
+                    <?php if ($loginerror): ?>
+                        <div class="message-box message-error"><i class="fas fa-exclamation-circle"></i><span><?php echo $loginerror; ?></span></div>
                     <?php endif; ?>
 
-                    <!-- Formulaire Connexion -->
-                    <form method="POST" class="space-y-5">
+                    <form method="POST" class="space-y-4">
                         <input type="hidden" name="action" value="login">
-                        
                         <div>
-                            <label for="login_email" class="block mb-2 font-medium text-light text-sm">
-                                <i class="fas fa-envelope text-accent mr-2"></i>Email
-                            </label>
-                            <input type="email" id="login_email" name="login_email" required
-                                class="input-glow w-full rounded-2xl p-4 text-light bg-white/5 backdrop-blur-sm border border-white/10 focus:border-accent/50 focus:outline-none transition-all duration-300 placeholder-white/30"
-                                placeholder="votre@email.com">
+                            <label class="block mb-2 font-medium text-white text-sm"><i class="fas fa-envelope text-cyan-400 mr-2"></i>Email</label>
+                            <input type="email" name="loginemail" required class="input-glow w-full rounded-xl p-4 text-white bg-white/5 border border-white/10 focus:border-cyan-500/50 focus:outline-none transition-all placeholder-white/30" placeholder="votre@email.com">
                         </div>
-                        
                         <div>
-                            <label for="login_password" class="block mb-2 font-medium text-light text-sm">
-                                <i class="fas fa-lock text-accent mr-2"></i>Mot de passe
-                            </label>
+                            <label class="block mb-2 font-medium text-white text-sm"><i class="fas fa-lock text-cyan-400 mr-2"></i>Mot de passe</label>
                             <div class="relative">
-                                <input type="password" id="login_password" name="login_password" required
-                                    class="input-glow w-full rounded-2xl p-4 pr-12 text-light bg-white/5 backdrop-blur-sm border border-white/10 focus:border-accent/50 focus:outline-none transition-all duration-300 placeholder-white/30"
-                                    placeholder="Votre mot de passe">
-                                <button type="button" id="toggleLoginPassword" class="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-accent transition-colors">
-                                    <i class="fas fa-eye"></i>
-                                </button>
+                                <input type="password" name="loginpassword" id="loginpassword" required class="input-glow w-full rounded-xl p-4 pr-12 text-white bg-white/5 border border-white/10 focus:border-cyan-500/50 focus:outline-none transition-all placeholder-white/30" placeholder="Votre mot de passe">
+                                <button type="button" onclick="togglePassword('loginpassword', this)" class="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-cyan-400"><i class="fas fa-eye"></i></button>
                             </div>
                         </div>
-
-                        <div class="flex items-center">
-                            <input type="checkbox" id="remember" name="remember" class="w-4 h-4 cursor-pointer">
-                            <label for="remember" class="ml-2 text-light/60 text-sm cursor-pointer">Se souvenir de moi</label>
-                        </div>
-                        
-                        <button type="submit"
-                            class="btn-glow w-full py-4 rounded-2xl font-semibold bg-gradient-to-r from-accent to-accent-dark text-dark flex items-center justify-center space-x-3 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 mt-6">
-                            <i class="fas fa-sign-in-alt"></i>
-                            <span>Se connecter</span>
+                        <button type="submit" class="w-full py-4 rounded-xl font-semibold bg-gradient-to-r from-cyan-500 to-cyan-600 text-dark flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-cyan-500/30 transition-all mt-6">
+                            <i class="fas fa-sign-in-alt"></i><span>Se connecter</span>
                         </button>
                     </form>
-
-                    <div class="flex items-center my-6">
-                        <div class="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-                        <span class="px-4 text-white/40 text-sm">ou</span>
-                        <div class="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-                    </div>
-
-                    <div class="text-center">
-                        <p class="text-light/60 text-sm">Pas encore de compte ? 
-                            <a href="?register=1" class="text-accent font-medium hover:text-accent-dark transition-colors hover:underline">Créer un compte</a>
-                        </p>
-                    </div>
-
-                <!-- ========== FORMULAIRE INSCRIPTION ========== -->
-                <?php else: ?>
-
-                    <!-- Header Inscription -->
-                    <div class="text-center mb-8">
-                        <div class="inline-block mb-5">
-                            <div class="rounded-3xl p-4 mx-auto w-20 h-20 flex items-center justify-center bg-gradient-to-br from-accent/20 to-accent/5 border border-accent/30 shadow-lg shadow-accent/20">
-                                <i class="fas fa-user-plus text-3xl text-accent"></i>
-                            </div>
-                        </div>
-                        <h1 class="text-3xl md:text-4xl font-bold mb-3 font-orbitron text-light tracking-wide">Inscription</h1>
-                        <p class="text-light/60 text-sm md:text-base">Rejoignez la communauté GameCrown</p>
-                    </div>
-
-                    <!-- Messages Inscription -->
-                    <?php if ($register_error): ?>
-                        <div class="message-box message-error">
-                            <i class="fas fa-exclamation-circle flex-shrink-0"></i>
-                            <span><?php echo htmlspecialchars($register_error); ?></span>
-                        </div>
-                    <?php endif; ?>
-
-                    <?php if ($register_success): ?>
-                        <div class="message-box message-success">
-                            <i class="fas fa-check-circle flex-shrink-0"></i>
-                            <span><?php echo htmlspecialchars($register_success); ?></span>
-                        </div>
-                    <?php else: ?>
-
-                    <!-- Formulaire Inscription -->
-                    <form method="POST" class="space-y-5">
-                        <input type="hidden" name="action" value="register">
-                        
-                        <div>
-                            <label for="register_email" class="block mb-2 font-medium text-light text-sm">
-                                <i class="fas fa-envelope text-accent mr-2"></i>Email
-                            </label>
-                            <input type="email" id="register_email" name="register_email" required
-                                class="input-glow w-full rounded-2xl p-4 text-light bg-white/5 backdrop-blur-sm border border-white/10 focus:border-accent/50 focus:outline-none transition-all duration-300 placeholder-white/30"
-                                placeholder="votre@email.com">
-                        </div>
-                        
-                        <div>
-                            <label for="register_password" class="block mb-2 font-medium text-light text-sm">
-                                <i class="fas fa-lock text-accent mr-2"></i>Mot de passe
-                            </label>
-                            <div class="relative">
-                                <input type="password" id="register_password" name="register_password" required minlength="8"
-                                    class="input-glow w-full rounded-2xl p-4 pr-12 text-light bg-white/5 backdrop-blur-sm border border-white/10 focus:border-accent/50 focus:outline-none transition-all duration-300 placeholder-white/30"
-                                    placeholder="Minimum 8 caractères">
-                                <button type="button" id="toggleRegisterPassword" class="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-accent transition-colors">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                            </div>
-                            <div class="mt-2 flex gap-1">
-                                <div id="strengthBar1" class="h-1 flex-1 rounded-full bg-white/10 transition-all duration-300"></div>
-                                <div id="strengthBar2" class="h-1 flex-1 rounded-full bg-white/10 transition-all duration-300"></div>
-                                <div id="strengthBar3" class="h-1 flex-1 rounded-full bg-white/10 transition-all duration-300"></div>
-                                <div id="strengthBar4" class="h-1 flex-1 rounded-full bg-white/10 transition-all duration-300"></div>
-                            </div>
-                            <p id="strengthText" class="text-xs text-white/40 mt-1"></p>
-                        </div>
-                        
-                        <div>
-                            <label for="register_confirm_password" class="block mb-2 font-medium text-light text-sm">
-                                <i class="fas fa-lock text-accent mr-2"></i>Confirmer le mot de passe
-                            </label>
-                            <div class="relative">
-                                <input type="password" id="register_confirm_password" name="register_confirm_password" required
-                                    class="input-glow w-full rounded-2xl p-4 pr-12 text-light bg-white/5 backdrop-blur-sm border border-white/10 focus:border-accent/50 focus:outline-none transition-all duration-300 placeholder-white/30"
-                                    placeholder="Confirmez votre mot de passe">
-                                <button type="button" id="toggleConfirmPassword" class="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-accent transition-colors">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                            </div>
-                            <p id="passwordMatchMessage" class="text-xs mt-1 hidden"></p>
-                        </div>
-
-                        <div>
-                            <label for="register_type" class="block mb-2 font-medium text-light text-sm">
-                                <i class="fas fa-user-tag text-accent mr-2"></i>Type de compte
-                            </label>
-                            <select id="register_type" name="register_type" required
-                                class="input-glow w-full rounded-2xl p-4 text-light bg-white/5 backdrop-blur-sm border border-white/10 focus:border-accent/50 focus:outline-none transition-all duration-300">
-                                <option value="joueur" style="background: #0a0a0a;">🎮 Joueur</option>
-                                <option value="admin" style="background: #0a0a0a;">👨‍💼 Administrateur</option>
-                                <option value="candidat" style="background: #0a0a0a;">🏆 Candidat</option>
-                            </select>
-                        </div>
-                        
-                        <button type="submit"
-                            class="btn-glow w-full py-4 rounded-2xl font-semibold bg-gradient-to-r from-accent to-accent-dark text-dark flex items-center justify-center space-x-3 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 mt-6">
-                            <i class="fas fa-user-plus"></i>
-                            <span>Créer mon compte</span>
-                        </button>
-                    </form>
-
-                    <?php endif; ?>
-
-                    <div class="flex items-center my-6">
-                        <div class="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-                        <span class="px-4 text-white/40 text-sm">ou</span>
-                        <div class="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-                    </div>
-
-                    <div class="text-center">
-                        <p class="text-light/60 text-sm">Déjà un compte ? 
-                            <a href="login.php" class="text-accent font-medium hover:text-accent-dark transition-colors hover:underline">Se connecter</a>
-                        </p>
-                    </div>
-
+                    <div class="flex items-center my-6"><div class="flex-1 h-px bg-white/20"></div><span class="px-4 text-white/40 text-sm">ou</span><div class="flex-1 h-px bg-white/20"></div></div>
+                    <div class="text-center"><p class="text-white/60 text-sm">Pas encore de compte ? <a href="?register=1" class="text-cyan-400 font-medium hover:underline">S'inscrire</a></p></div>
                 <?php endif; ?>
 
+                <!-- INSCRIPTION ÉTAPE 1 -->
+                <?php if ($showregister && $step === 1): ?>
+                    <div class="text-center mb-6">
+                        <div class="rounded-2xl p-4 w-16 h-16 flex items-center justify-center bg-gradient-to-br from-cyan-500/20 to-cyan-500/5 border border-cyan-500/30 mx-auto mb-4">
+                            <i class="fas fa-user-plus text-2xl text-cyan-400"></i>
+                        </div>
+                        <h1 class="text-3xl font-bold font-orbitron text-white mb-2">Inscription</h1>
+                        <p class="text-white/60 text-sm">Rejoignez la communauté GameCrown</p>
+                    </div>
+
+                    <?php if ($registererror): ?><div class="message-box message-error"><i class="fas fa-exclamation-circle"></i><span><?php echo $registererror; ?></span></div><?php endif; ?>
+                    <?php if ($registersuccess): ?><div class="message-box message-success"><i class="fas fa-check-circle"></i><span><?php echo $registersuccess; ?></span></div><?php if ($registerinfo): ?><div class="message-box message-info"><i class="fas fa-info-circle"></i><span><?php echo $registerinfo; ?></span></div><?php endif; ?><?php else: ?>
+
+                    <form method="POST" class="space-y-4">
+                        <input type="hidden" name="action" value="register_step1">
+                        <div>
+                            <label class="block mb-2 font-medium text-white text-sm"><i class="fas fa-envelope text-cyan-400 mr-2"></i>Email *</label>
+                            <input type="email" name="registeremail" required class="input-glow w-full rounded-xl p-4 text-white bg-white/5 border border-white/10 focus:border-cyan-500/50 focus:outline-none transition-all placeholder-white/30" placeholder="votre@email.com" value="<?php echo htmlspecialchars($_POST['registeremail'] ?? ''); ?>">
+                        </div>
+                        <div id="pseudoField" class="joueur-pseudo">
+                            <label class="block mb-2 font-medium text-white text-sm"><i class="fas fa-user text-cyan-400 mr-2"></i>Pseudo * <span class="text-white/40 text-xs">(visible publiquement)</span></label>
+                            <input type="text" name="registerpseudo" id="registerpseudo" minlength="3" maxlength="30" class="input-glow w-full rounded-xl p-4 text-white bg-white/5 border border-white/10 focus:border-cyan-500/50 focus:outline-none transition-all placeholder-white/30" placeholder="Votre pseudo (3-30 car.)" value="<?php echo htmlspecialchars($_POST['registerpseudo'] ?? ''); ?>">
+                        </div>
+                        <div>
+                            <label class="block mb-2 font-medium text-white text-sm"><i class="fas fa-lock text-cyan-400 mr-2"></i>Mot de passe *</label>
+                            <div class="relative">
+                                <input type="password" name="registerpassword" id="registerpassword" required minlength="8" class="input-glow w-full rounded-xl p-4 pr-12 text-white bg-white/5 border border-white/10 focus:border-cyan-500/50 focus:outline-none transition-all placeholder-white/30" placeholder="Minimum 8 caractères">
+                                <button type="button" onclick="togglePassword('registerpassword', this)" class="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-cyan-400"><i class="fas fa-eye"></i></button>
+                            </div>
+                            <div class="flex gap-1 mt-2"><div id="bar1" class="h-1 flex-1 rounded-full bg-white/10"></div><div id="bar2" class="h-1 flex-1 rounded-full bg-white/10"></div><div id="bar3" class="h-1 flex-1 rounded-full bg-white/10"></div><div id="bar4" class="h-1 flex-1 rounded-full bg-white/10"></div></div>
+                        </div>
+                        <div>
+                            <label class="block mb-2 font-medium text-white text-sm"><i class="fas fa-lock text-cyan-400 mr-2"></i>Confirmer *</label>
+                            <input type="password" name="registerconfirmpassword" id="confirmpassword" required class="input-glow w-full rounded-xl p-4 text-white bg-white/5 border border-white/10 focus:border-cyan-500/50 focus:outline-none transition-all placeholder-white/30" placeholder="Confirmez le mot de passe">
+                            <p id="matchMsg" class="text-xs mt-1 hidden"></p>
+                        </div>
+                        <div>
+                            <label class="block mb-2 font-medium text-white text-sm"><i class="fas fa-user-tag text-cyan-400 mr-2"></i>Type de compte</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <label class="cursor-pointer"><input type="radio" name="registertype" value="joueur" checked class="hidden" id="typeJoueur" onchange="updateTypeSelection()"><div id="boxJoueur" class="p-4 rounded-xl border-2 border-cyan-500 bg-cyan-500/10 text-center transition-all"><i class="fas fa-gamepad text-2xl text-cyan-400 mb-2"></i><p class="text-white text-sm font-medium">Joueur</p><p class="text-white/40 text-xs mt-1">Votez & commentez</p></div></label>
+                                <label class="cursor-pointer"><input type="radio" name="registertype" value="candidat" class="hidden" id="typeCandidat" onchange="updateTypeSelection()"><div id="boxCandidat" class="p-4 rounded-xl border-2 border-white/10 bg-white/5 text-center transition-all"><i class="fas fa-trophy text-2xl text-purple-400 mb-2"></i><p class="text-white text-sm font-medium">Candidat</p><p class="text-white/40 text-xs mt-1">Représentez un jeu</p></div></label>
+                            </div>
+                            <div id="candidatInfo" class="candidat-info mt-4 p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl">
+                                <p class="text-sm text-purple-300 mb-2"><i class="fas fa-info-circle mr-1"></i> En tant que candidat :</p>
+                                <ul class="text-xs text-white/60 space-y-1 mb-2"><li>• Votre nom sera votre pseudo public</li><li>• Vous pourrez gérer votre campagne</li></ul>
+                                <p class="text-xs text-orange-400"><i class="fas fa-exclamation-triangle mr-1"></i>Validation admin requise</p>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full py-4 rounded-xl font-semibold bg-gradient-to-r from-cyan-500 to-cyan-600 text-dark flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-cyan-500/30 transition-all mt-4"><i class="fas fa-arrow-right"></i><span>Continuer</span></button>
+                    </form>
+                    <?php endif; ?>
+                    <div class="flex items-center my-6"><div class="flex-1 h-px bg-white/20"></div><span class="px-4 text-white/40 text-sm">ou</span><div class="flex-1 h-px bg-white/20"></div></div>
+                    <div class="text-center"><p class="text-white/60 text-sm">Déjà un compte ? <a href="login.php" class="text-cyan-400 font-medium hover:underline">Se connecter</a></p></div>
+                <?php endif; ?>
+
+                <!-- INSCRIPTION ÉTAPE 2 (CANDIDAT) -->
+                <?php if ($step === 2): ?>
+                    <div class="text-center mb-6">
+                        <div class="rounded-2xl p-4 w-16 h-16 flex items-center justify-center bg-gradient-to-br from-purple-500/20 to-purple-500/5 border border-purple-500/30 mx-auto mb-4"><i class="fas fa-trophy text-2xl text-purple-400"></i></div>
+                        <h1 class="text-2xl font-bold font-orbitron text-white mb-2">Profil Candidat</h1>
+                        <p class="text-white/60 text-sm">Étape 2/2</p>
+                        <div class="flex justify-center gap-2 mt-3"><div class="w-3 h-3 rounded-full bg-purple-500"></div><div class="w-3 h-3 rounded-full bg-purple-500"></div></div>
+                    </div>
+
+                    <?php if ($registererror): ?><div class="message-box message-error"><i class="fas fa-exclamation-circle"></i><span><?php echo $registererror; ?></span></div><?php endif; ?>
+                    <div class="message-box message-info mb-4"><i class="fas fa-user"></i><span>Email : <strong><?php echo htmlspecialchars($_SESSION['temp_email'] ?? ''); ?></strong></span></div>
+                    <form method="POST" class="space-y-4">
+                        <input type="hidden" name="action" value="register_step2">
+                        
+                        <div><label class="block mb-2 font-medium text-white text-sm"><i class="fas fa-id-card text-purple-400 mr-2"></i>Votre nom * <span class="text-white/40 text-xs">(sera votre pseudo)</span></label><input type="text" name="nom" required minlength="2" maxlength="100" class="input-glow w-full rounded-xl p-3 text-white bg-white/5 border border-white/10 focus:border-purple-500/50 focus:outline-none transition-all placeholder-white/30" placeholder="ex: Jean Dupont"></div>
+                        <div><label class="block mb-2 font-medium text-white text-sm"><i class="fas fa-align-left text-purple-400 mr-2"></i>Biographie</label><textarea name="bio" rows="2" maxlength="500" class="input-glow w-full rounded-xl p-3 text-white bg-white/5 border border-white/10 focus:border-purple-500/50 focus:outline-none transition-all resize-none placeholder-white/30" placeholder="Parlez de vous..."></textarea></div>
+                        <div><label class="block mb-2 font-medium text-white text-sm"><i class="fas fa-image text-purple-400 mr-2"></i>Photo (URL)</label><input type="url" name="photo" maxlength="500" class="input-glow w-full rounded-xl p-3 text-white bg-white/5 border border-white/10 focus:border-purple-500/50 focus:outline-none transition-all placeholder-white/30" placeholder="https://..."></div>
+                        <hr class="border-white/10">
+                        <div>
+                            <label class="block mb-2 font-medium text-white text-sm"><i class="fas fa-gamepad text-purple-400 mr-2"></i>Jeu représenté *</label>
+                            <p class="text-xs text-orange-400 mb-3"><i class="fas fa-exclamation-triangle mr-1"></i>Non modifiable après inscription !</p>
+                            <div class="space-y-2">
+                                <label class="flex items-center gap-2 p-2 rounded-lg bg-white/5 cursor-pointer"><input type="radio" name="jeu_choice" value="existant" checked class="accent-purple-500" onchange="toggleNouveauJeu()"><span class="text-white text-sm">Jeu existant</span></label>
+                                <select name="id_jeu" id="jeuSelect" class="w-full rounded-xl p-3 text-white bg-white/5 border border-white/10 focus:border-purple-500/50 focus:outline-none"><option value="">-- Choisir --</option><?php foreach ($jeux as $jeu): ?><option value="<?php echo $jeu['id_jeu']; ?>"><?php echo htmlspecialchars($jeu['titre']); ?></option><?php endforeach; ?></select>
+                                <label class="flex items-center gap-2 p-2 rounded-lg bg-white/5 cursor-pointer"><input type="radio" name="jeu_choice" value="nouveau" class="accent-purple-500" onchange="toggleNouveauJeu()"><span class="text-white text-sm">Créer un nouveau jeu</span></label>
+                                <div id="nouveauJeu" class="nouveau-jeu mt-3 p-4 bg-white/5 border border-white/10 rounded-xl space-y-3">
+                                    <input type="text" name="nouveau_jeu_titre" id="nouveauTitre" maxlength="200" class="w-full rounded-lg p-3 text-white bg-white/5 border border-white/10 text-sm placeholder-white/30" placeholder="Titre du jeu *">
+                                    <input type="text" name="nouveau_jeu_editeur" maxlength="200" class="w-full rounded-lg p-3 text-white bg-white/5 border border-white/10 text-sm placeholder-white/30" placeholder="Éditeur">
+                                    <input type="url" name="nouveau_jeu_image" class="w-full rounded-lg p-3 text-white bg-white/5 border border-white/10 text-sm placeholder-white/30" placeholder="URL image">
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full py-4 rounded-xl font-semibold bg-gradient-to-r from-purple-500 to-purple-600 text-white flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-purple-500/30 transition-all mt-4"><i class="fas fa-paper-plane"></i><span>Soumettre ma candidature</span></button>
+                    </form>
+                <?php endif; ?>
             </div>
         </div>
     </div>
 
     <script>
-        // Elements
-        const toggleLoginPassword = document.getElementById('toggleLoginPassword');
-        const toggleRegisterPassword = document.getElementById('toggleRegisterPassword');
-        const toggleConfirmPassword = document.getElementById('toggleConfirmPassword');
-        const loginPasswordInput = document.getElementById('login_password');
-        const registerPasswordInput = document.getElementById('register_password');
-        const confirmPasswordInput = document.getElementById('register_confirm_password');
-
-        // Toggle password visibility
-        toggleLoginPassword?.addEventListener('click', () => {
-            const type = loginPasswordInput.type === 'password' ? 'text' : 'password';
-            loginPasswordInput.type = type;
-            toggleLoginPassword.innerHTML = type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
+        function togglePassword(id, btn) { const i = document.getElementById(id); i.type = i.type === 'password' ? 'text' : 'password'; btn.innerHTML = i.type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>'; }
+        document.getElementById('registerpassword')?.addEventListener('input', function() {
+            let s = 0; if (this.value.length >= 8) s++; if (/[a-z]/.test(this.value) && /[A-Z]/.test(this.value)) s++; if (/\d/.test(this.value)) s++; if (/[^a-zA-Z\d]/.test(this.value)) s++;
+            const c = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500'];
+            for (let i = 1; i <= 4; i++) document.getElementById('bar' + i).className = 'h-1 flex-1 rounded-full ' + (i <= s ? c[s-1] : 'bg-white/10');
+            checkMatch();
         });
-
-        toggleRegisterPassword?.addEventListener('click', () => {
-            const type = registerPasswordInput.type === 'password' ? 'text' : 'password';
-            registerPasswordInput.type = type;
-            toggleRegisterPassword.innerHTML = type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
-        });
-
-        toggleConfirmPassword?.addEventListener('click', () => {
-            const type = confirmPasswordInput.type === 'password' ? 'text' : 'password';
-            confirmPasswordInput.type = type;
-            toggleConfirmPassword.innerHTML = type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
-        });
-
-        // Password strength
-        function checkPasswordStrength(password) {
-            let strength = 0;
-            if (password.length >= 8) strength++;
-            if (password.match(/[a-z]/) && password.match(/[A-Z]/)) strength++;
-            if (password.match(/\d/)) strength++;
-            if (password.match(/[^a-zA-Z\d]/)) strength++;
-            return strength;
+        
+        function checkMatch() { const p1 = document.getElementById('registerpassword')?.value || '', p2 = document.getElementById('confirmpassword')?.value || '', m = document.getElementById('matchMsg'); if (!m || !p2) { m?.classList.add('hidden'); return; } m.classList.remove('hidden'); m.textContent = p1 === p2 ? '✓ Correspondent' : '✗ Ne correspondent pas'; m.className = 'text-xs mt-1 ' + (p1 === p2 ? 'text-green-400' : 'text-red-400'); }
+        document.getElementById('confirmpassword')?.addEventListener('input', checkMatch);
+        
+        function updateTypeSelection() {
+            const j = document.getElementById('typeJoueur')?.checked, bJ = document.getElementById('boxJoueur'), bC = document.getElementById('boxCandidat'), cI = document.getElementById('candidatInfo'), pF = document.getElementById('pseudoField'), pI = document.getElementById('registerpseudo');
+            if (bJ && bC) { bJ.className = 'p-4 rounded-xl border-2 text-center transition-all ' + (j ? 'border-cyan-500 bg-cyan-500/10' : 'border-white/10 bg-white/5'); bC.className = 'p-4 rounded-xl border-2 text-center transition-all ' + (j ? 'border-white/10 bg-white/5' : 'border-purple-500 bg-purple-500/10'); }
+            if (pF) { pF.classList.toggle('hide', !j); if (pI) pI.required = j; }
+            if (cI) cI.classList.toggle('show', !j);
         }
-
-        function updateStrengthIndicator(strength) {
-            const bars = [
-                document.getElementById('strengthBar1'),
-                document.getElementById('strengthBar2'),
-                document.getElementById('strengthBar3'),
-                document.getElementById('strengthBar4')
-            ];
-            const strengthText = document.getElementById('strengthText');
-            const colors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500'];
-            const texts = ['Très faible', 'Faible', 'Moyen', 'Fort'];
-            
-            bars.forEach((bar, index) => {
-                bar.classList.remove('bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500', 'bg-white/10');
-                bar.classList.add(index < strength ? colors[strength - 1] : 'bg-white/10');
-            });
-            
-            strengthText.textContent = strength > 0 ? texts[strength - 1] : '';
-        }s
-
-        registerPasswordInput?.addEventListener('input', () => {
-            updateStrengthIndicator(checkPasswordStrength(registerPasswordInput.value));
-            checkPasswordMatch();
-        });
-
-        function checkPasswordMatch() {
-            const password = registerPasswordInput.value;
-            const confirmPassword = confirmPasswordInput.value;
-            const message = document.getElementById('passwordMatchMessage');
-            
-            if (confirmPassword.length === 0) {
-                message.classList.add('hidden');
-                confirmPasswordInput.classList.remove('border-green-500', 'border-red-500');
-                return;
-            }
-            
-            message.classList.remove('hidden');
-            
-            if (password === confirmPassword) {
-                message.textContent = '✓ Les mots de passe correspondent';
-                message.className = 'text-xs mt-1 text-green-400';
-                confirmPasswordInput.classList.remove('border-red-500');
-                confirmPasswordInput.classList.add('border-green-500');
-            } else {
-                message.textContent = '✗ Les mots de passe ne correspondent pas';
-                message.className = 'text-xs mt-1 text-red-400';
-                confirmPasswordInput.classList.remove('border-green-500');
-                confirmPasswordInput.classList.add('border-red-500');
-            }
-        }
-
-        confirmPasswordInput?.addEventListener('input', checkPasswordMatch);
+        document.addEventListener('DOMContentLoaded', updateTypeSelection);
+        
+        function toggleNouveauJeu() { const c = document.querySelector('input[name="jeu_choice"]:checked')?.value, s = document.getElementById('jeuSelect'), n = document.getElementById('nouveauJeu'), t = document.getElementById('nouveauTitre'); if (c === 'nouveau') { s.disabled = true; s.classList.add('opacity-50'); n.classList.add('show'); if (t) t.required = true; } else { s.disabled = false; s.classList.remove('opacity-50'); n.classList.remove('show'); if (t) t.required = false; } }
     </script>
 </body>
 </html>

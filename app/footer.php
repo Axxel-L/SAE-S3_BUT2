@@ -60,6 +60,7 @@
         const registerPasswordConfirm = document.getElementById('registerPasswordConfirm');
         const switchToLogin = document.getElementById('switchToLogin');
 
+        // ==================== FONCTIONS LOGIN ====================
         function openLoginPopup() {
             loginOverlay.classList.remove('hidden');
             loginModal.classList.remove('hidden');
@@ -88,6 +89,7 @@
             }, 300);
         }
 
+        // ==================== FONCTIONS REGISTER ====================
         function openRegisterPopup() {
             registerOverlay.classList.remove('hidden');
             registerModal.classList.remove('hidden');
@@ -112,6 +114,7 @@
             }, 300);
         }
 
+        // ==================== SWITCH ENTRE MODALS ====================
         function switchFromLoginToRegister() {
             loginOverlay.classList.remove('opacity-100');
             loginOverlay.classList.add('opacity-0');
@@ -136,6 +139,7 @@
             }, 300);
         }
 
+        // ==================== ÉVÉNEMENTS LOGIN ====================
         openLoginBtn.addEventListener('click', (e) => {
             e.preventDefault();
             openLoginPopup();
@@ -157,6 +161,8 @@
         });
 
         switchToRegister.addEventListener('click', switchFromLoginToRegister);
+
+        // ==================== ÉVÉNEMENTS REGISTER ====================
         closeRegisterModal.addEventListener('click', closeRegisterPopup);
         registerOverlay.addEventListener('click', closeRegisterPopup);
         registerModalContent.addEventListener('click', (e) => e.stopPropagation());
@@ -173,6 +179,8 @@
         });
 
         switchToLogin.addEventListener('click', switchFromRegisterToLogin);
+
+        // ==================== VALIDATION MOT DE PASSE ====================
         function checkPasswordStrength(password) {
             let strength = 0;
             if (password.length >= 8) strength++;
@@ -243,6 +251,8 @@
             }
             messageDiv.innerHTML = '<p class="text-green-400 text-sm text-center"><i class="fas fa-check-circle mr-2"></i>Compte créé avec succès !</p>';
         });
+
+        // ==================== TOUCHE ESCAPE ====================
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 if (!loginModal.classList.contains('hidden')) closeLoginPopup();
