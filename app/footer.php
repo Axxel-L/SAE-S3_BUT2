@@ -39,7 +39,6 @@
 
     <!-- Script pour les modals Login et Register -->
     <script>
-        // ==================== ÉLÉMENTS DU DOM ====================
         // Login
         const loginOverlay = document.getElementById('loginOverlay');
         const loginModal = document.getElementById('loginModal');
@@ -62,7 +61,7 @@
         const registerPasswordConfirm = document.getElementById('registerPasswordConfirm');
         const switchToLogin = document.getElementById('switchToLogin');
 
-        // ==================== FONCTIONS LOGIN ====================
+        // Fonctions Login
         function openLoginPopup() {
             loginOverlay.classList.remove('hidden');
             loginModal.classList.remove('hidden');
@@ -94,7 +93,7 @@
             }, 300);
         }
 
-        // ==================== FONCTIONS REGISTER ====================
+        // Fonctions Register
         function openRegisterPopup() {
             registerOverlay.classList.remove('hidden');
             registerModal.classList.remove('hidden');
@@ -121,7 +120,7 @@
             }, 300);
         }
 
-        // ==================== SWITCH ENTRE MODALS ====================
+        // Fonctions de switch entre Login et Register
         function switchFromLoginToRegister() {
             loginOverlay.classList.remove('opacity-100');
             loginOverlay.classList.add('opacity-0');
@@ -148,7 +147,7 @@
             }, 300);
         }
 
-        // ==================== ÉVÉNEMENTS LOGIN ====================
+        // Evenements Login
         openLoginBtn.addEventListener('click', (e) => {
             e.preventDefault();
             openLoginPopup();
@@ -171,7 +170,7 @@
 
         switchToRegister.addEventListener('click', switchFromLoginToRegister);
 
-        // ==================== ÉVÉNEMENTS REGISTER ====================
+        // Evenements Register
         closeRegisterModal.addEventListener('click', closeRegisterPopup);
         registerOverlay.addEventListener('click', closeRegisterPopup);
         registerModalContent.addEventListener('click', (e) => e.stopPropagation());
@@ -190,7 +189,7 @@
 
         switchToLogin.addEventListener('click', switchFromRegisterToLogin);
 
-        // ==================== VALIDATION MOT DE PASSE ====================
+        // Validation du mot de passe et indicateur de force
         function checkPasswordStrength(password) {
             let strength = 0;
             if (password.length >= 8) strength++;
@@ -274,7 +273,7 @@
             messageDiv.innerHTML = '<p class="text-green-400 text-sm text-center"><i class="fas fa-check-circle mr-2"></i>Compte créé avec succès !</p>';
         });
 
-        // ==================== TOUCHE ESCAPE ====================
+        // Touche Échap pour fermer les modals
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 if (!loginModal.classList.contains('hidden')) closeLoginPopup();

@@ -2,12 +2,14 @@
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
-
 require_once 'dbconnect.php';
 
-// Vérifier admin
-if (!isset($_SESSION['type']) || $_SESSION['type'] !== 'admin') {
-    header('Location: index.php');
+// Vérifie si l'utilisateur est un admin
+if (!isset($_SESSION['id_utilisateur']) || ($_SESSION['type'] ?? '') !== 'admin') {
+    echo "<script>
+        alert('Accès réservé aux administrateurs');
+        window.location.href = './dashboard.php';
+    </script>";
     exit;
 }
 
@@ -30,7 +32,7 @@ try {
     $error = "Erreur : " . $e->getMessage();
 }
 
-// Récupérer les catégories de cet événement
+// Récupérer les catégories de l'événement
 $categories = [];
 try {
     $stmt = $connexion->prepare("
@@ -47,7 +49,7 @@ try {
     $error = "Erreur : " . $e->getMessage();
 }
 
-// CRÉER UNE CATÉGORIE
+// Créer une catégorie
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'create_category') {
     $nom = trim($_POST['nom'] ?? '');
     $description = trim($_POST['description'] ?? '');
@@ -60,15 +62,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             ");
             $stmt->execute([$nom, $description, $id_evenement]);
             $success = "Catégorie créée avec succès !";
-            
-            // Log
             $stmt = $connexion->prepare("
                 INSERT INTO journal_securite (id_utilisateur, action, details) 
                 VALUES (?, 'ADMIN_CATEGORY_CREATE', ?)
-            ");
+            "); // Rajoute dans les logs
             $stmt->execute([$id_utilisateur, "Catégorie '$nom' créée pour événement #$id_evenement"]);
-            
-            // Rafraîchir
+            // Rafraîchir la liste des catégories
             $stmt = $connexion->prepare("
                 SELECT c.*, COUNT(DISTINCT n.id_nomination) as nb_jeux
                 FROM categorie c
@@ -87,20 +86,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 
-// SUPPRIMER UNE CATÉGORIE
+// Supprimer une catégorie
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_category') {
     $id_categorie = intval($_POST['id_categorie'] ?? 0);
-    
     try {
         $stmt = $connexion->prepare("SELECT nom FROM categorie WHERE id_categorie = ?");
         $stmt->execute([$id_categorie]);
         $cat = $stmt->fetch();
-        
         $stmt = $connexion->prepare("DELETE FROM categorie WHERE id_categorie = ? AND id_evenement = ?");
         $stmt->execute([$id_categorie, $id_evenement]);
         $success = "Catégorie supprimée !";
         
-        // Rafraîchir
+        // Rafraîchir la liste des catégories
         $stmt = $connexion->prepare("
             SELECT c.*, COUNT(DISTINCT n.id_nomination) as nb_jeux
             FROM categorie c
@@ -126,37 +123,21 @@ try {
     $stmt->execute([$id_evenement]);
     $nbCandidaturesAttente = $stmt->fetchColumn();
 } catch (Exception $e) {
-    // La colonne n'existe peut-être pas encore
+    // La colonne n'existe pas
     $nbCandidaturesAttente = 0;
 }
 
 require_once 'header.php';
 ?>
-
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Catégories - GameCrown</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap">
-    <link rel="stylesheet" href="http://cdn.agence-prestige-numerique.fr/fontawesome/all.min.css">
-    <link rel="stylesheet" href="assets/css/index.css">
-    <link rel="icon" type="image/png" href="assets/img/logo.png">
-</head>
-<body class="font-inter bg-dark text-light">
-
+<br><br><br> <!-- Espace pour le header -->
 <section class="py-20 px-6">
     <div class="container mx-auto max-w-7xl">
-        
-        <!-- En-tête -->
         <div class="mb-12 flex flex-wrap items-center justify-between gap-4">
             <div>
-                <h1 class="text-5xl md:text-6xl font-bold font-orbitron mb-4">
+                <h1 class="text-5xl md:text-6xl font-bold font-orbitron mb-4 accent-gradient">
                     <i class="fas fa-tags text-accent mr-3"></i>Catégories
                 </h1>
-                <p class="text-xl text-light/80"><?php echo htmlspecialchars($event['nom']); ?></p>
+                <p class="text-xl text-light-80"><?php echo htmlspecialchars($event['nom']); ?></p>
             </div>
             <div class="flex flex-wrap gap-3">
                 <?php if ($nbCandidaturesAttente > 0): ?>
@@ -166,19 +147,16 @@ require_once 'header.php';
                 </a>
                 <?php endif; ?>
                 <a href="admin-events.php" class="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 hover:border-accent/50 transition-colors flex items-center gap-2">
-                    <i class="fas fa-arrow-left"></i> Retour aux événements
+                    <i class="fas fa-arrow-left"></i> Retour
                 </a>
             </div>
         </div>
-
-        <!-- Messages -->
         <?php if ($error): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
                 <i class="fas fa-exclamation-circle text-red-400"></i>
                 <span class="text-red-400"><?php echo htmlspecialchars($error); ?></span>
             </div>
         <?php endif; ?>
-
         <?php if ($success): ?>
             <div class="mb-8 p-4 rounded-2xl bg-green-500/10 border border-green-500/30 flex items-center gap-3">
                 <i class="fas fa-check-circle text-green-400"></i>
@@ -186,35 +164,34 @@ require_once 'header.php';
             </div>
         <?php endif; ?>
 
-        <!-- Info sur le nouveau système -->
+        <!-- Info sur le système -->
         <div class="mb-8 p-4 rounded-2xl bg-blue-500/10 border border-blue-500/30">
             <p class="text-blue-400">
                 <i class="fas fa-info-circle mr-2"></i>
                 <strong>Comment ça marche :</strong> Créez des catégories ici. Les candidats postuleront ensuite à ces catégories avec leur jeu. 
-                Vous pourrez approuver ou refuser leurs candidatures dans la page 
+                On peut approuver ou refuser ces candidatures.
                 <a href="admin-candidatures.php?event=<?php echo $id_evenement; ?>" class="underline hover:text-blue-300">Candidatures</a>.
             </p>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
             <!-- Formulaire création catégorie -->
             <div class="lg:col-span-1">
-                <div class="glass-card rounded-3xl p-8 modern-border sticky top-8">
-                    <h2 class="text-2xl font-bold mb-6">
-                        <i class="fas fa-plus text-accent mr-2"></i>Créer une catégorie
+                <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10 sticky top-8">
+                    <h2 class="text-2xl font-bold font-orbitron mb-6 flex items-center gap-2">
+                        <i class="fas fa-plus text-accent"></i>Créer une catégorie
                     </h2>
                     
                     <form method="POST" class="space-y-4">
                         <input type="hidden" name="action" value="create_category">
                         
                         <div>
-                            <label class="block mb-2 text-light/80">Nom *</label>
+                            <label class="block mb-2 text-light-80">Nom *</label>
                             <input type="text" name="nom" required class="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 focus:border-accent/50 outline-none text-light" placeholder="Ex: Meilleur Gameplay">
                         </div>
                         
                         <div>
-                            <label class="block mb-2 text-light/80">Description</label>
+                            <label class="block mb-2 text-light-80">Description</label>
                             <textarea name="description" rows="3" class="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 focus:border-accent/50 outline-none text-light" placeholder="Description de la catégorie..."></textarea>
                         </div>
                         
@@ -224,25 +201,24 @@ require_once 'header.php';
                     </form>
                 </div>
             </div>
-
             <!-- Liste des catégories -->
             <div class="lg:col-span-2">
-                <div class="glass-card rounded-3xl p-8 modern-border">
-                    <h2 class="text-2xl font-bold mb-6">
-                        <i class="fas fa-list text-accent mr-2"></i>Catégories (<?php echo count($categories); ?>)
+                <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10">
+                    <h2 class="text-2xl font-bold font-orbitron mb-6 flex items-center gap-2">
+                        <i class="fas fa-list text-accent"></i>Catégories (<?php echo count($categories); ?>)
                     </h2>
                     
                     <?php if (empty($categories)): ?>
                         <div class="text-center py-12">
-                            <i class="fas fa-inbox text-4xl text-light/60 mb-3"></i>
-                            <p class="text-light/60">Aucune catégorie créée.</p>
-                            <p class="text-sm text-light/40 mt-2">Créez des catégories pour que les candidats puissent postuler.</p>
+                            <i class="fas fa-inbox text-4xl text-light-80 mb-3"></i>
+                            <p class="text-light-80">Aucune catégorie créée.</p>
+                            <p class="text-sm text-light-60 mt-2">Créez des catégories pour que les candidats puissent postuler.</p>
                         </div>
                     <?php else: ?>
                         <div class="space-y-4">
                             <?php foreach ($categories as $cat): ?>
                                 <?php
-                                // Récupérer les jeux nominés (approuvés) dans cette catégorie
+                                // Récupérer les jeux nominés pour cette catégorie
                                 $jeux_nomines = [];
                                 try {
                                     $stmt = $connexion->prepare("
@@ -254,9 +230,7 @@ require_once 'header.php';
                                     ");
                                     $stmt->execute([$cat['id_categorie'], $id_evenement]);
                                     $jeux_nomines = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                                } catch (Exception $e) {
-                                    // Ignorer
-                                }
+                                } catch (Exception $e) {}
                                 
                                 // Compter les candidatures en attente pour cette catégorie
                                 $nbAttenteCat = 0;
@@ -267,25 +241,20 @@ require_once 'header.php';
                                     ");
                                     $stmt->execute([$cat['id_categorie'], $id_evenement]);
                                     $nbAttenteCat = $stmt->fetchColumn();
-                                } catch (Exception $e) {
-                                    // Ignorer
-                                }
+                                } catch (Exception $e) {}
                                 ?>
-                                
-                                <div class="glass-card rounded-2xl p-6 modern-border">
+                                <div class="glass-card rounded-2xl p-6 modern-border border border-white/10">
                                     <div class="flex items-start justify-between gap-4 mb-4">
                                         <div class="flex-1">
                                             <h3 class="text-xl font-bold text-light mb-1"><?php echo htmlspecialchars($cat['nom']); ?></h3>
                                             <?php if ($cat['description']): ?>
-                                                <p class="text-sm text-light/60"><?php echo htmlspecialchars($cat['description']); ?></p>
+                                                <p class="text-sm text-light-80"><?php echo htmlspecialchars($cat['description']); ?></p>
                                             <?php endif; ?>
                                         </div>
-                                        
-                                        <!-- Bouton supprimer -->
                                         <form method="POST" class="inline">
                                             <input type="hidden" name="action" value="delete_category">
                                             <input type="hidden" name="id_categorie" value="<?php echo $cat['id_categorie']; ?>">
-                                            <button type="submit" class="px-3 py-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors" onclick="return confirm('Supprimer cette catégorie ?');">
+                                            <button type="submit" class="px-3 py-2 rounded-2xl bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 transition-colors" onclick="return confirm('Supprimer cette catégorie ?');">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </form>
@@ -293,12 +262,12 @@ require_once 'header.php';
                                     
                                     <!-- Stats -->
                                     <div class="flex flex-wrap gap-3 mb-4">
-                                        <span class="px-3 py-1 rounded-lg bg-green-500/20 text-green-400 text-sm">
+                                        <span class="px-3 py-1 rounded-2xl bg-green-500/20 border border-green-500/30 text-green-400 text-sm">
                                             <i class="fas fa-gamepad mr-1"></i>
                                             <?php echo count($jeux_nomines); ?> jeu(x) nominé(s)
                                         </span>
                                         <?php if ($nbAttenteCat > 0): ?>
-                                        <a href="admin-candidatures.php?event=<?php echo $id_evenement; ?>&status=en_attente" class="px-3 py-1 rounded-lg bg-yellow-500/20 text-yellow-400 text-sm hover:bg-yellow-500/30 transition-colors">
+                                        <a href="admin-candidatures.php?event=<?php echo $id_evenement; ?>&status=en_attente" class="px-3 py-1 rounded-2xl bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-sm hover:bg-yellow-500/30 transition-colors">
                                             <i class="fas fa-hourglass-half mr-1"></i>
                                             <?php echo $nbAttenteCat; ?> en attente
                                         </a>
@@ -308,15 +277,15 @@ require_once 'header.php';
                                     <!-- Jeux nominés -->
                                     <?php if (!empty($jeux_nomines)): ?>
                                         <div class="border-t border-white/10 pt-4">
-                                            <p class="text-xs text-light/50 mb-3">Jeux approuvés (apparaîtront dans les votes) :</p>
+                                            <p class="text-xs text-light-80 mb-3">Jeux approuvés (apparaîtront dans les votes) :</p>
                                             <div class="flex flex-wrap gap-2">
                                                 <?php foreach ($jeux_nomines as $jeu): ?>
-                                                    <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10">
+                                                    <div class="flex items-center gap-2 px-3 py-2 rounded-2xl bg-white/5 border border-white/10">
                                                         <?php if ($jeu['image']): ?>
-                                                            <img src="<?php echo htmlspecialchars($jeu['image']); ?>" alt="" class="w-8 h-8 rounded object-cover">
+                                                            <img src="<?php echo htmlspecialchars($jeu['image']); ?>" alt="" class="w-8 h-8 rounded-xl object-cover">
                                                         <?php else: ?>
-                                                            <div class="w-8 h-8 rounded bg-white/10 flex items-center justify-center">
-                                                                <i class="fas fa-gamepad text-xs text-light/50"></i>
+                                                            <div class="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center">
+                                                                <i class="fas fa-gamepad text-xs text-light-80"></i>
                                                             </div>
                                                         <?php endif; ?>
                                                         <span class="text-sm text-light"><?php echo htmlspecialchars($jeu['titre']); ?></span>
@@ -326,7 +295,7 @@ require_once 'header.php';
                                         </div>
                                     <?php else: ?>
                                         <div class="border-t border-white/10 pt-4">
-                                            <p class="text-xs text-light/40 italic">
+                                            <p class="text-xs text-light-80 italic">
                                                 <i class="fas fa-info-circle mr-1"></i>
                                                 Aucun jeu nominé. Approuvez des candidatures pour ajouter des jeux.
                                             </p>

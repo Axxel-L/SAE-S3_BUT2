@@ -3,9 +3,9 @@ session_start();
 require_once 'header.php';
 require_once 'dbconnect.php';
 
-// Vérifier candidat - CORRECTION : utiliser 'type' pas 'type'
+// Vérifier candidat
 if (!isset($_SESSION['type']) || $_SESSION['type'] !== 'candidat') {
-    echo "<script>alert('Accès réservé aux candidats'); window.location.href = 'index.php';</script>";
+    echo "<script>alert('Accès réservé aux candidats'); window.location.href = './dashboard.php';</script>";
     exit;
 }
 
@@ -39,17 +39,17 @@ try {
     $error = "Erreur : " . $e->getMessage();
 }
 
-// Récupérer les statistiques complètes
+// Récupérer les statistiques
 if ($candidat && !empty($candidat['id_jeu'])) {
     try {
-        // Commentaires reçus
+        // Commentaires
         $stmt = $connexion->prepare("
             SELECT COUNT(*) as total FROM commentaire WHERE id_jeu = ?
         ");
         $stmt->execute([$candidat['id_jeu']]);
         $stats['commentaires'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
         
-        // Votes pour ce jeu (par catégorie)
+        // Votes pour ce jeu
         $stmt = $connexion->prepare("
             SELECT COUNT(*) as total FROM bulletin_categorie WHERE id_jeu = ?
         ");
@@ -77,110 +77,177 @@ if ($candidat && !empty($candidat['id_jeu'])) {
         ");
         $stmt->execute([$candidat['id_jeu']]);
         $stats['derniers_commentaires'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Exception $e) {
-        // Erreur silencieuse
-    }
+    } catch (Exception $e) {}
 }
 ?>
 
-<div class="page-content">
-    <div class="container-wrapper">
-        <h1>📊 Statistiques - <?php echo htmlspecialchars($candidat['titre_jeu'] ?? 'Mon jeu'); ?></h1>
-        <p style="color: #b0b0b0; margin-bottom: 2rem;">Suivez la performance de votre jeu</p>
-        
+<br><br><br>
+<section class="py-20 px-6">
+    <div class="container mx-auto max-w-7xl">
+        <div class="text-center mb-12">
+            <h1 class="text-5xl md:text-6xl font-bold font-orbitron mb-4 accent-gradient">
+                <i class="fas fa-chart-bar text-accent mr-3"></i>Statistiques
+            </h1>
+            <p class="text-xl text-light/80">Suivez la performance de <span class="accent-gradient font-bold"><?php echo htmlspecialchars($candidat['titre_jeu'] ?? 'votre jeu'); ?></span></p>
+        </div>
         <?php if (!empty($error)): ?>
-            <div style="background: rgba(211, 47, 47, 0.1); border-left: 4px solid #d32f2f; border-radius: 4px; padding: 1rem; margin-bottom: 2rem; color: #ef9a9a;">
-                <i class="fas fa-exclamation-circle"></i> <?php echo htmlspecialchars($error); ?>
+            <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
+                <i class="fas fa-exclamation-circle text-red-400"></i>
+                <span class="text-red-400"><?php echo htmlspecialchars($error); ?></span>
             </div>
         <?php endif; ?>
         
-        <!-- Résumé statistiques -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
-            <!-- Commentaires -->
-            <div style="background: #1a2332; border: 1px solid #2a3a50; border-radius: 8px; padding: 1.5rem; text-align: center;">
-                <div style="color: #b0b0b0; font-size: 0.9rem; margin-bottom: 0.5rem;">💬 Commentaires</div>
-                <div style="color: #00bcd4; font-size: 2rem; font-weight: bold;"><?php echo $stats['commentaires']; ?></div>
+        <!-- Statistiques -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+            <div class="glass-card rounded-3xl p-6 modern-border border-2 border-white/10">
+                <div class="flex flex-col items-center">
+                    <div class="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mb-4">
+                        <i class="fas fa-comments text-accent text-2xl"></i>
+                    </div>
+                    <div class="text-4xl font-bold text-accent mb-2"><?php echo $stats['commentaires']; ?></div>
+                    <p class="text-light/60 text-sm">Commentaires</p>
+                </div>
             </div>
-            
-            <!-- Votes catégories -->
-            <div style="background: #1a2332; border: 1px solid #2a3a50; border-radius: 8px; padding: 1.5rem; text-align: center;">
-                <div style="color: #b0b0b0; font-size: 0.9rem; margin-bottom: 0.5rem;">🗳️ Votes Catégories</div>
-                <div style="color: #4caf50; font-size: 2rem; font-weight: bold;"><?php echo $stats['votes_categorie']; ?></div>
+            <div class="glass-card rounded-3xl p-6 modern-border border-2 border-white/10">
+                <div class="flex flex-col items-center">
+                    <div class="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mb-4">
+                        <i class="fas fa-layer-group text-green-400 text-2xl"></i>
+                    </div>
+                    <div class="text-4xl font-bold text-green-400 mb-2"><?php echo $stats['votes_categorie']; ?></div>
+                    <p class="text-light/60 text-sm">Votes Catégories</p>
+                </div>
             </div>
-            
-            <!-- Votes finaux -->
-            <div style="background: #1a2332; border: 1px solid #2a3a50; border-radius: 8px; padding: 1.5rem; text-align: center;">
-                <div style="color: #b0b0b0; font-size: 0.9rem; margin-bottom: 0.5rem;">🏆 Votes Finaux</div>
-                <div style="color: #ff9800; font-size: 2rem; font-weight: bold;"><?php echo $stats['votes_final']; ?></div>
+            <div class="glass-card rounded-3xl p-6 modern-border border-2 border-white/10">
+                <div class="flex flex-col items-center">
+                    <div class="w-16 h-16 rounded-full bg-yellow-500/10 flex items-center justify-center mb-4">
+                        <i class="fas fa-crown text-yellow-400 text-2xl"></i>
+                    </div>
+                    <div class="text-4xl font-bold text-yellow-400 mb-2"><?php echo $stats['votes_final']; ?></div>
+                    <p class="text-light/60 text-sm">Votes Finaux</p>
+                </div>
             </div>
-            
-            <!-- Total votes -->
-            <div style="background: #1a2332; border: 1px solid #2a3a50; border-radius: 8px; padding: 1.5rem; text-align: center;">
-                <div style="color: #b0b0b0; font-size: 0.9rem; margin-bottom: 0.5rem;">📈 Total Votes</div>
-                <div style="color: #e91e63; font-size: 2rem; font-weight: bold;"><?php echo $stats['votes_total']; ?></div>
+            <div class="glass-card rounded-3xl p-6 modern-border border-2 border-white/10">
+                <div class="flex flex-col items-center">
+                    <div class="w-16 h-16 rounded-full bg-purple-500/10 flex items-center justify-center mb-4">
+                        <i class="fas fa-chart-line text-purple-400 text-2xl"></i>
+                    </div>
+                    <div class="text-4xl font-bold text-purple-400 mb-2"><?php echo $stats['votes_total']; ?></div>
+                    <p class="text-light/60 text-sm">Total Votes</p>
+                </div>
             </div>
         </div>
         
-        <!-- Graphique votes -->
-        <div style="background: #1a2332; border: 1px solid #2a3a50; border-radius: 8px; padding: 2rem; margin-bottom: 2rem;">
-            <h2 style="color: #00bcd4; margin-bottom: 1.5rem;">📊 Répartition des votes</h2>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
-                <!-- Phase 1 -->
-                <div>
-                    <p style="color: #b0b0b0; font-weight: 600; margin-bottom: 1rem;">Phase 1 - Catégories</p>
-                    <div style="background: rgba(76, 175, 80, 0.2); border: 1px solid rgba(76, 175, 80, 0.5); border-radius: 8px; padding: 1rem;">
-                        <div style="display: flex; align-items: center; gap: 1rem;">
-                            <div style="width: 100%; height: 30px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;">
-                                <div style="height: 100%; background: linear-gradient(90deg, #4caf50, #81c784); width: <?php echo ($stats['votes_total'] > 0) ? ($stats['votes_categorie'] / $stats['votes_total'] * 100) : 0; ?>%;"></div>
-                            </div>
-                            <span style="color: #4caf50; font-weight: bold; min-width: 60px; text-align: right;"><?php echo $stats['votes_categorie']; ?></span>
+        <!-- Graphique de répartition -->
+        <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10 mb-12">
+            <h2 class="text-2xl font-bold font-orbitron mb-6 flex items-center gap-3">
+                <div class="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center">
+                    <i class="fas fa-chart-pie text-accent text-xl"></i>
+                </div>
+                <span>Répartition des votes</span>
+            </h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="p-6 rounded-2xl bg-green-500/10 border border-green-500/30">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-green-400 flex items-center gap-2">
+                                <i class="fas fa-layer-group"></i>
+                                Phase 1 - Catégories
+                            </h3>
+                            <p class="text-green-300/70 text-sm">Votes pendant la phase catégorielle</p>
+                        </div>
+                        <span class="text-3xl font-bold text-green-400"><?php echo $stats['votes_categorie']; ?></span>
+                    </div>
+                    <div class="mt-4">
+                        <div class="flex justify-between text-sm text-light/60 mb-2">
+                            <span>Progression</span>
+                            <span><?php echo ($stats['votes_total'] > 0) ? round(($stats['votes_categorie'] / $stats['votes_total']) * 100, 1) : 0; ?>%</span>
+                        </div>
+                        <div class="w-full h-4 bg-white/5 rounded-full overflow-hidden">
+                            <div 
+                                class="h-full bg-gradient-to-r from-green-500 to-green-400 rounded-full transition-all duration-1000"
+                                style="width: <?php echo ($stats['votes_total'] > 0) ? ($stats['votes_categorie'] / $stats['votes_total'] * 100) : 0; ?>%"
+                            ></div>
                         </div>
                     </div>
                 </div>
-                
-                <!-- Phase 2 -->
-                <div>
-                    <p style="color: #b0b0b0; font-weight: 600; margin-bottom: 1rem;">Phase 2 - Final</p>
-                    <div style="background: rgba(255, 152, 0, 0.2); border: 1px solid rgba(255, 152, 0, 0.5); border-radius: 8px; padding: 1rem;">
-                        <div style="display: flex; align-items: center; gap: 1rem;">
-                            <div style="width: 100%; height: 30px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;">
-                                <div style="height: 100%; background: linear-gradient(90deg, #ff9800, #ffb74d); width: <?php echo ($stats['votes_total'] > 0) ? ($stats['votes_final'] / $stats['votes_total'] * 100) : 0; ?>%;"></div>
-                            </div>
-                            <span style="color: #ff9800; font-weight: bold; min-width: 60px; text-align: right;"><?php echo $stats['votes_final']; ?></span>
+                <div class="p-6 rounded-2xl bg-yellow-500/10 border border-yellow-500/30">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-yellow-400 flex items-center gap-2">
+                                <i class="fas fa-crown"></i>
+                                Phase 2 - Final
+                            </h3>
+                            <p class="text-yellow-300/70 text-sm">Votes pendant la phase finale</p>
+                        </div>
+                        <span class="text-3xl font-bold text-yellow-400"><?php echo $stats['votes_final']; ?></span>
+                    </div>
+                    <div class="mt-4">
+                        <div class="flex justify-between text-sm text-light/60 mb-2">
+                            <span>Progression</span>
+                            <span><?php echo ($stats['votes_total'] > 0) ? round(($stats['votes_final'] / $stats['votes_total']) * 100, 1) : 0; ?>%</span>
+                        </div>
+                        <div class="w-full h-4 bg-white/5 rounded-full overflow-hidden">
+                            <div 
+                                class="h-full bg-gradient-to-r from-yellow-500 to-yellow-400 rounded-full transition-all duration-1000"
+                                style="width: <?php echo ($stats['votes_total'] > 0) ? ($stats['votes_final'] / $stats['votes_total'] * 100) : 0; ?>%"
+                            ></div>
                         </div>
                     </div>
                 </div>
             </div>
-            
-            <p style="color: #999; font-size: 0.85rem; margin-top: 1rem; font-style: italic;">ℹ️ Les votes sont anonymes - vous ne voyez que les totaux</p>
+            <div class="mt-6 p-4 rounded-2xl bg-blue-500/10 border border-blue-500/30">
+                <p class="text-sm text-blue-400 flex items-center gap-2">
+                    <i class="fas fa-info-circle"></i>
+                    Les votes sont anonymes - vous ne voyez que les totaux.
+                </p>
+            </div>
         </div>
-        
-        <!-- Derniers commentaires -->
-        <div>
-            <h2 style="color: #00bcd4; margin-bottom: 1.5rem;">💬 Derniers commentaires reçus</h2>
-            
+
+        <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold font-orbitron flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center">
+                            <i class="fas fa-comment-dots text-accent text-xl"></i>
+                        </div>
+                        <span>Derniers commentaires reçus</span>
+                    </h2>
+                    <p class="text-light/60 mt-2">Les 10 derniers commentaires sur votre jeu</p>
+                </div>
+                <div class="px-4 py-2 rounded-xl bg-accent/10 text-accent border border-accent/30 text-sm font-medium">
+                    <?php echo count($stats['derniers_commentaires']); ?> commentaire(s)
+                </div>
+            </div>
             <?php if (empty($stats['derniers_commentaires'])): ?>
-                <div style="background: #1a2332; border: 1px solid #2a3a50; border-radius: 8px; padding: 2rem; text-align: center;">
-                    <p style="color: #b0b0b0;">Pas encore de commentaires reçus.</p>
+                <div class="text-center py-12">
+                    <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-white/5 mb-6">
+                        <i class="fas fa-comment-slash text-4xl text-light/20"></i>
+                    </div>
+                    <p class="text-light/80 text-lg mb-2">Pas encore de commentaires reçus</p>
+                    <p class="text-light/60">Les commentaires des électeurs apparaîtront ici</p>
                 </div>
             <?php else: ?>
-                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                <div class="space-y-4">
                     <?php foreach ($stats['derniers_commentaires'] as $comment): ?>
-                        <div style="background: #1a2332; border: 1px solid #2a3a50; border-radius: 8px; padding: 1.5rem;">
-                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
-                                <div>
-                                    <p style="color: #00bcd4; font-weight: 600; margin: 0;"><?php echo htmlspecialchars($comment['email']); ?></p>
-                                    <p style="color: #b0b0b0; font-size: 0.9rem; margin: 0.25rem 0 0 0;"><?php echo htmlspecialchars($comment['date_format']); ?></p>
+                        <div class="p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-white/20 transition-colors">
+                            <div class="flex items-start justify-between mb-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
+                                        <i class="fas fa-user text-accent"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-accent font-bold"><?php echo htmlspecialchars($comment['email']); ?></p>
+                                        <p class="text-light/60 text-sm"><?php echo htmlspecialchars($comment['date_format']); ?></p>
+                                    </div>
                                 </div>
                             </div>
-                            <p style="color: #e0e0e0; margin: 1rem 0 0 0;"><?php echo htmlspecialchars($comment['contenu']); ?></p>
+                            <p class="text-light/80 leading-relaxed"><?php echo nl2br(htmlspecialchars($comment['contenu'])); ?></p>
                         </div>
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
         </div>
     </div>
-</div>
+</section>
 
 <?php require_once 'footer.php'; ?>

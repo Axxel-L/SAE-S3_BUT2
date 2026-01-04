@@ -3,10 +3,12 @@ if (session_status() == PHP_SESSION_NONE) { session_start(); }
 require_once 'dbconnect.php';
 require_once 'header.php';
 
+// Récupération de l'ID de l'événement sélectionné
 $id_evenement = intval($_GET['event'] ?? 0);
 $error = '';
 $event = null;
 
+// Vérification de l'existence de l'événement et de son statut
 if ($id_evenement > 0) {
     try {
         $stmt = $connexion->prepare("SELECT * FROM evenement WHERE id_evenement = ? AND statut = 'cloture'");
@@ -26,6 +28,7 @@ $resultatsCat = [];
 $resultatsFinal = [];
 $stats = ['nb_inscrits' => 0, 'total_votes_cat' => 0, 'total_votes_final' => 0];
 
+// Récupération des résultats si un événement est sélectionné
 if ($event) {
     try {
         $stmt = $connexion->prepare("SELECT c.id_categorie, c.nom as categorie, j.id_jeu, j.titre, j.image, COUNT(bc.id_bulletin) as nb_voix FROM categorie c LEFT JOIN bulletin_categorie bc ON c.id_categorie = bc.id_categorie AND bc.id_evenement = ? LEFT JOIN jeu j ON bc.id_jeu = j.id_jeu WHERE c.id_evenement = ? GROUP BY c.id_categorie, j.id_jeu ORDER BY c.nom, nb_voix DESC");
@@ -49,19 +52,8 @@ if ($event) {
 }
 $totalVotesFinal = array_sum(array_column($resultatsFinal, 'nb_voix'));
 ?>
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Résultats - GameCrown</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap">
-    <link rel="stylesheet" href="http://cdn.agence-prestige-numerique.fr/fontawesome/all.min.css">
-    <link rel="stylesheet" href="../assets/css/index.css">
-    <link rel="icon" type="image/png" href="../assets/img/logo.png">
-</head>
 <body class="font-inter bg-dark text-light">
+<br><br><br> <!-- Espace pour le header -->
 <section class="py-20 px-6">
     <div class="container mx-auto max-w-7xl">
         <div class="text-center mb-12">
@@ -81,7 +73,7 @@ $totalVotesFinal = array_sum(array_column($resultatsFinal, 'nb_voix'));
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <?php foreach ($events as $evt): ?>
-                        <a href="?event=<?php echo $evt['id_evenement']; ?>" class="p-4 rounded-2xl border <?php echo $id_evenement === $evt['id_evenement'] ? 'bg-accent/20 border-accent' : 'bg-white/5 border-white/10 hover:border-accent/50'; ?> transition-colors">
+                        <a href="?event=<?php echo $evt['id_evenement']; ?>" class="glass-card modern-border p-4 rounded-2xl <?php echo $id_evenement === $evt['id_evenement'] ? 'bg-accent/20 border-accent' : 'hover:border-accent/50'; ?> transition-colors">
                             <div class="font-bold text-light"><?php echo htmlspecialchars($evt['nom']); ?></div>
                             <div class="text-sm text-light-80"><?php echo date('d/m/Y', strtotime($evt['date_ouverture'])); ?></div>
                             <span class="inline-block mt-2 px-2 py-1 rounded-full text-xs bg-red-500/20 text-red-400 border border-red-500/30"><i class="fas fa-check-circle mr-1"></i>Clôturé</span>

@@ -5,9 +5,12 @@ if (session_status() == PHP_SESSION_NONE) {
 
 require_once 'dbconnect.php';
 
-// Vérifier admin
-if (!isset($_SESSION['type']) || $_SESSION['type'] !== 'admin') {
-    header('Location: index.php');
+// Vérifie si l'utilisateur est un admin
+if (!isset($_SESSION['id_utilisateur']) || ($_SESSION['type'] ?? '') !== 'admin') {
+    echo "<script>
+        alert('Accès réservé aux administrateurs');
+        window.location.href = './dashboard.php';
+    </script>";
     exit;
 }
 
@@ -19,13 +22,11 @@ $success = '';
 $filter_event = intval($_GET['event'] ?? 0);
 $filter_status = $_GET['status'] ?? 'en_attente';
 
-// APPROUVER une candidature
+// Approuver une candidature
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'approuver') {
     $id_candidature = intval($_POST['id_candidature'] ?? 0);
-    
     try {
         $connexion->beginTransaction();
-        
         // Récupérer les infos de la candidature
         $stmt = $connexion->prepare("
             SELECT ec.*, c.id_jeu, j.titre as jeu_titre
@@ -40,7 +41,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         if (!$candidature) {
             throw new Exception("Candidature non trouvée.");
         }
-        
         // Mettre à jour le statut
         $stmt = $connexion->prepare("
             UPDATE event_candidat 
@@ -51,9 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             WHERE id_event_candidat = ?
         ");
         $stmt->execute([$id_admin, $id_candidature]);
-        
-        // Ajouter automatiquement le jeu dans les nominations
-        // (si pas déjà nominé)
+        // Ajouter automatiquement le jeu dans les nominations si pas déjà nominé
         $stmt = $connexion->prepare("
             SELECT id_nomination FROM nomination 
             WHERE id_jeu = ? AND id_categorie = ? AND id_evenement = ?
@@ -75,8 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $candidature['id_evenement']
             ]);
         }
-        
-        // Log
+        // Ajout dans les logs
         $stmt = $connexion->prepare("
             INSERT INTO journal_securite (id_utilisateur, action, details)
             VALUES (?, 'ADMIN_CANDIDATURE_APPROUVE', ?)
@@ -85,21 +82,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $id_admin,
             "Candidature #$id_candidature approuvée - Jeu: " . $candidature['jeu_titre']
         ]);
-        
         $connexion->commit();
         $success = "Candidature approuvée ! Le jeu a été ajouté aux nominations.";
-        
     } catch (Exception $e) {
         $connexion->rollBack();
         $error = $e->getMessage();
     }
 }
 
-// REFUSER une candidature
+// Refuser une candidature
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'refuser') {
     $id_candidature = intval($_POST['id_candidature'] ?? 0);
     $motif = trim($_POST['motif'] ?? '');
-    
     try {
         // Mettre à jour le statut
         $stmt = $connexion->prepare("
@@ -111,16 +105,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             WHERE id_event_candidat = ?
         ");
         $stmt->execute([$id_admin, $motif ?: 'Non spécifié', $id_candidature]);
-        
-        // Log
+        // Ajout dans les logs        
         $stmt = $connexion->prepare("
             INSERT INTO journal_securite (id_utilisateur, action, details)
             VALUES (?, 'ADMIN_CANDIDATURE_REFUSE', ?)
         ");
         $stmt->execute([$id_admin, "Candidature #$id_candidature refusée - Motif: $motif"]);
-        
         $success = "Candidature refusée.";
-        
     } catch (Exception $e) {
         $error = $e->getMessage();
     }
@@ -131,9 +122,7 @@ $events = [];
 try {
     $stmt = $connexion->query("SELECT id_evenement, nom, statut FROM evenement ORDER BY date_ouverture DESC");
     $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
-    // Ignorer
-}
+} catch (Exception $e) {}
 
 // Récupérer les candidatures
 $candidatures = [];
@@ -167,25 +156,19 @@ try {
         LEFT JOIN utilisateur admin ON ec.valide_par = admin.id_utilisateur
         WHERE 1=1
     ";
-    
     $params = [];
-    
     if ($filter_event > 0) {
         $query .= " AND ec.id_evenement = ?";
         $params[] = $filter_event;
     }
-    
     if (!empty($filter_status)) {
         $query .= " AND ec.statut_candidature = ?";
         $params[] = $filter_status;
     }
-    
     $query .= " ORDER BY ec.date_inscription DESC";
-    
     $stmt = $connexion->prepare($query);
     $stmt->execute($params);
     $candidatures = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
 } catch (Exception $e) {
     $error = "Erreur : " . $e->getMessage();
 }
@@ -198,87 +181,74 @@ try {
 } catch (Exception $e) {
     // Ignorer
 }
-
 require_once 'header.php';
 ?>
-
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestion des Candidatures - GameCrown</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap">
-    <link rel="stylesheet" href="http://cdn.agence-prestige-numerique.fr/fontawesome/all.min.css">
-    <link rel="stylesheet" href="assets/css/index.css">
-    <link rel="icon" type="image/png" href="assets/img/logo.png">
-</head>
-<body class="font-inter bg-dark text-light">
-
+<br><br><br> <!-- Espace pour le header -->
 <section class="py-20 px-6">
     <div class="container mx-auto max-w-7xl">
-        
-        <!-- En-tête -->
         <div class="mb-12 flex flex-wrap items-center justify-between gap-4">
             <div>
-                <h1 class="text-5xl md:text-6xl font-bold font-orbitron mb-4">
+                <h1 class="text-5xl md:text-6xl font-bold font-orbitron mb-4 accent-gradient">
                     <i class="fas fa-clipboard-check text-accent mr-3"></i>Candidatures
                 </h1>
-                <p class="text-xl text-light/80">Validez ou refusez les candidatures des jeux</p>
+                <p class="text-xl text-light-80">Validez ou refusez les candidatures des jeux</p>
             </div>
             <?php if ($nbEnAttente > 0): ?>
-            <div class="px-4 py-2 rounded-full bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+            <div class="px-4 py-2 rounded-2xl bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
                 <i class="fas fa-bell mr-2"></i>
                 <span class="font-bold"><?php echo $nbEnAttente; ?></span> candidature(s) en attente
             </div>
             <?php endif; ?>
         </div>
-
-        <!-- Messages -->
         <?php if ($error): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
                 <i class="fas fa-exclamation-circle text-red-400"></i>
                 <span class="text-red-400"><?php echo htmlspecialchars($error); ?></span>
             </div>
         <?php endif; ?>
-
         <?php if ($success): ?>
             <div class="mb-8 p-4 rounded-2xl bg-green-500/10 border border-green-500/30 flex items-center gap-3">
                 <i class="fas fa-check-circle text-green-400"></i>
                 <span class="text-green-400"><?php echo htmlspecialchars($success); ?></span>
             </div>
         <?php endif; ?>
-
-        <!-- Filtres -->
-        <div class="glass-card rounded-3xl p-6 modern-border mb-8">
+        
+        <!-- Carte des filtres -->
+        <div class="glass-card rounded-3xl p-6 modern-border border-2 border-white/10 mb-8">
             <form method="GET" class="flex flex-wrap gap-4 items-end">
                 <!-- Événement -->
                 <div class="flex-1 min-w-48">
-                    <label class="block text-sm font-medium text-light/80 mb-2">Événement</label>
-                    <select name="event" class="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-light">
-                        <option value="0">Tous les événements</option>
-                        <?php foreach ($events as $evt): ?>
-                            <option value="<?php echo $evt['id_evenement']; ?>" <?php echo $filter_event === $evt['id_evenement'] ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($evt['nom']); ?> (<?php echo $evt['statut']; ?>)
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <label class="block text-sm font-medium text-light-80 mb-2">Événement</label>
+                    <div class="relative">
+                        <select name="event" class="w-full px-4 py-3 pr-10 rounded-2xl bg-white/5 border border-white/10 text-light appearance-none focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all duration-300">
+                            <option value="0" class="text-black bg-white">Tous les événements</option>
+                            <?php foreach ($events as $evt): ?>
+                                <option value="<?php echo $evt['id_evenement']; ?>" <?php echo $filter_event === $evt['id_evenement'] ? 'selected' : ''; ?> class="text-black bg-white">
+                                    <?php echo htmlspecialchars($evt['nom']); ?> (<?php echo $evt['statut']; ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3">
+                            <i class="fas fa-chevron-down text-light-80"></i>
+                        </div>
+                    </div>
                 </div>
-
                 <!-- Statut -->
                 <div class="flex-1 min-w-48">
-                    <label class="block text-sm font-medium text-light/80 mb-2">Statut</label>
-                    <select name="status" class="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-light">
-                        <option value="">Tous</option>
-                        <option value="en_attente" <?php echo $filter_status === 'en_attente' ? 'selected' : ''; ?>>⏳ En attente</option>
-                        <option value="approuve" <?php echo $filter_status === 'approuve' ? 'selected' : ''; ?>>✅ Approuvées</option>
-                        <option value="refuse" <?php echo $filter_status === 'refuse' ? 'selected' : ''; ?>>❌ Refusées</option>
-                    </select>
+                    <label class="block text-sm font-medium text-light-80 mb-2">Statut</label>
+                    <div class="relative">
+                        <select name="status" class="w-full px-4 py-3 pr-10 rounded-2xl bg-white/5 border border-white/10 text-light appearance-none focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all duration-300">
+                            <option value="" class="text-black bg-white">Tous</option>
+                            <option value="en_attente" <?php echo $filter_status === 'en_attente' ? 'selected' : ''; ?> class="text-black bg-white">⏳ En attente</option>
+                            <option value="approuve" <?php echo $filter_status === 'approuve' ? 'selected' : ''; ?> class="text-black bg-white">✅ Approuvées</option>
+                            <option value="refuse" <?php echo $filter_status === 'refuse' ? 'selected' : ''; ?> class="text-black bg-white">❌ Refusées</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3">
+                            <i class="fas fa-chevron-down text-light-80"></i>
+                        </div>
+                    </div>
                 </div>
-
-                <!-- Bouton -->
-                <button type="submit" class="px-6 py-3 rounded-xl bg-accent text-dark font-bold hover:bg-accent/80 transition-colors">
+                <button type="submit" class="px-6 py-3 rounded-2xl bg-accent text-dark font-bold hover:bg-accent/80 transition-colors">
                     <i class="fas fa-filter mr-2"></i>Filtrer
                 </button>
             </form>
@@ -286,9 +256,9 @@ require_once 'header.php';
 
         <!-- Liste des candidatures -->
         <?php if (empty($candidatures)): ?>
-            <div class="glass-card rounded-3xl p-12 modern-border text-center">
-                <i class="fas fa-inbox text-4xl text-light/80 mb-3"></i>
-                <p class="text-xl text-light/80">Aucune candidature trouvée.</p>
+            <div class="glass-card rounded-3xl p-12 modern-border border-2 border-white/10 text-center">
+                <i class="fas fa-inbox text-4xl text-light-80 mb-3"></i>
+                <p class="text-xl text-light-80">Aucune candidature trouvée.</p>
             </div>
         <?php else: ?>
             <div class="space-y-6">
@@ -300,15 +270,15 @@ require_once 'header.php';
                         default => 'border-yellow-500/30 bg-yellow-500/5'
                     };
                     ?>
-                    <div class="glass-card rounded-3xl p-6 modern-border <?php echo $statusClass; ?>">
+                    <div class="glass-card rounded-2xl p-6 modern-border border border-white/10 <?php echo $statusClass; ?>">
                         <div class="flex flex-wrap gap-6">
                             <!-- Image du jeu -->
                             <div class="flex-shrink-0">
                                 <?php if ($cand['jeu_image']): ?>
-                                    <img src="<?php echo htmlspecialchars($cand['jeu_image']); ?>" alt="" class="w-24 h-24 rounded-xl object-cover">
+                                    <img src="<?php echo htmlspecialchars($cand['jeu_image']); ?>" alt="" class="w-24 h-24 rounded-2xl object-cover">
                                 <?php else: ?>
-                                    <div class="w-24 h-24 rounded-xl bg-white/10 flex items-center justify-center">
-                                        <i class="fas fa-gamepad text-3xl text-light/50"></i>
+                                    <div class="w-24 h-24 rounded-2xl bg-white/10 flex items-center justify-center">
+                                        <i class="fas fa-gamepad text-3xl text-light-80"></i>
                                     </div>
                                 <?php endif; ?>
                             </div>
@@ -319,7 +289,7 @@ require_once 'header.php';
                                     <div>
                                         <h3 class="text-xl font-bold text-light"><?php echo htmlspecialchars($cand['jeu_titre'] ?? 'Jeu inconnu'); ?></h3>
                                         <?php if ($cand['jeu_editeur']): ?>
-                                            <p class="text-sm text-light/60"><?php echo htmlspecialchars($cand['jeu_editeur']); ?></p>
+                                            <p class="text-sm text-light-80"><?php echo htmlspecialchars($cand['jeu_editeur']); ?></p>
                                         <?php endif; ?>
                                     </div>
                                     
@@ -348,21 +318,21 @@ require_once 'header.php';
                                 
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                                     <div>
-                                        <p class="text-light/60">Événement</p>
+                                        <p class="text-light-80">Événement</p>
                                         <p class="font-medium text-light"><?php echo htmlspecialchars($cand['evenement_nom']); ?></p>
                                     </div>
                                     <div>
-                                        <p class="text-light/60">Catégorie</p>
+                                        <p class="text-light-80">Catégorie</p>
                                         <p class="font-medium text-accent"><?php echo htmlspecialchars($cand['categorie_nom'] ?? 'Non définie'); ?></p>
                                     </div>
                                     <div>
-                                        <p class="text-light/60">Candidat</p>
+                                        <p class="text-light-80">Candidat</p>
                                         <p class="font-medium text-light"><?php echo htmlspecialchars($cand['candidat_nom']); ?></p>
-                                        <p class="text-xs text-light/50"><?php echo htmlspecialchars($cand['candidat_email']); ?></p>
+                                        <p class="text-xs text-light-80"><?php echo htmlspecialchars($cand['candidat_email']); ?></p>
                                     </div>
                                 </div>
                                 
-                                <div class="mt-3 text-xs text-light/50">
+                                <div class="mt-3 text-xs text-light-80">
                                     <i class="fas fa-clock mr-1"></i>
                                     Soumis le <?php echo date('d/m/Y à H:i', strtotime($cand['date_inscription'])); ?>
                                     <?php if ($cand['date_validation']): ?>
@@ -372,7 +342,7 @@ require_once 'header.php';
                                 </div>
                                 
                                 <?php if ($cand['statut_candidature'] === 'refuse' && $cand['motif_refus']): ?>
-                                    <div class="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                                    <div class="mt-3 p-3 rounded-2xl bg-red-500/10 border border-red-500/20">
                                         <p class="text-sm text-red-400">
                                             <i class="fas fa-comment-slash mr-1"></i>
                                             <strong>Motif:</strong> <?php echo htmlspecialchars($cand['motif_refus']); ?>
@@ -388,13 +358,13 @@ require_once 'header.php';
                                 <form method="POST" class="inline">
                                     <input type="hidden" name="action" value="approuver">
                                     <input type="hidden" name="id_candidature" value="<?php echo $cand['id_event_candidat']; ?>">
-                                    <button type="submit" class="w-full px-4 py-2 rounded-xl bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30 transition-colors" onclick="return confirm('Approuver cette candidature ?');">
+                                    <button type="submit" class="w-full px-4 py-2 rounded-2xl bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30 transition-colors" onclick="return confirm('Approuver cette candidature ?');">
                                         <i class="fas fa-check mr-2"></i>Approuver
                                     </button>
                                 </form>
                                 
                                 <!-- Refuser -->
-                                <button type="button" onclick="openRefusModal(<?php echo $cand['id_event_candidat']; ?>, '<?php echo htmlspecialchars($cand['jeu_titre'], ENT_QUOTES); ?>')" class="w-full px-4 py-2 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors">
+                                <button type="button" onclick="openRefusModal(<?php echo $cand['id_event_candidat']; ?>, '<?php echo htmlspecialchars($cand['jeu_titre'], ENT_QUOTES); ?>')" class="w-full px-4 py-2 rounded-2xl bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors">
                                     <i class="fas fa-times mr-2"></i>Refuser
                                 </button>
                             </div>
@@ -404,7 +374,7 @@ require_once 'header.php';
                 <?php endforeach; ?>
             </div>
             
-            <div class="mt-6 text-center text-light/60">
+            <div class="mt-6 text-center text-light-80">
                 <?php echo count($candidatures); ?> candidature(s) affichée(s)
             </div>
         <?php endif; ?>
@@ -413,26 +383,26 @@ require_once 'header.php';
 
 <!-- Modal refus -->
 <div id="refusModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 hidden">
-    <div class="bg-dark border border-white/10 rounded-3xl p-8 max-w-md w-full mx-4">
-        <h3 class="text-2xl font-bold text-light mb-4">
-            <i class="fas fa-times-circle text-red-400 mr-2"></i>Refuser la candidature
+    <div class="glass-card rounded-3xl p-8 max-w-md w-full mx-4 border-2 border-white/10">
+        <h3 class="text-2xl font-bold font-orbitron text-light mb-4 flex items-center gap-2">
+            <i class="fas fa-times-circle text-red-400"></i>Refuser la candidature
         </h3>
-        <p class="text-light/80 mb-4">Jeu: <span id="refusJeuTitre" class="font-bold text-accent"></span></p>
+        <p class="text-light-80 mb-4">Jeu: <span id="refusJeuTitre" class="font-bold text-accent"></span></p>
         
         <form method="POST" id="refusForm">
             <input type="hidden" name="action" value="refuser">
             <input type="hidden" name="id_candidature" id="refusIdCandidature">
             
             <div class="mb-4">
-                <label class="block text-sm font-medium text-light/80 mb-2">Motif du refus (optionnel)</label>
-                <textarea name="motif" rows="3" class="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-light" placeholder="Ex: Jeu non éligible dans cette catégorie..."></textarea>
+                <label class="block text-sm font-medium text-light-80 mb-2">Motif du refus (optionnel)</label>
+                <textarea name="motif" rows="3" class="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-light" placeholder="Ex: Jeu non éligible dans cette catégorie..."></textarea>
             </div>
             
             <div class="flex gap-3">
-                <button type="button" onclick="closeRefusModal()" class="flex-1 px-4 py-3 rounded-xl bg-white/10 text-light hover:bg-white/20 transition-colors">
+                <button type="button" onclick="closeRefusModal()" class="flex-1 px-4 py-3 rounded-2xl bg-white/10 text-light hover:bg-white/20 transition-colors border border-white/10">
                     Annuler
                 </button>
-                <button type="submit" class="flex-1 px-4 py-3 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors">
+                <button type="submit" class="flex-1 px-4 py-3 rounded-2xl bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors">
                     <i class="fas fa-times mr-2"></i>Refuser
                 </button>
             </div>

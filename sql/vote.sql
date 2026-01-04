@@ -133,7 +133,7 @@ CREATE TABLE IF NOT EXISTS `candidat` (
   KEY `id_utilisateur` (`id_utilisateur`),
   KEY `id_jeu` (`id_jeu`),
   KEY `idx_candidat_statut` (`statut`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `candidat`
