@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Hôte : 127.0.0.1:3306
--- Généré le : jeu. 11 déc. 2025 à 11:53
+-- Généré le : lun. 05 jan. 2026 à 08:18
 -- Version du serveur : 9.1.0
 -- Version de PHP : 8.3.14
 
@@ -84,14 +84,19 @@ CREATE TABLE IF NOT EXISTS `bulletin_categorie` (
   KEY `idx_categorie` (`id_categorie`),
   KEY `idx_evenement` (`id_evenement`),
   KEY `idx_date_vote` (`date_vote`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `bulletin_categorie`
 --
 
 INSERT INTO `bulletin_categorie` (`id_bulletin`, `id_jeu`, `id_categorie`, `id_evenement`, `date_vote`) VALUES
-(4, 3, 28, 13, '2025-12-11 12:45:39');
+(5, 3, 32, 15, '2026-01-05 09:10:12'),
+(6, 4, 31, 15, '2026-01-05 09:10:16'),
+(7, 3, 32, 15, '2026-01-05 09:10:29'),
+(8, 4, 31, 15, '2026-01-05 09:10:31'),
+(9, 4, 32, 15, '2026-01-05 09:10:40'),
+(10, 4, 31, 15, '2026-01-05 09:11:15');
 
 -- --------------------------------------------------------
 
@@ -109,7 +114,16 @@ CREATE TABLE IF NOT EXISTS `bulletin_final` (
   KEY `idx_jeu` (`id_jeu`),
   KEY `idx_evenement` (`id_evenement`),
   KEY `idx_date_vote` (`date_vote`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Déchargement des données de la table `bulletin_final`
+--
+
+INSERT INTO `bulletin_final` (`id_bulletin_final`, `id_jeu`, `id_evenement`, `date_vote`) VALUES
+(3, 3, 15, '2026-01-05 09:14:09'),
+(4, 3, 15, '2026-01-05 09:14:25'),
+(5, 4, 15, '2026-01-05 09:14:36');
 
 -- --------------------------------------------------------
 
@@ -121,19 +135,19 @@ DROP TABLE IF EXISTS `candidat`;
 CREATE TABLE IF NOT EXISTS `candidat` (
   `id_candidat` int NOT NULL AUTO_INCREMENT,
   `id_utilisateur` int NOT NULL,
-  `nom` varchar(255) NOT NULL,
+  `nom` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `id_jeu` int DEFAULT NULL,
   `date_inscription` datetime DEFAULT CURRENT_TIMESTAMP,
-  `status` enum('pending','approved','rejected') DEFAULT 'pending',
-  `bio` text,
-  `motivation` text,
-  `photo` varchar(500) DEFAULT NULL,
-  `statut` enum('en_attente','valide','refuse') NOT NULL DEFAULT 'en_attente' COMMENT 'Statut de validation de la candidature',
+  `status` enum('pending','approved','rejected') COLLATE utf8mb4_unicode_ci DEFAULT 'pending',
+  `bio` text COLLATE utf8mb4_unicode_ci,
+  `motivation` text COLLATE utf8mb4_unicode_ci,
+  `photo` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `statut` enum('en_attente','valide','refuse') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'en_attente' COMMENT 'Statut de validation de la candidature',
   PRIMARY KEY (`id_candidat`),
   KEY `id_utilisateur` (`id_utilisateur`),
   KEY `id_jeu` (`id_jeu`),
   KEY `idx_candidat_statut` (`statut`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `candidat`
@@ -143,7 +157,8 @@ INSERT INTO `candidat` (`id_candidat`, `id_utilisateur`, `nom`, `id_jeu`, `date_
 (1, 10, 'Jean Marc', 1, '2025-12-01 09:37:02', 'approved', 'Je sais pas qui je suis', NULL, NULL, 'valide'),
 (2, 11, 'Abdel-Malek', 2, '2025-12-01 09:38:15', 'approved', 'Je suis un gars chill', NULL, 'https://www.photographie-cours.fr/wp-content/uploads/2020/06/photographie-cours-banner-scaled.jpg', 'valide'),
 (3, 12, 'joueur2@gmail.com', NULL, '2025-12-11 12:21:38', 'pending', NULL, NULL, NULL, 'valide'),
-(4, 13, 'Misange Déchu', 3, '2025-12-11 12:42:27', 'pending', 'Un test basique en tant qu&#039;ange finalement', NULL, 'https://www.galerie-com.com/grand_img/0849590001641489156.jpeg', 'valide');
+(4, 13, 'Misange Déchu', 3, '2025-12-11 12:42:27', 'pending', 'Un test basique en tant qu&#039;ange finalement', NULL, 'https://www.galerie-com.com/grand_img/0849590001641489156.jpeg', 'valide'),
+(5, 15, 'Malek Simon', 4, '2026-01-05 08:46:33', 'pending', 'Je teste le site', NULL, 'https://www.photographie-cours.fr/wp-content/uploads/2020/06/photographie-cours-banner-scaled.jpg', 'valide');
 
 -- --------------------------------------------------------
 
@@ -159,14 +174,15 @@ CREATE TABLE IF NOT EXISTS `categorie` (
   `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   PRIMARY KEY (`id_categorie`),
   KEY `idx_evenement` (`id_evenement`)
-) ENGINE=InnoDB AUTO_INCREMENT=29 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=33 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `categorie`
 --
 
 INSERT INTO `categorie` (`id_categorie`, `id_evenement`, `nom`, `description`) VALUES
-(28, 13, 'MOBA', '');
+(31, 15, 'Voix', 'Meilleur voix'),
+(32, 15, 'Gameplay', 'Meilleur Gameplay');
 
 -- --------------------------------------------------------
 
@@ -185,34 +201,17 @@ CREATE TABLE IF NOT EXISTS `commentaire` (
   KEY `idx_utilisateur` (`id_utilisateur`),
   KEY `idx_jeu` (`id_jeu`),
   KEY `idx_date` (`date_commentaire`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `commentaire`
 --
 
 INSERT INTO `commentaire` (`id_commentaire`, `id_utilisateur`, `id_jeu`, `contenu`, `date_commentaire`) VALUES
-(1, 11, 2, 'Allez les bleus', '2025-12-01 09:47:43');
-
--- --------------------------------------------------------
-
---
--- Structure de la table `contenu_campagne`
---
-
-DROP TABLE IF EXISTS `contenu_campagne`;
-CREATE TABLE IF NOT EXISTS `contenu_campagne` (
-  `id_contenu` int NOT NULL AUTO_INCREMENT,
-  `id_candidat` int NOT NULL,
-  `titre` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
-  `contenu` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `type` enum('texte','video','image','message') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'texte',
-  `date_creation` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id_contenu`),
-  KEY `idx_id_candidat` (`id_candidat`),
-  KEY `idx_date_creation` (`date_creation`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+(1, 11, 2, 'Allez les bleus', '2025-12-01 09:47:43'),
+(2, 15, 4, 'Votez pour moi les gars s&#039;il vous plait', '2026-01-05 08:49:18'),
+(3, 14, 2, 'Je teste', '2026-01-05 08:50:31'),
+(4, 7, 4, 'Tkt je te suis', '2026-01-05 09:11:01');
 
 -- --------------------------------------------------------
 
@@ -232,14 +231,19 @@ CREATE TABLE IF NOT EXISTS `emargement_categorie` (
   KEY `idx_utilisateur` (`id_utilisateur`),
   KEY `idx_categorie` (`id_categorie`),
   KEY `idx_evenement` (`id_evenement`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `emargement_categorie`
 --
 
 INSERT INTO `emargement_categorie` (`id_emargement`, `id_utilisateur`, `id_categorie`, `id_evenement`, `date_emargement`) VALUES
-(4, 7, 28, 13, '2025-12-11 12:45:39');
+(5, 14, 32, 15, '2026-01-05 09:10:12'),
+(6, 14, 31, 15, '2026-01-05 09:10:16'),
+(7, 12, 32, 15, '2026-01-05 09:10:29'),
+(8, 12, 31, 15, '2026-01-05 09:10:31'),
+(9, 7, 32, 15, '2026-01-05 09:10:40'),
+(10, 7, 31, 15, '2026-01-05 09:11:15');
 
 -- --------------------------------------------------------
 
@@ -257,7 +261,16 @@ CREATE TABLE IF NOT EXISTS `emargement_final` (
   UNIQUE KEY `unique_emargement_final` (`id_utilisateur`,`id_evenement`),
   KEY `idx_utilisateur` (`id_utilisateur`),
   KEY `idx_evenement` (`id_evenement`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Déchargement des données de la table `emargement_final`
+--
+
+INSERT INTO `emargement_final` (`id_emargement_final`, `id_utilisateur`, `id_evenement`, `date_emargement`) VALUES
+(3, 7, 15, '2026-01-05 09:14:09'),
+(4, 12, 15, '2026-01-05 09:14:25'),
+(5, 14, 15, '2026-01-05 09:14:36');
 
 -- --------------------------------------------------------
 
@@ -274,19 +287,19 @@ CREATE TABLE IF NOT EXISTS `evenement` (
   `date_fermeture` datetime NOT NULL,
   `date_debut_vote_final` datetime DEFAULT NULL COMMENT 'Date de début du vote final',
   `date_fermeture_vote_final` datetime DEFAULT NULL COMMENT 'Date de clôture définitive du vote final',
-  `statut` enum('preparation','ouvert_categories','ferme_categories','ouvert_final','cloture') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'preparation',
+  `statut` enum('preparation','ouvert_categories','ferme_categories','ouvert_final','cloture') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'preparation',
   `nb_max_candidats` int DEFAULT '0',
   PRIMARY KEY (`id_evenement`),
   KEY `idx_statut` (`statut`),
   KEY `idx_dates` (`date_ouverture`,`date_fermeture`)
-) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `evenement`
 --
 
 INSERT INTO `evenement` (`id_evenement`, `nom`, `description`, `date_ouverture`, `date_fermeture`, `date_debut_vote_final`, `date_fermeture_vote_final`, `statut`, `nb_max_candidats`) VALUES
-(13, 'MOBA', '', '2025-12-11 12:45:00', '2025-12-11 12:46:00', '2025-12-11 12:47:00', '2025-12-11 12:48:00', 'cloture', 0);
+(15, 'Test', 'Test', '2026-01-05 09:10:00', '2026-01-05 09:13:00', '2026-01-05 09:13:00', '2026-01-05 09:15:00', 'cloture', 0);
 
 -- --------------------------------------------------------
 
@@ -311,35 +324,16 @@ CREATE TABLE IF NOT EXISTS `event_candidat` (
   KEY `fk_event_candidat_valideur` (`valide_par`),
   KEY `idx_statut_candidature` (`statut_candidature`),
   KEY `idx_categorie` (`id_categorie`)
-) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=32 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `event_candidat`
 --
 
 INSERT INTO `event_candidat` (`id_event_candidat`, `id_evenement`, `id_candidat`, `id_categorie`, `statut_candidature`, `motif_refus`, `date_validation`, `valide_par`, `date_inscription`) VALUES
-(23, 13, 4, 28, 'approuve', NULL, '2025-12-11 12:45:30', 8, '2025-12-11 12:44:25'),
-(24, 13, 1, 28, 'approuve', NULL, '2025-12-11 12:45:28', 8, '2025-12-11 12:44:41'),
-(25, 13, 2, 28, 'approuve', NULL, '2025-12-11 12:45:26', 8, '2025-12-11 12:44:51');
-
--- --------------------------------------------------------
-
---
--- Structure de la table `export`
---
-
-DROP TABLE IF EXISTS `export`;
-CREATE TABLE IF NOT EXISTS `export` (
-  `id_export` int NOT NULL AUTO_INCREMENT,
-  `id_admin` int NOT NULL,
-  `id_evenement` int NOT NULL,
-  `type_export` enum('PDF','CSV','JSON') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `date_export` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id_export`),
-  KEY `idx_admin` (`id_admin`),
-  KEY `idx_evenement` (`id_evenement`),
-  KEY `idx_date` (`date_export`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+(29, 15, 4, 32, 'approuve', NULL, '2026-01-05 09:09:00', 8, '2026-01-05 09:08:04'),
+(30, 15, 5, 31, 'approuve', NULL, '2026-01-05 09:08:58', 8, '2026-01-05 09:08:15'),
+(31, 15, 5, 32, 'approuve', NULL, '2026-01-05 09:08:56', 8, '2026-01-05 09:08:18');
 
 -- --------------------------------------------------------
 
@@ -358,7 +352,7 @@ CREATE TABLE IF NOT EXISTS `jeu` (
   PRIMARY KEY (`id_jeu`),
   KEY `idx_titre` (`titre`),
   KEY `idx_editeur` (`editeur`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `jeu`
@@ -367,7 +361,8 @@ CREATE TABLE IF NOT EXISTS `jeu` (
 INSERT INTO `jeu` (`id_jeu`, `titre`, `editeur`, `image`, `date_sortie`, `description`) VALUES
 (1, 'Minecraft', 'Mojang', NULL, NULL, NULL),
 (2, 'Domms', 'Mojang', NULL, '2006-01-12', 'C\'est un fake'),
-(3, 'League of Legends', 'RIOT GAME', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSd42Ia4ljXpfsa0Nsu1uUkZ4KQKhOBl50M1g&s', '2009-04-14', 'J&#039;ai mis une date au pif');
+(3, 'League of Legends', 'RIOT GAME', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSd42Ia4ljXpfsa0Nsu1uUkZ4KQKhOBl50M1g&s', '2009-04-14', 'J&#039;ai mis une date au pif'),
+(4, 'Mario Kart', 'Nintendo', 'https://www.nintendo.com/fr-fr/Jeux/Jeux-Nintendo-Switch-2/Mario-Kart-World-2790000.html?srsltid=AfmBOoriRdnyrUUE3mxo51IspMx8vu9vKf-Gm3DfIpKch4seL_MRw6an', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -383,12 +378,12 @@ CREATE TABLE IF NOT EXISTS `journal_securite` (
   `date_action` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `details` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `jeton_vote` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `adresse_ip` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Adresse IP',
+  `adresse_ip` varchar(45) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Adresse IP',
   PRIMARY KEY (`id_journal`),
   KEY `idx_utilisateur` (`id_utilisateur`),
   KEY `idx_action` (`action`),
   KEY `idx_date` (`date_action`)
-) ENGINE=InnoDB AUTO_INCREMENT=100 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=160 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `journal_securite`
@@ -493,7 +488,67 @@ INSERT INTO `journal_securite` (`id_journal`, `id_utilisateur`, `action`, `date_
 (96, 8, 'ADMIN_CANDIDATURE_APPROUVE', '2025-12-11 12:45:30', 'Candidature #23 approuvée - Jeu: League of Legends', NULL, NULL),
 (97, 7, 'LOGIN_SUCCESS', '2025-12-11 12:45:35', 'Connexion joueur', NULL, '::1'),
 (98, 7, 'VOTE_CATEGORIE', '2025-12-11 12:45:39', 'Catégorie 28, événement 13', NULL, NULL),
-(99, 8, 'LOGIN_SUCCESS', '2025-12-11 12:48:10', 'Connexion admin', NULL, '::1');
+(99, 8, 'LOGIN_SUCCESS', '2025-12-11 12:48:10', 'Connexion admin', NULL, '::1'),
+(100, 14, 'USER_REGISTRATION', '2026-01-05 08:41:57', 'Type: joueur', NULL, '::1'),
+(101, 15, 'USER_REGISTRATION', '2026-01-05 08:42:30', 'Type: candidat', NULL, '::1'),
+(102, 15, 'CANDIDAT_REGISTRATION', '2026-01-05 08:46:33', 'Candidat: Malek Simon, Jeu: 4', NULL, '::1'),
+(103, 8, 'LOGIN_SUCCESS', '2026-01-05 08:46:55', 'Connexion admin', NULL, '::1'),
+(104, 8, 'ADMIN_EVENT_DELETE', '2026-01-05 08:47:46', 'Événement 13 supprimé', NULL, NULL),
+(105, 8, 'LOGIN_SUCCESS', '2026-01-05 08:48:48', 'Connexion admin', NULL, '::1'),
+(106, 8, 'ADMIN_CANDIDAT_VALIDE', '2026-01-05 08:48:53', 'Candidat ID: 5 validé', NULL, '::1'),
+(107, 15, 'LOGIN_SUCCESS', '2026-01-05 08:48:59', 'Connexion candidat', NULL, '::1'),
+(108, 15, 'CAMPAGNE_POST', '2026-01-05 08:49:18', 'Jeu: 4', NULL, '::1'),
+(109, 14, 'LOGIN_SUCCESS', '2026-01-05 08:50:11', 'Connexion joueur', NULL, '::1'),
+(110, 14, 'COMMENT_ADD', '2026-01-05 08:50:31', 'Jeu: 2', NULL, '::1'),
+(111, 8, 'LOGIN_SUCCESS', '2026-01-05 08:54:34', 'Connexion admin', NULL, '::1'),
+(112, 8, 'ADMIN_EVENT_CREATE', '2026-01-05 08:55:47', 'Événement créé: Evenement', NULL, NULL),
+(113, 8, 'ADMIN_CATEGORY_CREATE', '2026-01-05 08:55:56', 'Catégorie \'Meilleur naration\' créée pour événement #14', NULL, NULL),
+(114, 8, 'ADMIN_CATEGORY_CREATE', '2026-01-05 08:56:04', 'Catégorie \'Meilleur voix\' créée pour événement #14', NULL, NULL),
+(115, 13, 'LOGIN_SUCCESS', '2026-01-05 08:56:24', 'Connexion candidat', NULL, '::1'),
+(116, 13, 'CANDIDATURE_SOUMISE', '2026-01-05 08:56:50', 'Événement: 14, Catégorie: Meilleur naration, Jeu: League of Legends', NULL, NULL),
+(117, 13, 'CANDIDATURE_SOUMISE', '2026-01-05 08:56:55', 'Événement: 14, Catégorie: Meilleur voix, Jeu: League of Legends', NULL, NULL),
+(118, 15, 'LOGIN_SUCCESS', '2026-01-05 08:57:06', 'Connexion candidat', NULL, '::1'),
+(119, 15, 'CANDIDATURE_SOUMISE', '2026-01-05 08:57:09', 'Événement: 14, Catégorie: Meilleur naration, Jeu: Mario Kart', NULL, NULL),
+(120, 8, 'LOGIN_SUCCESS', '2026-01-05 08:59:27', 'Connexion admin', NULL, '::1'),
+(121, 8, 'ADMIN_CANDIDATURE_APPROUVE', '2026-01-05 08:59:36', 'Candidature #28 approuvée - Jeu: Mario Kart', NULL, NULL),
+(122, 8, 'ADMIN_CANDIDATURE_APPROUVE', '2026-01-05 08:59:37', 'Candidature #27 approuvée - Jeu: League of Legends', NULL, NULL),
+(123, 8, 'ADMIN_CANDIDATURE_APPROUVE', '2026-01-05 08:59:39', 'Candidature #26 approuvée - Jeu: League of Legends', NULL, NULL),
+(124, 7, 'LOGIN_SUCCESS', '2026-01-05 08:59:45', 'Connexion joueur', NULL, '::1'),
+(125, 8, 'LOGIN_SUCCESS', '2026-01-05 09:00:10', 'Connexion admin', NULL, '::1'),
+(126, 7, 'LOGIN_SUCCESS', '2026-01-05 09:02:41', 'Connexion joueur', NULL, '::1'),
+(127, 8, 'LOGIN_SUCCESS', '2026-01-05 09:06:41', 'Connexion admin', NULL, '::1'),
+(128, 8, 'ADMIN_EVENT_DELETE', '2026-01-05 09:07:00', 'Événement 14 supprimé', NULL, NULL),
+(129, 8, 'ADMIN_EVENT_CREATE', '2026-01-05 09:07:25', 'Événement créé: Test', NULL, NULL),
+(130, 8, 'ADMIN_CATEGORY_CREATE', '2026-01-05 09:07:40', 'Catégorie \'Voix\' créée pour événement #15', NULL, NULL),
+(131, 8, 'ADMIN_CATEGORY_CREATE', '2026-01-05 09:07:51', 'Catégorie \'Gameplay\' créée pour événement #15', NULL, NULL),
+(132, 13, 'LOGIN_SUCCESS', '2026-01-05 09:08:00', 'Connexion candidat', NULL, '::1'),
+(133, 13, 'CANDIDATURE_SOUMISE', '2026-01-05 09:08:04', 'Événement: 15, Catégorie: Gameplay, Jeu: League of Legends', NULL, NULL),
+(134, 15, 'LOGIN_SUCCESS', '2026-01-05 09:08:13', 'Connexion candidat', NULL, '::1'),
+(135, 15, 'CANDIDATURE_SOUMISE', '2026-01-05 09:08:15', 'Événement: 15, Catégorie: Voix, Jeu: Mario Kart', NULL, NULL),
+(136, 15, 'CANDIDATURE_SOUMISE', '2026-01-05 09:08:18', 'Événement: 15, Catégorie: Gameplay, Jeu: Mario Kart', NULL, NULL),
+(137, 8, 'LOGIN_SUCCESS', '2026-01-05 09:08:52', 'Connexion admin', NULL, '::1'),
+(138, 8, 'ADMIN_CANDIDATURE_APPROUVE', '2026-01-05 09:08:56', 'Candidature #31 approuvée - Jeu: Mario Kart', NULL, NULL),
+(139, 8, 'ADMIN_CANDIDATURE_APPROUVE', '2026-01-05 09:08:58', 'Candidature #30 approuvée - Jeu: Mario Kart', NULL, NULL),
+(140, 8, 'ADMIN_CANDIDATURE_APPROUVE', '2026-01-05 09:09:00', 'Candidature #29 approuvée - Jeu: League of Legends', NULL, NULL),
+(141, 7, 'LOGIN_SUCCESS', '2026-01-05 09:09:11', 'Connexion joueur', NULL, '::1'),
+(142, 12, 'LOGIN_SUCCESS', '2026-01-05 09:09:25', 'Connexion joueur', NULL, '::1'),
+(143, 14, 'LOGIN_SUCCESS', '2026-01-05 09:09:36', 'Connexion joueur', NULL, '::1'),
+(144, 14, 'VOTE_CATEGORIE', '2026-01-05 09:10:12', 'Catégorie 32, événement 15', NULL, '::1'),
+(145, 14, 'VOTE_CATEGORIE', '2026-01-05 09:10:16', 'Catégorie 31, événement 15', NULL, '::1'),
+(146, 12, 'LOGIN_SUCCESS', '2026-01-05 09:10:22', 'Connexion joueur', NULL, '::1'),
+(147, 12, 'VOTE_CATEGORIE', '2026-01-05 09:10:29', 'Catégorie 32, événement 15', NULL, '::1'),
+(148, 12, 'VOTE_CATEGORIE', '2026-01-05 09:10:31', 'Catégorie 31, événement 15', NULL, '::1'),
+(149, 7, 'LOGIN_SUCCESS', '2026-01-05 09:10:37', 'Connexion joueur', NULL, '::1'),
+(150, 7, 'VOTE_CATEGORIE', '2026-01-05 09:10:40', 'Catégorie 32, événement 15', NULL, '::1'),
+(151, 7, 'COMMENT_ADD', '2026-01-05 09:11:01', 'Jeu: 4', NULL, '::1'),
+(152, 7, 'VOTE_CATEGORIE', '2026-01-05 09:11:15', 'Catégorie 31, événement 15', NULL, '::1'),
+(153, 8, 'LOGIN_SUCCESS', '2026-01-05 09:11:23', 'Connexion admin', NULL, '::1'),
+(154, 7, 'LOGIN_SUCCESS', '2026-01-05 09:12:25', 'Connexion joueur', NULL, '::1'),
+(155, 7, 'VOTE_FINAL', '2026-01-05 09:14:09', 'Événement: 15', NULL, NULL),
+(156, 12, 'LOGIN_SUCCESS', '2026-01-05 09:14:22', 'Connexion joueur', NULL, '::1'),
+(157, 12, 'VOTE_FINAL', '2026-01-05 09:14:25', 'Événement: 15', NULL, NULL),
+(158, 14, 'LOGIN_SUCCESS', '2026-01-05 09:14:33', 'Connexion joueur', NULL, '::1'),
+(159, 14, 'VOTE_FINAL', '2026-01-05 09:14:36', 'Événement: 15', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -512,16 +567,16 @@ CREATE TABLE IF NOT EXISTS `nomination` (
   KEY `idx_jeu` (`id_jeu`),
   KEY `idx_categorie` (`id_categorie`),
   KEY `idx_evenement` (`id_evenement`)
-) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=22 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `nomination`
 --
 
 INSERT INTO `nomination` (`id_nomination`, `id_jeu`, `id_categorie`, `id_evenement`) VALUES
-(14, 1, 28, 13),
-(13, 2, 28, 13),
-(15, 3, 28, 13);
+(21, 3, 32, 15),
+(20, 4, 31, 15),
+(19, 4, 32, 15);
 
 -- --------------------------------------------------------
 
@@ -539,37 +594,16 @@ CREATE TABLE IF NOT EXISTS `registre_electoral` (
   UNIQUE KEY `unique_inscription` (`id_utilisateur`,`id_evenement`),
   KEY `idx_utilisateur` (`id_utilisateur`),
   KEY `idx_evenement` (`id_evenement`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `registre_electoral`
 --
 
 INSERT INTO `registre_electoral` (`id_registre`, `id_utilisateur`, `id_evenement`, `date_inscription`) VALUES
-(5, 7, 13, '2025-12-11 12:45:06');
-
--- --------------------------------------------------------
-
---
--- Structure de la table `resultat`
---
-
-DROP TABLE IF EXISTS `resultat`;
-CREATE TABLE IF NOT EXISTS `resultat` (
-  `id_resultat` int NOT NULL AUTO_INCREMENT,
-  `id_evenement` int NOT NULL,
-  `id_categorie` int DEFAULT NULL,
-  `id_jeu` int NOT NULL,
-  `nb_voix` int NOT NULL DEFAULT '0',
-  `pourcentage` decimal(5,2) DEFAULT NULL,
-  `classement` int DEFAULT NULL,
-  `type_resultat` enum('categorie','final') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  PRIMARY KEY (`id_resultat`),
-  KEY `idx_evenement` (`id_evenement`),
-  KEY `idx_categorie` (`id_categorie`),
-  KEY `idx_jeu` (`id_jeu`),
-  KEY `idx_type` (`type_resultat`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+(7, 7, 15, '2026-01-05 09:09:14'),
+(8, 12, 15, '2026-01-05 09:09:27'),
+(9, 14, 15, '2026-01-05 09:09:53');
 
 -- --------------------------------------------------------
 
@@ -588,13 +622,13 @@ CREATE TABLE IF NOT EXISTS `utilisateur` (
   `is_active` tinyint(1) DEFAULT '1',
   `last_login` datetime DEFAULT NULL,
   `is_banned` tinyint(1) DEFAULT '0',
-  `pseudo` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Pseudonyme affiché publiquement',
+  `pseudo` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Pseudonyme affiché publiquement',
   PRIMARY KEY (`id_utilisateur`),
   UNIQUE KEY `email` (`email`),
   KEY `idx_email` (`email`),
   KEY `idx_type` (`type`),
   KEY `idx_utilisateur_pseudo` (`pseudo`)
-) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `utilisateur`
@@ -607,7 +641,9 @@ INSERT INTO `utilisateur` (`id_utilisateur`, `email`, `mot_de_passe`, `date_insc
 (10, 'Test123_@gmail.com', '1c3ee693d6620f9f76603ae44265498849423e1f70d81de49da4367c3aa1b9d3', '2025-12-01', 'candidat', '710f23669962bf8b4999fcecab73fd72', 1, NULL, 0, 'Jean Marc'),
 (11, 'Test1234_@gmail.com', '06a485700038dc926dd1577cd2180990da0b689d9264225464c1a26cc31a1b51', '2025-12-01', 'candidat', 'ee42c630f88136e738be16ec1ed532b7', 1, NULL, 0, 'Abdel-Malek'),
 (12, 'joueur2@gmail.com', '8351c3cb020816a8afb090e2f1e9f87e2a15854de04db8f23a524275a0e1e1d0', '2025-12-09', 'joueur', 'bde3d4163b97007c1d9e5427e7d02336', 1, NULL, 0, 'Joueur_12'),
-(13, 'candidat2@gmail.com', '1a9bc389e802bd87b76952667b3d2eabe0071998aad11583af9a140061dc51d0', '2025-12-11', 'candidat', '730f0e28ad99035078156e24481b4e86', 1, NULL, 0, 'Misange Déchu');
+(13, 'candidat2@gmail.com', '1a9bc389e802bd87b76952667b3d2eabe0071998aad11583af9a140061dc51d0', '2025-12-11', 'candidat', '730f0e28ad99035078156e24481b4e86', 1, NULL, 0, 'Misange Déchu'),
+(14, 'malekjoueur@gmail.com', '4617ef5ad999d733e159f8a3d0d738fff87941758313b3d8e6df972dd0140c10', '2026-01-05', 'joueur', '874776710a2db33694160191a13d8dd3', 1, NULL, 0, 'Misange'),
+(15, 'malekcandidat@gmail.com', 'ea3902c0659fdf4734ac8aa5e097b25a41c53306c6d30908337a66a4bf934be1', '2026-01-05', 'candidat', '4e14489897156b59b35ccacffa811cb4', 1, NULL, 0, 'Malek Simon');
 
 -- --------------------------------------------------------
 
@@ -617,15 +653,6 @@ INSERT INTO `utilisateur` (`id_utilisateur`, `email`, `mot_de_passe`, `date_insc
 --
 DROP VIEW IF EXISTS `v_candidats_stats`;
 CREATE TABLE IF NOT EXISTS `v_candidats_stats` (
-`bio` text
-,`date_inscription` datetime
-,`email` varchar(255)
-,`id_candidat` int
-,`id_utilisateur` int
-,`jeu_titre` varchar(255)
-,`nb_commentaires` bigint
-,`nb_contenus` bigint
-,`photo` varchar(500)
 );
 
 -- --------------------------------------------------------
@@ -636,22 +663,22 @@ CREATE TABLE IF NOT EXISTS `v_candidats_stats` (
 --
 DROP VIEW IF EXISTS `v_candidatures_details`;
 CREATE TABLE IF NOT EXISTS `v_candidatures_details` (
-`candidat_email` varchar(255)
-,`candidat_nom` varchar(255)
-,`categorie_nom` varchar(255)
-,`date_inscription` datetime
-,`date_validation` datetime
+`id_event_candidat` int
+,`id_evenement` int
 ,`evenement_nom` varchar(255)
 ,`evenement_statut` enum('preparation','ouvert_categories','ferme_categories','ouvert_final','cloture')
-,`id_candidat` int
 ,`id_categorie` int
-,`id_evenement` int
-,`id_event_candidat` int
+,`categorie_nom` varchar(255)
+,`id_candidat` int
+,`candidat_nom` varchar(255)
 ,`id_jeu` int
-,`jeu_image` varchar(500)
 ,`jeu_titre` varchar(255)
-,`motif_refus` text
+,`jeu_image` varchar(500)
+,`candidat_email` varchar(255)
 ,`statut_candidature` enum('en_attente','approuve','refuse')
+,`date_inscription` datetime
+,`date_validation` datetime
+,`motif_refus` text
 ,`valide_par_email` varchar(255)
 );
 
@@ -663,9 +690,9 @@ CREATE TABLE IF NOT EXISTS `v_candidatures_details` (
 --
 DROP VIEW IF EXISTS `v_peut_voter_categorie`;
 CREATE TABLE IF NOT EXISTS `v_peut_voter_categorie` (
-`id_categorie` int
+`id_utilisateur` int
 ,`id_evenement` int
-,`id_utilisateur` int
+,`id_categorie` int
 ,`peut_voter` varchar(3)
 );
 
@@ -677,8 +704,8 @@ CREATE TABLE IF NOT EXISTS `v_peut_voter_categorie` (
 --
 DROP VIEW IF EXISTS `v_votes_categorie`;
 CREATE TABLE IF NOT EXISTS `v_votes_categorie` (
-`id_categorie` int
-,`id_evenement` int
+`id_evenement` int
+,`id_categorie` int
 ,`id_jeu` int
 ,`nb_votes` bigint
 );
@@ -779,12 +806,6 @@ ALTER TABLE `commentaire`
   ADD CONSTRAINT `commentaire_ibfk_2` FOREIGN KEY (`id_jeu`) REFERENCES `jeu` (`id_jeu`) ON DELETE CASCADE;
 
 --
--- Contraintes pour la table `contenu_campagne`
---
-ALTER TABLE `contenu_campagne`
-  ADD CONSTRAINT `fk_contenu_candidat` FOREIGN KEY (`id_candidat`) REFERENCES `candidat` (`id_candidat`) ON DELETE CASCADE;
-
---
 -- Contraintes pour la table `emargement_categorie`
 --
 ALTER TABLE `emargement_categorie`
@@ -809,13 +830,6 @@ ALTER TABLE `event_candidat`
   ADD CONSTRAINT `fk_event_candidat_valideur` FOREIGN KEY (`valide_par`) REFERENCES `utilisateur` (`id_utilisateur`) ON DELETE SET NULL;
 
 --
--- Contraintes pour la table `export`
---
-ALTER TABLE `export`
-  ADD CONSTRAINT `export_ibfk_1` FOREIGN KEY (`id_admin`) REFERENCES `utilisateur` (`id_utilisateur`) ON DELETE CASCADE,
-  ADD CONSTRAINT `export_ibfk_2` FOREIGN KEY (`id_evenement`) REFERENCES `evenement` (`id_evenement`) ON DELETE CASCADE;
-
---
 -- Contraintes pour la table `journal_securite`
 --
 ALTER TABLE `journal_securite`
@@ -835,14 +849,6 @@ ALTER TABLE `nomination`
 ALTER TABLE `registre_electoral`
   ADD CONSTRAINT `registre_electoral_ibfk_1` FOREIGN KEY (`id_utilisateur`) REFERENCES `utilisateur` (`id_utilisateur`) ON DELETE CASCADE,
   ADD CONSTRAINT `registre_electoral_ibfk_2` FOREIGN KEY (`id_evenement`) REFERENCES `evenement` (`id_evenement`) ON DELETE CASCADE;
-
---
--- Contraintes pour la table `resultat`
---
-ALTER TABLE `resultat`
-  ADD CONSTRAINT `resultat_ibfk_1` FOREIGN KEY (`id_evenement`) REFERENCES `evenement` (`id_evenement`) ON DELETE CASCADE,
-  ADD CONSTRAINT `resultat_ibfk_2` FOREIGN KEY (`id_categorie`) REFERENCES `categorie` (`id_categorie`) ON DELETE SET NULL,
-  ADD CONSTRAINT `resultat_ibfk_3` FOREIGN KEY (`id_jeu`) REFERENCES `jeu` (`id_jeu`) ON DELETE CASCADE;
 
 DELIMITER $$
 --
