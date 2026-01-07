@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Hôte : 127.0.0.1:3306
--- Généré le : lun. 05 jan. 2026 à 08:18
+-- Généré le : mer. 07 jan. 2026 à 15:51
 -- Version du serveur : 9.1.0
 -- Version de PHP : 8.3.14
 
@@ -135,14 +135,14 @@ DROP TABLE IF EXISTS `candidat`;
 CREATE TABLE IF NOT EXISTS `candidat` (
   `id_candidat` int NOT NULL AUTO_INCREMENT,
   `id_utilisateur` int NOT NULL,
-  `nom` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `nom` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `id_jeu` int DEFAULT NULL,
   `date_inscription` datetime DEFAULT CURRENT_TIMESTAMP,
-  `status` enum('pending','approved','rejected') COLLATE utf8mb4_unicode_ci DEFAULT 'pending',
-  `bio` text COLLATE utf8mb4_unicode_ci,
-  `motivation` text COLLATE utf8mb4_unicode_ci,
-  `photo` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `statut` enum('en_attente','valide','refuse') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'en_attente' COMMENT 'Statut de validation de la candidature',
+  `status` enum('pending','approved','rejected') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'pending',
+  `bio` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `motivation` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `photo` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `statut` enum('en_attente','valide','refuse') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'en_attente' COMMENT 'Statut de validation de la candidature',
   PRIMARY KEY (`id_candidat`),
   KEY `id_utilisateur` (`id_utilisateur`),
   KEY `id_jeu` (`id_jeu`),
@@ -383,7 +383,7 @@ CREATE TABLE IF NOT EXISTS `journal_securite` (
   KEY `idx_utilisateur` (`id_utilisateur`),
   KEY `idx_action` (`action`),
   KEY `idx_date` (`date_action`)
-) ENGINE=InnoDB AUTO_INCREMENT=160 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=167 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Déchargement des données de la table `journal_securite`
@@ -548,7 +548,14 @@ INSERT INTO `journal_securite` (`id_journal`, `id_utilisateur`, `action`, `date_
 (156, 12, 'LOGIN_SUCCESS', '2026-01-05 09:14:22', 'Connexion joueur', NULL, '::1'),
 (157, 12, 'VOTE_FINAL', '2026-01-05 09:14:25', 'Événement: 15', NULL, NULL),
 (158, 14, 'LOGIN_SUCCESS', '2026-01-05 09:14:33', 'Connexion joueur', NULL, '::1'),
-(159, 14, 'VOTE_FINAL', '2026-01-05 09:14:36', 'Événement: 15', NULL, NULL);
+(159, 14, 'VOTE_FINAL', '2026-01-05 09:14:36', 'Événement: 15', NULL, NULL),
+(160, 14, 'LOGIN_SUCCESS', '2026-01-07 16:24:43', 'User ID: 14', NULL, NULL),
+(161, 14, 'LOGOUT', '2026-01-07 16:34:59', 'Email: malekjoueur@gmail.com', NULL, NULL),
+(162, 13, 'LOGIN_SUCCESS', '2026-01-07 16:35:10', 'User ID: 13', NULL, NULL),
+(163, 13, 'LOGOUT', '2026-01-07 16:35:12', 'Email: candidat2@gmail.com', NULL, NULL),
+(164, 13, 'LOGIN_SUCCESS', '2026-01-07 16:35:18', 'User ID: 13', NULL, NULL),
+(165, 13, 'LOGOUT', '2026-01-07 16:39:52', 'Email: candidat2@gmail.com', NULL, NULL),
+(166, 8, 'LOGIN_SUCCESS', '2026-01-07 16:39:59', 'User ID: 8', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -644,220 +651,6 @@ INSERT INTO `utilisateur` (`id_utilisateur`, `email`, `mot_de_passe`, `date_insc
 (13, 'candidat2@gmail.com', '1a9bc389e802bd87b76952667b3d2eabe0071998aad11583af9a140061dc51d0', '2025-12-11', 'candidat', '730f0e28ad99035078156e24481b4e86', 1, NULL, 0, 'Misange Déchu'),
 (14, 'malekjoueur@gmail.com', '4617ef5ad999d733e159f8a3d0d738fff87941758313b3d8e6df972dd0140c10', '2026-01-05', 'joueur', '874776710a2db33694160191a13d8dd3', 1, NULL, 0, 'Misange'),
 (15, 'malekcandidat@gmail.com', 'ea3902c0659fdf4734ac8aa5e097b25a41c53306c6d30908337a66a4bf934be1', '2026-01-05', 'candidat', '4e14489897156b59b35ccacffa811cb4', 1, NULL, 0, 'Malek Simon');
-
--- --------------------------------------------------------
-
---
--- Doublure de structure pour la vue `v_candidats_stats`
--- (Voir ci-dessous la vue réelle)
---
-DROP VIEW IF EXISTS `v_candidats_stats`;
-CREATE TABLE IF NOT EXISTS `v_candidats_stats` (
-);
-
--- --------------------------------------------------------
-
---
--- Doublure de structure pour la vue `v_candidatures_details`
--- (Voir ci-dessous la vue réelle)
---
-DROP VIEW IF EXISTS `v_candidatures_details`;
-CREATE TABLE IF NOT EXISTS `v_candidatures_details` (
-`id_event_candidat` int
-,`id_evenement` int
-,`evenement_nom` varchar(255)
-,`evenement_statut` enum('preparation','ouvert_categories','ferme_categories','ouvert_final','cloture')
-,`id_categorie` int
-,`categorie_nom` varchar(255)
-,`id_candidat` int
-,`candidat_nom` varchar(255)
-,`id_jeu` int
-,`jeu_titre` varchar(255)
-,`jeu_image` varchar(500)
-,`candidat_email` varchar(255)
-,`statut_candidature` enum('en_attente','approuve','refuse')
-,`date_inscription` datetime
-,`date_validation` datetime
-,`motif_refus` text
-,`valide_par_email` varchar(255)
-);
-
--- --------------------------------------------------------
-
---
--- Doublure de structure pour la vue `v_peut_voter_categorie`
--- (Voir ci-dessous la vue réelle)
---
-DROP VIEW IF EXISTS `v_peut_voter_categorie`;
-CREATE TABLE IF NOT EXISTS `v_peut_voter_categorie` (
-`id_utilisateur` int
-,`id_evenement` int
-,`id_categorie` int
-,`peut_voter` varchar(3)
-);
-
--- --------------------------------------------------------
-
---
--- Doublure de structure pour la vue `v_votes_categorie`
--- (Voir ci-dessous la vue réelle)
---
-DROP VIEW IF EXISTS `v_votes_categorie`;
-CREATE TABLE IF NOT EXISTS `v_votes_categorie` (
-`id_evenement` int
-,`id_categorie` int
-,`id_jeu` int
-,`nb_votes` bigint
-);
-
--- --------------------------------------------------------
-
---
--- Doublure de structure pour la vue `v_votes_final`
--- (Voir ci-dessous la vue réelle)
---
-DROP VIEW IF EXISTS `v_votes_final`;
-CREATE TABLE IF NOT EXISTS `v_votes_final` (
-`id_evenement` int
-,`id_jeu` int
-,`nb_votes` bigint
-);
-
--- --------------------------------------------------------
-
---
--- Structure de la vue `v_candidats_stats`
---
-DROP TABLE IF EXISTS `v_candidats_stats`;
-
-DROP VIEW IF EXISTS `v_candidats_stats`;
-CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v_candidats_stats`  AS SELECT `c`.`id_candidat` AS `id_candidat`, `c`.`id_utilisateur` AS `id_utilisateur`, `u`.`email` AS `email`, `j`.`titre` AS `jeu_titre`, `c`.`bio` AS `bio`, `c`.`photo` AS `photo`, `c`.`date_inscription` AS `date_inscription`, count(distinct `cc`.`id_contenu`) AS `nb_contenus`, count(distinct `com`.`id_commentaire`) AS `nb_commentaires` FROM ((((`candidat` `c` join `utilisateur` `u` on((`c`.`id_utilisateur` = `u`.`id_utilisateur`))) left join `jeu` `j` on((`c`.`id_jeu` = `j`.`id_jeu`))) left join `contenu_campagne` `cc` on((`c`.`id_candidat` = `cc`.`id_candidat`))) left join `commentaire` `com` on((`c`.`id_jeu` = `com`.`id_jeu`))) GROUP BY `c`.`id_candidat` ;
-
--- --------------------------------------------------------
-
---
--- Structure de la vue `v_candidatures_details`
---
-DROP TABLE IF EXISTS `v_candidatures_details`;
-
-DROP VIEW IF EXISTS `v_candidatures_details`;
-CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v_candidatures_details`  AS SELECT `ec`.`id_event_candidat` AS `id_event_candidat`, `ec`.`id_evenement` AS `id_evenement`, `e`.`nom` AS `evenement_nom`, `e`.`statut` AS `evenement_statut`, `ec`.`id_categorie` AS `id_categorie`, `cat`.`nom` AS `categorie_nom`, `ec`.`id_candidat` AS `id_candidat`, `c`.`nom` AS `candidat_nom`, `c`.`id_jeu` AS `id_jeu`, `j`.`titre` AS `jeu_titre`, `j`.`image` AS `jeu_image`, `u`.`email` AS `candidat_email`, `ec`.`statut_candidature` AS `statut_candidature`, `ec`.`date_inscription` AS `date_inscription`, `ec`.`date_validation` AS `date_validation`, `ec`.`motif_refus` AS `motif_refus`, `admin`.`email` AS `valide_par_email` FROM ((((((`event_candidat` `ec` join `evenement` `e` on((`ec`.`id_evenement` = `e`.`id_evenement`))) left join `categorie` `cat` on((`ec`.`id_categorie` = `cat`.`id_categorie`))) join `candidat` `c` on((`ec`.`id_candidat` = `c`.`id_candidat`))) join `utilisateur` `u` on((`c`.`id_utilisateur` = `u`.`id_utilisateur`))) left join `jeu` `j` on((`c`.`id_jeu` = `j`.`id_jeu`))) left join `utilisateur` `admin` on((`ec`.`valide_par` = `admin`.`id_utilisateur`))) ;
-
--- --------------------------------------------------------
-
---
--- Structure de la vue `v_peut_voter_categorie`
---
-DROP TABLE IF EXISTS `v_peut_voter_categorie`;
-
-DROP VIEW IF EXISTS `v_peut_voter_categorie`;
-CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v_peut_voter_categorie`  AS SELECT `r`.`id_utilisateur` AS `id_utilisateur`, `r`.`id_evenement` AS `id_evenement`, `c`.`id_categorie` AS `id_categorie`, (case when (`e`.`id_emargement` is null) then 'OUI' else 'NON' end) AS `peut_voter` FROM ((`registre_electoral` `r` join `categorie` `c` on((`c`.`id_evenement` = `r`.`id_evenement`))) left join `emargement_categorie` `e` on(((`e`.`id_utilisateur` = `r`.`id_utilisateur`) and (`e`.`id_categorie` = `c`.`id_categorie`) and (`e`.`id_evenement` = `r`.`id_evenement`)))) ;
-
--- --------------------------------------------------------
-
---
--- Structure de la vue `v_votes_categorie`
---
-DROP TABLE IF EXISTS `v_votes_categorie`;
-
-DROP VIEW IF EXISTS `v_votes_categorie`;
-CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v_votes_categorie`  AS SELECT `bulletin_categorie`.`id_evenement` AS `id_evenement`, `bulletin_categorie`.`id_categorie` AS `id_categorie`, `bulletin_categorie`.`id_jeu` AS `id_jeu`, count(0) AS `nb_votes` FROM `bulletin_categorie` GROUP BY `bulletin_categorie`.`id_evenement`, `bulletin_categorie`.`id_categorie`, `bulletin_categorie`.`id_jeu` ;
-
--- --------------------------------------------------------
-
---
--- Structure de la vue `v_votes_final`
---
-DROP TABLE IF EXISTS `v_votes_final`;
-
-DROP VIEW IF EXISTS `v_votes_final`;
-CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v_votes_final`  AS SELECT `bulletin_final`.`id_evenement` AS `id_evenement`, `bulletin_final`.`id_jeu` AS `id_jeu`, count(0) AS `nb_votes` FROM `bulletin_final` GROUP BY `bulletin_final`.`id_evenement`, `bulletin_final`.`id_jeu` ;
-
---
--- Contraintes pour les tables déchargées
---
-
---
--- Contraintes pour la table `bulletin_categorie`
---
-ALTER TABLE `bulletin_categorie`
-  ADD CONSTRAINT `bulletin_categorie_ibfk_1` FOREIGN KEY (`id_jeu`) REFERENCES `jeu` (`id_jeu`) ON DELETE CASCADE,
-  ADD CONSTRAINT `bulletin_categorie_ibfk_2` FOREIGN KEY (`id_categorie`) REFERENCES `categorie` (`id_categorie`) ON DELETE CASCADE,
-  ADD CONSTRAINT `bulletin_categorie_ibfk_3` FOREIGN KEY (`id_evenement`) REFERENCES `evenement` (`id_evenement`) ON DELETE CASCADE;
-
---
--- Contraintes pour la table `bulletin_final`
---
-ALTER TABLE `bulletin_final`
-  ADD CONSTRAINT `bulletin_final_ibfk_1` FOREIGN KEY (`id_jeu`) REFERENCES `jeu` (`id_jeu`) ON DELETE CASCADE,
-  ADD CONSTRAINT `bulletin_final_ibfk_2` FOREIGN KEY (`id_evenement`) REFERENCES `evenement` (`id_evenement`) ON DELETE CASCADE;
-
---
--- Contraintes pour la table `categorie`
---
-ALTER TABLE `categorie`
-  ADD CONSTRAINT `categorie_ibfk_1` FOREIGN KEY (`id_evenement`) REFERENCES `evenement` (`id_evenement`) ON DELETE CASCADE;
-
---
--- Contraintes pour la table `commentaire`
---
-ALTER TABLE `commentaire`
-  ADD CONSTRAINT `commentaire_ibfk_1` FOREIGN KEY (`id_utilisateur`) REFERENCES `utilisateur` (`id_utilisateur`) ON DELETE CASCADE,
-  ADD CONSTRAINT `commentaire_ibfk_2` FOREIGN KEY (`id_jeu`) REFERENCES `jeu` (`id_jeu`) ON DELETE CASCADE;
-
---
--- Contraintes pour la table `emargement_categorie`
---
-ALTER TABLE `emargement_categorie`
-  ADD CONSTRAINT `emargement_categorie_ibfk_1` FOREIGN KEY (`id_utilisateur`) REFERENCES `utilisateur` (`id_utilisateur`) ON DELETE CASCADE,
-  ADD CONSTRAINT `emargement_categorie_ibfk_2` FOREIGN KEY (`id_categorie`) REFERENCES `categorie` (`id_categorie`) ON DELETE CASCADE,
-  ADD CONSTRAINT `emargement_categorie_ibfk_3` FOREIGN KEY (`id_evenement`) REFERENCES `evenement` (`id_evenement`) ON DELETE CASCADE;
-
---
--- Contraintes pour la table `emargement_final`
---
-ALTER TABLE `emargement_final`
-  ADD CONSTRAINT `emargement_final_ibfk_1` FOREIGN KEY (`id_utilisateur`) REFERENCES `utilisateur` (`id_utilisateur`) ON DELETE CASCADE,
-  ADD CONSTRAINT `emargement_final_ibfk_2` FOREIGN KEY (`id_evenement`) REFERENCES `evenement` (`id_evenement`) ON DELETE CASCADE;
-
---
--- Contraintes pour la table `event_candidat`
---
-ALTER TABLE `event_candidat`
-  ADD CONSTRAINT `event_candidat_ibfk_1` FOREIGN KEY (`id_evenement`) REFERENCES `evenement` (`id_evenement`) ON DELETE CASCADE,
-  ADD CONSTRAINT `event_candidat_ibfk_2` FOREIGN KEY (`id_candidat`) REFERENCES `candidat` (`id_candidat`) ON DELETE CASCADE,
-  ADD CONSTRAINT `fk_event_candidat_categorie` FOREIGN KEY (`id_categorie`) REFERENCES `categorie` (`id_categorie`) ON DELETE CASCADE,
-  ADD CONSTRAINT `fk_event_candidat_valideur` FOREIGN KEY (`valide_par`) REFERENCES `utilisateur` (`id_utilisateur`) ON DELETE SET NULL;
-
---
--- Contraintes pour la table `journal_securite`
---
-ALTER TABLE `journal_securite`
-  ADD CONSTRAINT `journal_securite_ibfk_1` FOREIGN KEY (`id_utilisateur`) REFERENCES `utilisateur` (`id_utilisateur`) ON DELETE CASCADE;
-
---
--- Contraintes pour la table `nomination`
---
-ALTER TABLE `nomination`
-  ADD CONSTRAINT `nomination_ibfk_1` FOREIGN KEY (`id_jeu`) REFERENCES `jeu` (`id_jeu`) ON DELETE CASCADE,
-  ADD CONSTRAINT `nomination_ibfk_2` FOREIGN KEY (`id_categorie`) REFERENCES `categorie` (`id_categorie`) ON DELETE CASCADE,
-  ADD CONSTRAINT `nomination_ibfk_3` FOREIGN KEY (`id_evenement`) REFERENCES `evenement` (`id_evenement`) ON DELETE CASCADE;
-
---
--- Contraintes pour la table `registre_electoral`
---
-ALTER TABLE `registre_electoral`
-  ADD CONSTRAINT `registre_electoral_ibfk_1` FOREIGN KEY (`id_utilisateur`) REFERENCES `utilisateur` (`id_utilisateur`) ON DELETE CASCADE,
-  ADD CONSTRAINT `registre_electoral_ibfk_2` FOREIGN KEY (`id_evenement`) REFERENCES `evenement` (`id_evenement`) ON DELETE CASCADE;
-
-DELIMITER $$
---
--- Évènements
---
-DROP EVENT IF EXISTS `auto_update_event_statuts`$$
-CREATE DEFINER=`root`@`localhost` EVENT `auto_update_event_statuts` ON SCHEDULE EVERY 1 MINUTE STARTS '2025-12-11 07:41:54' ON COMPLETION NOT PRESERVE ENABLE DO CALL update_event_statuts()$$
-
-DELIMITER ;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
