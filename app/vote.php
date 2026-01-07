@@ -1,103 +1,139 @@
-<?php 
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
+<?php
+/**
+ * vote-final.php - REFACTORISÉ avec Architecture SOLID
+ * 
+ * Page de vote final (Phase 2)
+ * Utilise VoteService pour toute la logique métier
+ * 
+ * SOLID:
+ * - S: VoteService gère UNIQUEMENT les votes
+ * - O: Facile d'ajouter de nouveaux filtres/features
+ * - L: Services substitutables
+ * - I: VoteService expose méthodes spécifiques
+ * - D: Services injectés via ServiceContainer
+ */
+
+require_once 'classes/init.php';
+
+// ==================== PROTECTION & SETUP ====================
+
+// Vérifier authentification
+if (!isLogged()) {
+    redirect('login.php', 'Vous devez vous connecter', 'error');
 }
 
-require_once 'dbconnect.php';
-
-if (!isset($_SESSION['id_utilisateur'])) {
-    header('Location: login.php');
-    exit;
-}
-
-$id_utilisateur = $_SESSION['id_utilisateur'];
+$id_utilisateur = getAuthUserId();
 $error = '';
 $success = '';
+$events = [];
 
-// Mettre à jour les statuts
+// ==================== SERVICES ====================
+
+$voteService = ServiceContainer::getVoteService();
+$db = ServiceContainer::getDatabase();
+
+// ==================== RÉCUPÉRER LES ÉVÉNEMENTS ====================
+
 try {
-    $connexion->query("CALL update_event_statuts()");
-} catch (Exception $e) {}
+    // Mettre à jour les statuts des événements
+    $db->query("CALL update_event_statuts()");
+} catch (Exception $e) {
+    // Erreur non bloquante
+}
 
 // Récupérer les événements
 try {
-    $stmt = $connexion->prepare("
+    $stmt = $db->prepare("
         SELECT * FROM evenement 
-        WHERE statut IN ('preparation', 'ouvert_categories', 'ferme_categories', 'ouvert_final')
+        WHERE statut IN ('preparation', 'ouvert_categories', 'ferme_categories', 'ouvert_final', 'cloture')
         ORDER BY date_ouverture DESC
     ");
     $stmt->execute();
-    $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $events = $stmt->fetchAll(\PDO::FETCH_ASSOC);
 } catch (Exception $e) {
-    $error = 'Erreur : ' . $e->getMessage();
+    $error = 'Erreur lors de la récupération des événements';
     $events = [];
 }
 
-// Traitement du vote
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'vote') {
-    $id_jeu = intval($_POST['id_jeu'] ?? 0);
-    $id_categorie = intval($_POST['id_categorie'] ?? 0);
-    $id_evenement = intval($_POST['id_evenement'] ?? 0);
+// ==================== TRAITEMENT DU VOTE FINAL ====================
 
-    try {
-        $stmt = $connexion->prepare("SELECT * FROM evenement WHERE id_evenement = ?");
-        $stmt->execute([$id_evenement]);
-        $event = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if (!$event) throw new Exception("Événement non trouvé.");
-        if ($event['statut'] !== 'ouvert_categories') throw new Exception("Le vote par catégories n'est pas ouvert.");
-        
-        $stmt = $connexion->prepare("SELECT id_registre FROM registre_electoral WHERE id_utilisateur = ? AND id_evenement = ?");
-        $stmt->execute([$id_utilisateur, $id_evenement]);
-        if ($stmt->rowCount() === 0) throw new Exception("Vous n'êtes pas inscrit à cet événement.");
-        
-        $stmt = $connexion->prepare("SELECT id_emargement FROM emargement_categorie WHERE id_utilisateur = ? AND id_categorie = ? AND id_evenement = ?");
-        $stmt->execute([$id_utilisateur, $id_categorie, $id_evenement]);
-        if ($stmt->rowCount() > 0) throw new Exception("Vous avez déjà voté pour cette catégorie !");
-        
-        $stmt = $connexion->prepare("SELECT id_nomination FROM nomination WHERE id_jeu = ? AND id_categorie = ? AND id_evenement = ?");
-        $stmt->execute([$id_jeu, $id_categorie, $id_evenement]);
-        if ($stmt->rowCount() === 0) throw new Exception("Ce jeu n'est pas nominé dans cette catégorie.");
-        
-        $connexion->beginTransaction();
-        $stmt = $connexion->prepare("INSERT INTO bulletin_categorie (id_jeu, id_categorie, id_evenement) VALUES (?, ?, ?)");
-        $stmt->execute([$id_jeu, $id_categorie, $id_evenement]);
-        
-        $stmt = $connexion->prepare("INSERT INTO emargement_categorie (id_utilisateur, id_categorie, id_evenement) VALUES (?, ?, ?)");
-        $stmt->execute([$id_utilisateur, $id_categorie, $id_evenement]);
-        
-        $stmt = $connexion->prepare("INSERT INTO journal_securite (id_utilisateur, action, details, adresse_ip) VALUES (?, 'VOTE_CATEGORIE', ?, ?)");
-        $stmt->execute([$id_utilisateur, "Catégorie $id_categorie, événement $id_evenement", $_SERVER['REMOTE_ADDR'] ?? '']);
-        
-        $connexion->commit();
-        $success = "Vote enregistré avec succès !";
-    } catch (Exception $e) {
-        if ($connexion->inTransaction()) $connexion->rollBack();
-        $error = $e->getMessage();
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'vote_final') {
+    $result = $voteService->voteFinalVote(
+        $id_utilisateur,
+        intval($_POST['id_jeu'] ?? 0),
+        intval($_POST['id_evenement'] ?? 0)
+    );
+    
+    if ($result['success']) {
+        $success = '✓ Vote enregistré avec succès !';
+        // Recharger la page après succès
+        redirect($_SERVER['REQUEST_URI'], 'Vote enregistré!', 'success');
+    } else {
+        $error = implode(' | ', $result['errors']);
     }
 }
 
+// ==================== CONFIGURATION DES STATUTS ====================
+
 $statut_config = [
-    'preparation' => ['label' => 'Préparation', 'color' => 'yellow', 'icon' => 'fa-hourglass-start', 'can_vote_cat' => false],
-    'ouvert_categories' => ['label' => 'Vote Catégories', 'color' => 'green', 'icon' => 'fa-vote-yea', 'can_vote_cat' => true],
-    'ferme_categories' => ['label' => 'Attente Vote Final', 'color' => 'blue', 'icon' => 'fa-pause-circle', 'can_vote_cat' => false],
-    'ouvert_final' => ['label' => 'Vote Final', 'color' => 'purple', 'icon' => 'fa-crown', 'can_vote_cat' => false],
-    'cloture' => ['label' => 'Clôturé', 'color' => 'red', 'icon' => 'fa-times-circle', 'can_vote_cat' => false]
+    'preparation' => [
+        'label' => 'Préparation',
+        'bg' => 'bg-yellow-500/20',
+        'text' => 'text-yellow-400',
+        'border' => 'border-yellow-500/30',
+        'icon' => 'fa-hourglass-start',
+        'can_vote_final' => false
+    ],
+    'ouvert_categories' => [
+        'label' => 'Vote Catégories',
+        'bg' => 'bg-green-500/20',
+        'text' => 'text-green-400',
+        'border' => 'border-green-500/30',
+        'icon' => 'fa-vote-yea',
+        'can_vote_final' => false
+    ],
+    'ferme_categories' => [
+        'label' => 'Attente Vote Final',
+        'bg' => 'bg-blue-500/20',
+        'text' => 'text-blue-400',
+        'border' => 'border-blue-500/30',
+        'icon' => 'fa-pause-circle',
+        'can_vote_final' => false
+    ],
+    'ouvert_final' => [
+        'label' => 'Vote Final',
+        'bg' => 'bg-purple-500/20',
+        'text' => 'text-purple-400',
+        'border' => 'border-purple-500/30',
+        'icon' => 'fa-crown',
+        'can_vote_final' => true
+    ],
+    'cloture' => [
+        'label' => 'Clôturé',
+        'bg' => 'bg-red-500/20',
+        'text' => 'text-red-400',
+        'border' => 'border-red-500/30',
+        'icon' => 'fa-times-circle',
+        'can_vote_final' => false
+    ]
 ];
 
 require_once 'header.php';
 ?>
 
-<section class="py-12 px-6 min-h-screen">
-    <div class="container mx-auto max-w-6xl">
+<br><br><br> <!-- Espace pour le header -->
+<section class="py-20 px-6">
+    <div class="container mx-auto max-w-7xl">
         
+        <!-- Titre -->
         <div class="text-center mb-12">
-            <h1 class="text-4xl md:text-5xl font-bold font-orbitron text-white mb-4">
-                <i class="fas fa-vote-yea text-cyan-400 mr-3"></i>Vote par Catégorie
+            <h1 class="text-5xl md:text-6xl font-bold font-orbitron mb-4 accent-gradient">
+                <i class="fas fa-crown text-accent mr-3"></i>Vote Final
             </h1>
-            <p class="text-white/60 text-lg">Votez pour vos jeux préférés dans chaque catégorie</p>
+            <p class="text-xl text-light-80">Phase 2 : Élisez le Jeu de l'Année</p>
         </div>
         
+        <!-- Messages d'erreur/succès -->
         <?php if ($error): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3 max-w-2xl mx-auto">
                 <i class="fas fa-exclamation-circle text-red-400"></i>
@@ -108,42 +144,70 @@ require_once 'header.php';
         <?php if ($success): ?>
             <div class="mb-8 p-4 rounded-2xl bg-green-500/10 border border-green-500/30 flex items-center gap-3 max-w-2xl mx-auto">
                 <i class="fas fa-check-circle text-green-400"></i>
-                <span class="text-green-400"><?php echo $success; ?></span>
+                <span class="text-green-400"><?php echo htmlspecialchars($success); ?></span>
             </div>
         <?php endif; ?>
         
+        <!-- Aucun événement -->
         <?php if (empty($events)): ?>
-            <div class="glass-card rounded-3xl p-12 modern-border text-center max-w-2xl mx-auto">
-                <i class="fas fa-calendar-times text-5xl text-white/20 mb-6"></i>
-                <h2 class="text-2xl font-bold text-white mb-3">Aucun événement disponible</h2>
-                <p class="text-white/60">Les votes ne sont pas encore ouverts. Revenez bientôt !</p>
+            <div class="glass-card rounded-3xl p-12 modern-border border-2 border-white/10 text-center max-w-2xl mx-auto">
+                <i class="fas fa-calendar-times text-5xl text-light/20 mb-6"></i>
+                <h2 class="text-2xl font-bold text-light mb-3">Aucun événement disponible</h2>
+                <p class="text-light-80">Les votes ne sont pas encore ouverts. Revenez bientôt !</p>
             </div>
         <?php else: ?>
+            
             <?php foreach ($events as $event): 
                 $status = $statut_config[$event['statut']] ?? $statut_config['preparation'];
                 
                 // Vérifier inscription
                 try {
-                    $stmt = $connexion->prepare("SELECT id_registre FROM registre_electoral WHERE id_utilisateur = ? AND id_evenement = ?");
+                    $stmt = $db->prepare("SELECT id_registre FROM registre_electoral WHERE id_utilisateur = ? AND id_evenement = ?");
                     $stmt->execute([$id_utilisateur, $event['id_evenement']]);
                     $isRegistered = $stmt->rowCount() > 0;
-                } catch (Exception $e) { $isRegistered = false; }
+                } catch (Exception $e) { 
+                    $isRegistered = false; 
+                }
                 
-                // Récupérer catégories
+                // Récupérer les finalistes
                 try {
-                    $stmt = $connexion->prepare("SELECT c.*, (SELECT COUNT(*) FROM nomination n WHERE n.id_categorie = c.id_categorie AND n.id_evenement = c.id_evenement) as nb_jeux FROM categorie c WHERE c.id_evenement = ? ORDER BY c.nom ASC");
+                    $stmt = $db->prepare("
+                        SELECT j.* 
+                        FROM jeu j
+                        JOIN finaliste f ON j.id_jeu = f.id_jeu
+                        WHERE f.id_evenement = ?
+                        ORDER BY j.titre ASC
+                    ");
                     $stmt->execute([$event['id_evenement']]);
-                    $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                } catch (Exception $e) { $categories = []; }
+                    $finalistes = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                } catch (Exception $e) { 
+                    $finalistes = []; 
+                }
+                
+                // Vérifier si l'utilisateur a déjà voté au final
+                try {
+                    $stmt = $db->prepare("
+                        SELECT id_emargement FROM emargement_final 
+                        WHERE id_utilisateur = ? AND id_evenement = ?
+                    ");
+                    $stmt->execute([$id_utilisateur, $event['id_evenement']]);
+                    $dejaVoteFinal = $stmt->rowCount() > 0;
+                } catch (Exception $e) { 
+                    $dejaVoteFinal = false; 
+                }
             ?>
-                <div class="glass-card rounded-3xl modern-border mb-8 overflow-hidden">
+                
+                <div class="glass-card rounded-3xl modern-border border-2 border-white/10 mb-8 overflow-hidden">
+                    
                     <!-- Header événement -->
-                    <div class="p-6 border-b border-white/10 bg-gradient-to-r from-white/5 to-transparent">
+                    <div class="p-6 border-b border-white/10 bg-white/5">
                         <div class="flex flex-wrap items-center justify-between gap-4">
                             <div>
-                                <h2 class="text-2xl font-bold font-orbitron text-white mb-2"><?php echo htmlspecialchars($event['nom']); ?></h2>
+                                <h2 class="text-2xl font-bold font-orbitron text-light mb-2">
+                                    <?php echo htmlspecialchars($event['nom']); ?>
+                                </h2>
                                 <div class="flex flex-wrap items-center gap-3">
-                                    <span class="px-3 py-1 rounded-full text-xs font-medium bg-<?php echo $status['color']; ?>-500/20 text-<?php echo $status['color']; ?>-400 border border-<?php echo $status['color']; ?>-500/30">
+                                    <span class="px-3 py-1 rounded-full text-xs font-medium <?php echo $status['bg']; ?> <?php echo $status['text']; ?> border <?php echo $status['border']; ?>">
                                         <i class="fas <?php echo $status['icon']; ?> mr-1"></i><?php echo $status['label']; ?>
                                     </span>
                                     <?php if ($isRegistered): ?>
@@ -154,127 +218,121 @@ require_once 'header.php';
                                 </div>
                             </div>
                             
-                            <?php if ($event['statut'] === 'ouvert_final'): ?>
-                                <a href="vote-final.php" class="px-5 py-2 rounded-xl bg-purple-500 text-white font-bold hover:bg-purple-400 transition-colors flex items-center gap-2">
-                                    <i class="fas fa-crown"></i> Vote Final
-                                </a>
-                            <?php endif; ?>
+                            <!-- Lien retour vers votes catégories -->
+                            <a href="vote.php" class="px-5 py-2 rounded-2xl bg-light/10 text-light hover:bg-light/20 transition-colors flex items-center gap-2 border border-white/10">
+                                <i class="fas fa-arrow-left"></i> Votes Catégories
+                            </a>
                         </div>
                     </div>
-
+                    
+                    <!-- Contenu -->
                     <div class="p-6">
+                        
+                        <!-- Pas inscrit -->
                         <?php if (!$isRegistered): ?>
-                            <div class="p-6 rounded-2xl bg-orange-500/10 border border-orange-500/30 text-center">
-                                <i class="fas fa-exclamation-triangle text-orange-400 text-3xl mb-3"></i>
-                                <p class="text-orange-400 text-lg mb-4">Inscrivez-vous pour voter !</p>
-                                <a href="joueur-events.php" class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-cyan-500 text-dark font-bold hover:bg-cyan-400 transition-colors">
+                            <div class="p-6 rounded-2xl bg-yellow-500/10 border border-yellow-500/30 text-center">
+                                <i class="fas fa-exclamation-triangle text-yellow-400 text-3xl mb-3"></i>
+                                <p class="text-yellow-400 text-lg mb-4">Vous devez vous inscrire pour voter !</p>
+                                <a href="joueur-events.php" class="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-accent text-dark font-bold hover:bg-accent/80 transition-colors border border-white/10">
                                     <i class="fas fa-user-plus"></i> S'inscrire
                                 </a>
                             </div>
-                        <?php elseif (!$status['can_vote_cat']): ?>
+                        
+                        <!-- Vote final pas ouvert -->
+                        <?php elseif (!$status['can_vote_final']): ?>
                             <div class="p-6 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-center">
                                 <i class="fas fa-info-circle text-blue-400 text-3xl mb-3"></i>
                                 <p class="text-blue-400 text-lg">
                                     <?php if ($event['statut'] === 'preparation'): ?>
-                                        Votes ouvrent le <?php echo date('d/m/Y à H:i', strtotime($event['date_ouverture'])); ?>
+                                        Le vote final n'est pas encore accessible.
+                                        <br><small class="block mt-2">Du <?php echo date('d/m/Y', strtotime($event['date_ouverture'])); ?> au <?php echo date('d/m/Y', strtotime($event['date_fermeture'])); ?></small>
+                                    <?php elseif ($event['statut'] === 'ouvert_categories'): ?>
+                                        Le vote par catégories est en cours.
+                                        <br><small class="block mt-2">Ouverture du vote final le <?php echo date('d/m/Y à H:i', strtotime($event['date_debut_vote_final'])); ?></small>
                                     <?php elseif ($event['statut'] === 'ferme_categories'): ?>
-                                        Vote final le <?php echo date('d/m/Y à H:i', strtotime($event['date_debut_vote_final'])); ?>
+                                        Attente du vote final
+                                        <br><small class="block mt-2">Ouverture le <?php echo date('d/m/Y à H:i', strtotime($event['date_debut_vote_final'])); ?></small>
                                     <?php else: ?>
-                                        Vote par catégories terminé.
+                                        Les résultats sont disponibles.
                                     <?php endif; ?>
                                 </p>
                             </div>
+                        
+                        <!-- Vote final ouvert -->
                         <?php else: ?>
-                            <div class="space-y-8">
-                                <?php foreach ($categories as $categorie):
-                                    try {
-                                        $stmt = $connexion->prepare("SELECT id_emargement FROM emargement_categorie WHERE id_utilisateur = ? AND id_categorie = ? AND id_evenement = ?");
-                                        $stmt->execute([$id_utilisateur, $categorie['id_categorie'], $event['id_evenement']]);
-                                        $dejaVote = $stmt->rowCount() > 0;
-                                    } catch (Exception $e) { $dejaVote = false; }
-
-                                    try {
-                                        $stmt = $connexion->prepare("SELECT j.* FROM jeu j JOIN nomination n ON j.id_jeu = n.id_jeu WHERE n.id_categorie = ? AND n.id_evenement = ? ORDER BY j.titre ASC");
-                                        $stmt->execute([$categorie['id_categorie'], $event['id_evenement']]);
-                                        $jeux = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                                    } catch (Exception $e) { $jeux = []; }
-                                ?>
-                                    <div class="rounded-2xl border <?php echo $dejaVote ? 'border-green-500/30 bg-green-500/5' : 'border-white/10'; ?> p-6">
-                                        <div class="flex items-start justify-between mb-4">
-                                            <div>
-                                                <h3 class="text-xl font-bold text-white mb-1"><?php echo htmlspecialchars($categorie['nom']); ?></h3>
-                                                <?php if ($categorie['description']): ?>
-                                                    <p class="text-white/60 text-sm"><?php echo htmlspecialchars($categorie['description']); ?></p>
-                                                <?php endif; ?>
-                                            </div>
-                                            <?php if ($dejaVote): ?>
-                                                <span class="px-3 py-1 rounded-full bg-green-500/20 text-green-400 text-sm font-medium">
-                                                    <i class="fas fa-check mr-1"></i>Voté
-                                                </span>
-                                            <?php endif; ?>
-                                        </div>
-
-                                        <?php if ($dejaVote): ?>
-                                            <p class="text-white/60 italic text-sm"><i class="fas fa-lock mr-1"></i>Vote enregistré (anonyme et définitif)</p>
-                                        <?php elseif (empty($jeux)): ?>
-                                            <p class="text-white/40 italic">Aucun jeu nominé.</p>
+                            <?php if (empty($finalistes)): ?>
+                                <div class="p-6 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-center">
+                                    <i class="fas fa-gamepad text-blue-400 text-3xl mb-3"></i>
+                                    <p class="text-blue-400 text-lg">Aucun finaliste pour le moment.</p>
+                                </div>
+                            <?php else: ?>
+                                <div class="mb-6">
+                                    <h3 class="text-xl font-bold text-light mb-4">
+                                        <?php if ($dejaVoteFinal): ?>
+                                            ✓ Vous avez voté
                                         <?php else: ?>
-                                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                <?php foreach ($jeux as $jeu): ?>
-                                                    <div class="group relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden hover:border-cyan-500/50 transition-all">
-                                                        <!-- Image -->
-                                                        <div class="h-36 bg-gradient-to-br from-cyan-500/10 to-purple-500/10">
-                                                            <?php if ($jeu['image']): ?>
-                                                                <img src="<?php echo htmlspecialchars($jeu['image']); ?>" alt="" class="w-full h-full object-cover">
-                                                            <?php else: ?>
-                                                                <div class="w-full h-full flex items-center justify-center">
-                                                                    <i class="fas fa-gamepad text-4xl text-white/20"></i>
-                                                                </div>
-                                                            <?php endif; ?>
-                                                        </div>
-                                                        
-                                                        <!-- Infos -->
-                                                        <div class="p-4">
-                                                            <h4 class="font-bold text-white mb-1 truncate"><?php echo htmlspecialchars($jeu['titre']); ?></h4>
-                                                            <?php if ($jeu['editeur']): ?>
-                                                                <p class="text-xs text-white/50 mb-3"><?php echo htmlspecialchars($jeu['editeur']); ?></p>
-                                                            <?php endif; ?>
-                                                            
-                                                            <!-- Actions -->
-                                                            <div class="flex gap-2">
-                                                                <form method="POST" class="flex-1">
-                                                                    <input type="hidden" name="action" value="vote">
-                                                                    <input type="hidden" name="id_jeu" value="<?php echo $jeu['id_jeu']; ?>">
-                                                                    <input type="hidden" name="id_categorie" value="<?php echo $categorie['id_categorie']; ?>">
-                                                                    <input type="hidden" name="id_evenement" value="<?php echo $event['id_evenement']; ?>">
-                                                                    <button type="submit" onclick="return confirm('Voter pour <?php echo htmlspecialchars($jeu['titre'], ENT_QUOTES); ?> ?');" 
-                                                                        class="w-full py-2 rounded-lg bg-cyan-500/20 text-cyan-400 text-sm font-medium hover:bg-cyan-500 hover:text-dark transition-all flex items-center justify-center gap-1">
-                                                                        <i class="fas fa-vote-yea"></i> Voter
-                                                                    </button>
-                                                                </form>
-                                                                <a href="jeu-campagne.php?id=<?php echo $jeu['id_jeu']; ?>" 
-                                                                   class="px-3 py-2 rounded-lg bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-all" 
-                                                                   title="Voir la campagne">
-                                                                    <i class="fas fa-comments"></i>
-                                                                </a>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                <?php endforeach; ?>
-                                            </div>
+                                            Sélectionnez votre jeu préféré
                                         <?php endif; ?>
+                                    </h3>
+                                    
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        <?php foreach ($finalistes as $jeu): ?>
+                                            <div class="group relative glass-card rounded-2xl overflow-hidden hover:border-accent/50 transition-all border border-white/10 <?php echo $dejaVoteFinal ? 'opacity-75' : ''; ?>">
+                                                
+                                                <!-- Image -->
+                                                <div class="h-40 bg-accent/10">
+                                                    <?php if ($jeu['image']): ?>
+                                                        <img src="<?php echo htmlspecialchars($jeu['image']); ?>" alt="<?php echo htmlspecialchars($jeu['titre']); ?>" class="w-full h-full object-cover">
+                                                    <?php else: ?>
+                                                        <div class="w-full h-full flex items-center justify-center">
+                                                            <i class="fas fa-gamepad text-4xl text-light/20"></i>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                </div>
+                                                
+                                                <!-- Infos -->
+                                                <div class="p-4">
+                                                    <h4 class="font-bold text-light mb-1 truncate"><?php echo htmlspecialchars($jeu['titre']); ?></h4>
+                                                    <?php if ($jeu['editeur']): ?>
+                                                        <p class="text-xs text-light-80 mb-3"><?php echo htmlspecialchars($jeu['editeur']); ?></p>
+                                                    <?php endif; ?>
+                                                    
+                                                    <!-- Actions -->
+                                                    <div class="flex gap-2">
+                                                        <?php if (!$dejaVoteFinal): ?>
+                                                            <form method="POST" class="flex-1">
+                                                                <input type="hidden" name="action" value="vote_final">
+                                                                <input type="hidden" name="id_jeu" value="<?php echo $jeu['id_jeu']; ?>">
+                                                                <input type="hidden" name="id_evenement" value="<?php echo $event['id_evenement']; ?>">
+                                                                <button type="submit" onclick="return confirm('Voter pour <?php echo htmlspecialchars($jeu['titre'], ENT_QUOTES); ?> en tant que Jeu de l\'Année?');" 
+                                                                    class="w-full py-2 rounded-xl bg-accent/20 text-accent text-sm font-medium hover:bg-accent hover:text-dark transition-colors flex items-center justify-center gap-1 border border-white/10">
+                                                                    <i class="fas fa-crown"></i> Voter
+                                                                </button>
+                                                            </form>
+                                                        <?php endif; ?>
+                                                        
+                                                        <a href="jeu-campagne.php?id=<?php echo $jeu['id_jeu']; ?>" 
+                                                           class="px-3 py-2 rounded-xl bg-white/5 text-light-80 hover:text-light hover:bg-white/10 transition-all border border-white/10" 
+                                                           title="Voir la campagne">
+                                                            <i class="fas fa-comments"></i>
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
                                     </div>
-                                <?php endforeach; ?>
-                            </div>
+                                </div>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </div>
                 </div>
             <?php endforeach; ?>
         <?php endif; ?>
-
+        
+        <!-- Lien retour -->
         <div class="text-center mt-8">
-            <a href="vote-final.php" class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30 font-bold hover:bg-purple-500/30 transition-colors">
-                <i class="fas fa-crown"></i> Voir le Vote Final
+            <a href="vote.php" class="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-light/10 text-light hover:bg-light/20 transition-colors border border-white/10">
+                <i class="fas fa-arrow-left"></i> Retour aux votes par catégories
             </a>
         </div>
     </div>

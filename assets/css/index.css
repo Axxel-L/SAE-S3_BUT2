@@ -213,6 +213,20 @@ body {
     background-clip: text;
 }
 
+/* Accent utilities (fallbacks when Tailwind custom colors aren't available) */
+:root {
+    --accent: #00D4FF;
+    --accent-dark: #0099CC;
+}
+
+.text-accent { color: var(--accent) !important; }
+.bg-accent { background-color: var(--accent) !important; }
+.bg-accent\/20 { background-color: rgba(0,212,255,0.2) !important; }
+.bg-accent\/10 { background-color: rgba(0,212,255,0.1) !important; }
+.border-accent\/30 { border-color: rgba(0,212,255,0.3) !important; }
+.border-accent\/50 { border-color: rgba(0,212,255,0.5) !important; }
+.hover\:bg-accent\/80:hover { background-color: rgba(0,212,255,0.8) !important; }
+
 .mobile-menu {
     max-height: 0;
     overflow: hidden;

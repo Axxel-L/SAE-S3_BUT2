@@ -1,16 +1,31 @@
 <?php
 /**
- * AUTHENTIFICATION - GameCrown
- * - Connexion avec vérification du statut candidat
- * - Inscription joueur (avec pseudo) ou candidat (2 étapes + validation admin)
- * - Protection contre les injections SQL
+ * login.php - REFACTORISÉ avec Architecture SOLID
+ * 
+ * Page d'authentification complète avec inscription candidat 2 étapes
+ * 
+ * Services SOLID utilisés:
+ * - AuthenticationService (connexion utilisateur)
+ * - UserService (inscription joueur/candidat)
+ * - ValidationService (validation données)
+ * - AuditLogger (logging sécurité)
+ * - PasswordManager (hachage)
+ * 
+ * SOLID principles:
+ * - S: Chaque service = responsabilité unique
+ * - O: Facile d'ajouter validations/étapes
+ * - L: Services substitutables
+ * - I: Interfaces spécifiques
+ * - D: Services injectés via ServiceContainer
  */
 
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
-require_once 'dbconnect.php';
+require_once 'classes/init.php';
+
+// ==================== INITIALISER ====================
 
 $loginerror = '';
 $registererror = '';
@@ -18,182 +33,104 @@ $registersuccess = '';
 $registerinfo = '';
 $step = intval($_POST['step'] ?? 1);
 $jeux = [];
+$showregister = isset($_GET['register']) || $step === 2;
 
-// Récupérer la liste des jeux pour l'inscription candidat
+// ==================== SERVICES ====================
+
+$db = ServiceContainer::getDatabase();
+$authService = ServiceContainer::getAuthenticationService();
+$userService = ServiceContainer::getUserService();
+$validationService = ServiceContainer::getValidationService();
+$auditLogger = ServiceContainer::getAuditLogger();
+
+// ==================== RÉCUPÉRER LES JEUX ====================
+
 try {
-    $stmt = $connexion->prepare("SELECT id_jeu, titre, editeur FROM jeu ORDER BY titre ASC");
+    $stmt = $db->prepare("SELECT id_jeu, titre, editeur FROM jeu ORDER BY titre ASC");
     $stmt->execute();
-    $jeux = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (Exception $e) {}
+    $jeux = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    error_log("Error fetching games: " . $e->getMessage());
+    $jeux = [];
+}
 
-// ========================================
-// TRAITEMENT CONNEXION
-// ========================================
+// ==================== ACTION: CONNEXION ====================
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'login') {
-    $email = filter_var(trim($_POST['loginemail'] ?? ''), FILTER_SANITIZE_EMAIL);
+    $email = ValidationService::sanitizeEmail($_POST['loginemail'] ?? '');
     $password = $_POST['loginpassword'] ?? '';
-
-    if (empty($email) || empty($password)) {
-        $loginerror = 'Email et mot de passe requis !';
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $loginerror = 'Adresse email invalide !';
+    
+    // Utiliser AuthenticationService
+    $result = $authService->authenticate($email, $password);
+    
+    if ($result['success']) {
+        $user = $result['user'];
+        
+        // Créer la session
+        $authService->createSession($user);
+        
+        // Redirection selon le type
+        $redirectUrl = ($user->getType() === 'candidat') 
+            ? './candidat-profil.php' 
+            : './dashboard.php';
+        
+        // JavaScript pour redirection (modal ou page complète)
+        echo "<script>
+            if (window.opener) { window.opener.location.reload(); window.close(); }
+            else { window.location.href = '{$redirectUrl}'; }
+        </script>";
+        exit;
     } else {
-        try {
-            $stmt = $connexion->prepare("SELECT * FROM utilisateur WHERE email = ?");
-            $stmt->execute([$email]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$user) {
-                $loginerror = 'Email ou mot de passe incorrect !';
-            } else {
-                $passwordhash = hash('sha256', $password . $user['salt']);
-                
-                if ($passwordhash !== $user['mot_de_passe']) {
-                    $loginerror = 'Email ou mot de passe incorrect !';
-                    
-                    $stmt = $connexion->prepare("INSERT INTO journal_securite (id_utilisateur, action, details, adresse_ip) VALUES (?, 'LOGIN_FAILED', 'Mot de passe incorrect', ?)");
-                    $stmt->execute([$user['id_utilisateur'], $_SERVER['REMOTE_ADDR'] ?? '']);
-                } else {
-                    // VÉRIFICATION SPÉCIALE POUR LES CANDIDATS
-                    if ($user['type'] === 'candidat') {
-                        $stmt = $connexion->prepare("SELECT statut FROM candidat WHERE id_utilisateur = ?");
-                        $stmt->execute([$user['id_utilisateur']]);
-                        $candidat = $stmt->fetch(PDO::FETCH_ASSOC);
-                        
-                        if (!$candidat) {
-                            $loginerror = "Profil candidat introuvable. Contactez l'administrateur.";
-                        } elseif ($candidat['statut'] === 'en_attente') {
-                            $loginerror = "⏳ Votre candidature est en attente de validation par un administrateur.";
-                        } elseif ($candidat['statut'] === 'refuse') {
-                            $loginerror = "❌ Votre candidature a été refusée. Contactez l'administrateur.";
-                        } else {
-                            $_SESSION['id_utilisateur'] = $user['id_utilisateur'];
-                            $_SESSION['useremail'] = $user['email'];
-                            $_SESSION['pseudo'] = $user['pseudo'] ?? $user['email'];
-                            $_SESSION['type'] = $user['type'];
-                            
-                            $stmt = $connexion->prepare("INSERT INTO journal_securite (id_utilisateur, action, details, adresse_ip) VALUES (?, 'LOGIN_SUCCESS', 'Connexion candidat', ?)");
-                            $stmt->execute([$user['id_utilisateur'], $_SERVER['REMOTE_ADDR'] ?? '']);
-                            
-                            echo "<script>
-                                if (window.opener) { window.opener.location.reload(); window.close(); }
-                                else { window.location.href = 'candidat-profil.php'; }
-                            </script>";
-                            exit;
-                        }
-                    } else {
-                        $_SESSION['id_utilisateur'] = $user['id_utilisateur'];
-                        $_SESSION['useremail'] = $user['email'];
-                        $_SESSION['pseudo'] = $user['pseudo'] ?? $user['email'];
-                        $_SESSION['type'] = $user['type'];
-                        
-                        $stmt = $connexion->prepare("INSERT INTO journal_securite (id_utilisateur, action, details, adresse_ip) VALUES (?, 'LOGIN_SUCCESS', ?, ?)");
-                        $stmt->execute([$user['id_utilisateur'], "Connexion " . $user['type'], $_SERVER['REMOTE_ADDR'] ?? '']);
-                        
-                        echo "<script>
-                            if (window.opener) { window.opener.location.reload(); window.close(); }
-                            else { window.location.href = 'index.php'; }
-                        </script>";
-                        exit;
-                    }
-                }
-            }
-        } catch (Exception $e) {
-            $loginerror = 'Erreur de connexion. Réessayez.';
-            error_log("Login error: " . $e->getMessage());
-        }
+        $loginerror = implode(" | ", $result['errors']);
     }
 }
 
-// ========================================
-// TRAITEMENT INSCRIPTION - ÉTAPE 1
-// ========================================
+// ==================== ACTION: INSCRIPTION ÉTAPE 1 ====================
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'register_step1') {
-    $email = filter_var(trim($_POST['registeremail'] ?? ''), FILTER_SANITIZE_EMAIL);
-    $pseudo = htmlspecialchars(trim($_POST['registerpseudo'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $email = ValidationService::sanitizeEmail($_POST['registeremail'] ?? '');
+    $pseudo = ValidationService::sanitizeHtml($_POST['registerpseudo'] ?? '');
     $password = $_POST['registerpassword'] ?? '';
-    $confirmpassword = $_POST['registerconfirmpassword'] ?? '';
-    $type = $_POST['registertype'] ?? 'joueur';
+    $confirm_password = $_POST['registerconfirmpassword'] ?? '';
+    $type = htmlspecialchars(trim($_POST['registertype'] ?? 'joueur'));
     
-    // Sécurité : seuls joueur et candidat sont autorisés
+    // Valider le type
     if (!in_array($type, ['joueur', 'candidat'])) {
         $type = 'joueur';
     }
-
-    if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $registererror = 'Adresse email invalide !';
-    } elseif ($type === 'joueur' && (empty($pseudo) || strlen($pseudo) < 3 || strlen($pseudo) > 30)) {
-        $registererror = 'Pseudo requis (3-30 caractères) !';
-    } elseif (empty($password)) {
-        $registererror = 'Mot de passe requis !';
-    } elseif ($password !== $confirmpassword) {
-        $registererror = 'Les mots de passe ne correspondent pas !';
-    } elseif (strlen($password) < 8) {
-        $registererror = 'Le mot de passe doit contenir au minimum 8 caractères !';
-    } else {
-        try {
-            // Vérifier email unique
-            $stmt = $connexion->prepare("SELECT id_utilisateur FROM utilisateur WHERE email = ?");
-            $stmt->execute([$email]);
-            
-            if ($stmt->rowCount() > 0) {
-                $registererror = 'Cet email est déjà utilisé !';
-            } else {
-                // Vérifier pseudo unique (si joueur)
-                if ($type === 'joueur' && !empty($pseudo)) {
-                    $stmt = $connexion->prepare("SELECT id_utilisateur FROM utilisateur WHERE pseudo = ?");
-                    $stmt->execute([$pseudo]);
-                    if ($stmt->rowCount() > 0) {
-                        $registererror = 'Ce pseudo est déjà pris !';
-                    }
-                }
-                
-                if (empty($registererror)) {
-                    $salt = bin2hex(random_bytes(16));
-                    $passwordhash = hash('sha256', $password . $salt);
-                    
-                    // Pour les candidats, le pseudo sera leur nom (étape 2)
-                    $pseudo_to_save = ($type === 'joueur') ? $pseudo : null;
-
-                    $stmt = $connexion->prepare("INSERT INTO utilisateur (email, pseudo, mot_de_passe, salt, type, date_inscription) VALUES (?, ?, ?, ?, ?, NOW())");
-                    
-                    if ($stmt->execute([$email, $pseudo_to_save, $passwordhash, $salt, $type])) {
-                        $id_utilisateur = $connexion->lastInsertId();
-                        
-                        $stmt = $connexion->prepare("INSERT INTO journal_securite (id_utilisateur, action, details, adresse_ip) VALUES (?, 'USER_REGISTRATION', ?, ?)");
-                        $stmt->execute([$id_utilisateur, "Type: $type", $_SERVER['REMOTE_ADDR'] ?? '']);
-                        
-                        if ($type === 'candidat') {
-                            $_SESSION['temp_id_utilisateur'] = $id_utilisateur;
-                            $_SESSION['temp_email'] = $email;
-                            $step = 2;
-                            $registersuccess = '✓ Compte créé ! Complétez votre profil candidat.';
-                        } else {
-                            $registersuccess = '✓ Compte créé avec succès ! Vous pouvez maintenant vous connecter.';
-                        }
-                    } else {
-                        $registererror = 'Erreur lors de la création du compte !';
-                    }
-                }
-            }
-        } catch (Exception $e) {
-            $registererror = 'Erreur système. Réessayez.';
-            error_log("Register error: " . $e->getMessage());
+    
+    // Utiliser UserService
+    $result = $userService->register($email, $pseudo, $password, $confirm_password, $type);
+    
+    if ($result['success']) {
+        if ($type === 'candidat') {
+            // Passer à l'étape 2
+            $_SESSION['temp_id_utilisateur'] = $result['id'];
+            $_SESSION['temp_email'] = $email;
+            $step = 2;
+            $registersuccess = '✓ Compte créé ! Complétez votre profil candidat.';
+        } else {
+            // Succès pour les joueurs
+            $registersuccess = '✓ Compte créé avec succès ! Vous pouvez maintenant vous connecter.';
+            $step = 1;
         }
+    } else {
+        $registererror = implode(" | ", $result['errors']);
+        $step = 1;
     }
 }
 
-// ========================================
-// TRAITEMENT INSCRIPTION - ÉTAPE 2 (CANDIDAT)
-// ========================================
+// ==================== ACTION: INSCRIPTION ÉTAPE 2 (CANDIDAT) ====================
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'register_step2') {
     $id_utilisateur = intval($_SESSION['temp_id_utilisateur'] ?? 0);
-    $nom = htmlspecialchars(trim($_POST['nom'] ?? ''), ENT_QUOTES, 'UTF-8');
-    $bio = htmlspecialchars(trim($_POST['bio'] ?? ''), ENT_QUOTES, 'UTF-8');
-    $photo = filter_var(trim($_POST['photo'] ?? ''), FILTER_SANITIZE_URL);
+    $nom = ValidationService::sanitizeHtml($_POST['nom'] ?? '');
+    $bio = ValidationService::sanitizeHtml($_POST['bio'] ?? '');
+    $photo = ValidationService::sanitizeUrl($_POST['photo'] ?? '');
     $jeu_choice = $_POST['jeu_choice'] ?? 'existant';
     $id_jeu = intval($_POST['id_jeu'] ?? 0);
     
+    // Validation basique
     if (empty($id_utilisateur)) {
         $registererror = "Session expirée ! Recommencez l'inscription.";
         $step = 1;
@@ -205,73 +142,81 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $step = 2;
     } else {
         try {
-            $connexion->beginTransaction();
+            // Utiliser la BD
+            $db->beginTransaction();
             
             // Créer un nouveau jeu si demandé
             if ($jeu_choice === 'nouveau') {
-                $nouveau_titre = htmlspecialchars(trim($_POST['nouveau_jeu_titre'] ?? ''), ENT_QUOTES, 'UTF-8');
-                $nouveau_editeur = htmlspecialchars(trim($_POST['nouveau_jeu_editeur'] ?? ''), ENT_QUOTES, 'UTF-8');
-                $nouveau_image = filter_var(trim($_POST['nouveau_jeu_image'] ?? ''), FILTER_SANITIZE_URL);
+                $nouveau_titre = ValidationService::sanitizeHtml($_POST['nouveau_jeu_titre'] ?? '');
+                $nouveau_editeur = ValidationService::sanitizeHtml($_POST['nouveau_jeu_editeur'] ?? '');
+                $nouveau_image = ValidationService::sanitizeUrl($_POST['nouveau_jeu_image'] ?? '');
                 $nouveau_date = $_POST['nouveau_jeu_date'] ?? '';
-                $nouveau_desc = htmlspecialchars(trim($_POST['nouveau_jeu_description'] ?? ''), ENT_QUOTES, 'UTF-8');
+                $nouveau_desc = ValidationService::sanitizeHtml($_POST['nouveau_jeu_description'] ?? '');
                 
                 if (empty($nouveau_titre)) {
                     throw new Exception("Le titre du jeu est requis !");
                 }
                 
-                $stmt = $connexion->prepare("INSERT INTO jeu (titre, editeur, image, date_sortie, description) VALUES (?, ?, ?, ?, ?)");
+                $stmt = $db->prepare(
+                    "INSERT INTO jeu (titre, editeur, image, date_sortie, description) 
+                     VALUES (?, ?, ?, ?, ?)"
+                );
                 $stmt->execute([
                     $nouveau_titre,
                     $nouveau_editeur ?: null,
-                    ($nouveau_image && filter_var($nouveau_image, FILTER_VALIDATE_URL)) ? $nouveau_image : null,
+                    $nouveau_image ?: null,
                     $nouveau_date ?: null,
                     $nouveau_desc ?: null
                 ]);
-                $id_jeu = $connexion->lastInsertId();
+                $id_jeu = $db->lastInsertId();
             } else {
                 if (empty($id_jeu)) {
                     throw new Exception("Veuillez sélectionner un jeu !");
                 }
             }
             
-            // Créer le profil candidat (EN ATTENTE)
-            $stmt = $connexion->prepare("INSERT INTO candidat (id_utilisateur, nom, bio, photo, id_jeu, statut, date_inscription) VALUES (?, ?, ?, ?, ?, 'en_attente', NOW())");
+            // Créer le profil candidat
+            $stmt = $db->prepare(
+                "INSERT INTO candidat (id_utilisateur, nom, bio, photo, id_jeu, statut, date_inscription) 
+                 VALUES (?, ?, ?, ?, ?, 'en_attente', NOW())"
+            );
             $stmt->execute([$id_utilisateur, $nom, $bio ?: null, $photo ?: null, $id_jeu]);
             
-            // Mettre à jour le pseudo de l'utilisateur avec son nom de candidat
-            $stmt = $connexion->prepare("UPDATE utilisateur SET pseudo = ? WHERE id_utilisateur = ?");
+            // Mettre à jour le pseudo avec le nom du candidat
+            $stmt = $db->prepare("UPDATE utilisateur SET pseudo = ? WHERE id_utilisateur = ?");
             $stmt->execute([$nom, $id_utilisateur]);
             
-            // Log
-            $stmt = $connexion->prepare("INSERT INTO journal_securite (id_utilisateur, action, details, adresse_ip) VALUES (?, 'CANDIDAT_REGISTRATION', ?, ?)");
-            $stmt->execute([$id_utilisateur, "Candidat: $nom, Jeu: $id_jeu", $_SERVER['REMOTE_ADDR'] ?? '']);
+            // Logger
+            $auditLogger->logCandidateRegistration($id_utilisateur, $nom, $id_jeu);
             
-            $connexion->commit();
+            $db->commit();
             
+            // Nettoyer la session
             unset($_SESSION['temp_id_utilisateur']);
             unset($_SESSION['temp_email']);
             
             $registersuccess = "✓ Candidature soumise ! Un administrateur doit valider votre inscription.";
             $registerinfo = "Vous recevrez une notification une fois votre candidature examinée.";
             $step = 1;
+            $showregister = false;
             
         } catch (Exception $e) {
-            $connexion->rollBack();
+            $db->rollBack();
+            error_log("Candidate registration error: " . $e->getMessage());
             $registererror = $e->getMessage();
             $step = 2;
         }
     }
 }
 
-$showregister = isset($_GET['register']) || $step === 2;
 ?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GameCrown - Authentification</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>GameCrown - V1</title>
+    <script src="http://cdn.agence-prestige-numerique.fr/tailwindcss/3.4.17.js"></script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap">
     <link rel="stylesheet" href="http://cdn.agence-prestige-numerique.fr/fontawesome/all.min.css">
     <link rel="stylesheet" href="assets/css/index.css">
@@ -293,12 +238,9 @@ $showregister = isset($_GET['register']) || $step === 2;
 <body class="font-inter">
     <div class="gaming-bg"><div class="diagonal-lines"></div></div>
     <div class="fixed inset-0 z-40 backdrop-blur-md" style="background: rgba(0,0,0,0.7);"></div>
-
     <div class="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
         <div class="relative w-full max-w-md my-8">
             <div class="modal-content rounded-3xl p-8 backdrop-blur-xl shadow-2xl">
-
-                <!-- CONNEXION -->
                 <?php if (!$showregister): ?>
                     <div class="text-center mb-8">
                         <div class="rounded-2xl p-4 w-16 h-16 flex items-center justify-center bg-gradient-to-br from-cyan-500/20 to-cyan-500/5 border border-cyan-500/30 mx-auto mb-4 shadow-lg shadow-cyan-500/20">
@@ -348,17 +290,14 @@ $showregister = isset($_GET['register']) || $step === 2;
 
                     <form method="POST" class="space-y-4">
                         <input type="hidden" name="action" value="register_step1">
-                        
                         <div>
                             <label class="block mb-2 font-medium text-white text-sm"><i class="fas fa-envelope text-cyan-400 mr-2"></i>Email *</label>
                             <input type="email" name="registeremail" required class="input-glow w-full rounded-xl p-4 text-white bg-white/5 border border-white/10 focus:border-cyan-500/50 focus:outline-none transition-all placeholder-white/30" placeholder="votre@email.com" value="<?php echo htmlspecialchars($_POST['registeremail'] ?? ''); ?>">
                         </div>
-                        
                         <div id="pseudoField" class="joueur-pseudo">
                             <label class="block mb-2 font-medium text-white text-sm"><i class="fas fa-user text-cyan-400 mr-2"></i>Pseudo * <span class="text-white/40 text-xs">(visible publiquement)</span></label>
                             <input type="text" name="registerpseudo" id="registerpseudo" minlength="3" maxlength="30" class="input-glow w-full rounded-xl p-4 text-white bg-white/5 border border-white/10 focus:border-cyan-500/50 focus:outline-none transition-all placeholder-white/30" placeholder="Votre pseudo (3-30 car.)" value="<?php echo htmlspecialchars($_POST['registerpseudo'] ?? ''); ?>">
                         </div>
-
                         <div>
                             <label class="block mb-2 font-medium text-white text-sm"><i class="fas fa-lock text-cyan-400 mr-2"></i>Mot de passe *</label>
                             <div class="relative">
@@ -367,13 +306,11 @@ $showregister = isset($_GET['register']) || $step === 2;
                             </div>
                             <div class="flex gap-1 mt-2"><div id="bar1" class="h-1 flex-1 rounded-full bg-white/10"></div><div id="bar2" class="h-1 flex-1 rounded-full bg-white/10"></div><div id="bar3" class="h-1 flex-1 rounded-full bg-white/10"></div><div id="bar4" class="h-1 flex-1 rounded-full bg-white/10"></div></div>
                         </div>
-
                         <div>
                             <label class="block mb-2 font-medium text-white text-sm"><i class="fas fa-lock text-cyan-400 mr-2"></i>Confirmer *</label>
                             <input type="password" name="registerconfirmpassword" id="confirmpassword" required class="input-glow w-full rounded-xl p-4 text-white bg-white/5 border border-white/10 focus:border-cyan-500/50 focus:outline-none transition-all placeholder-white/30" placeholder="Confirmez le mot de passe">
                             <p id="matchMsg" class="text-xs mt-1 hidden"></p>
                         </div>
-
                         <div>
                             <label class="block mb-2 font-medium text-white text-sm"><i class="fas fa-user-tag text-cyan-400 mr-2"></i>Type de compte</label>
                             <div class="grid grid-cols-2 gap-3">
@@ -405,16 +342,13 @@ $showregister = isset($_GET['register']) || $step === 2;
 
                     <?php if ($registererror): ?><div class="message-box message-error"><i class="fas fa-exclamation-circle"></i><span><?php echo $registererror; ?></span></div><?php endif; ?>
                     <div class="message-box message-info mb-4"><i class="fas fa-user"></i><span>Email : <strong><?php echo htmlspecialchars($_SESSION['temp_email'] ?? ''); ?></strong></span></div>
-
                     <form method="POST" class="space-y-4">
                         <input type="hidden" name="action" value="register_step2">
                         
                         <div><label class="block mb-2 font-medium text-white text-sm"><i class="fas fa-id-card text-purple-400 mr-2"></i>Votre nom * <span class="text-white/40 text-xs">(sera votre pseudo)</span></label><input type="text" name="nom" required minlength="2" maxlength="100" class="input-glow w-full rounded-xl p-3 text-white bg-white/5 border border-white/10 focus:border-purple-500/50 focus:outline-none transition-all placeholder-white/30" placeholder="ex: Jean Dupont"></div>
                         <div><label class="block mb-2 font-medium text-white text-sm"><i class="fas fa-align-left text-purple-400 mr-2"></i>Biographie</label><textarea name="bio" rows="2" maxlength="500" class="input-glow w-full rounded-xl p-3 text-white bg-white/5 border border-white/10 focus:border-purple-500/50 focus:outline-none transition-all resize-none placeholder-white/30" placeholder="Parlez de vous..."></textarea></div>
                         <div><label class="block mb-2 font-medium text-white text-sm"><i class="fas fa-image text-purple-400 mr-2"></i>Photo (URL)</label><input type="url" name="photo" maxlength="500" class="input-glow w-full rounded-xl p-3 text-white bg-white/5 border border-white/10 focus:border-purple-500/50 focus:outline-none transition-all placeholder-white/30" placeholder="https://..."></div>
-                        
                         <hr class="border-white/10">
-                        
                         <div>
                             <label class="block mb-2 font-medium text-white text-sm"><i class="fas fa-gamepad text-purple-400 mr-2"></i>Jeu représenté *</label>
                             <p class="text-xs text-orange-400 mb-3"><i class="fas fa-exclamation-triangle mr-1"></i>Non modifiable après inscription !</p>
@@ -429,18 +363,15 @@ $showregister = isset($_GET['register']) || $step === 2;
                                 </div>
                             </div>
                         </div>
-
                         <button type="submit" class="w-full py-4 rounded-xl font-semibold bg-gradient-to-r from-purple-500 to-purple-600 text-white flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-purple-500/30 transition-all mt-4"><i class="fas fa-paper-plane"></i><span>Soumettre ma candidature</span></button>
                     </form>
                 <?php endif; ?>
-
             </div>
         </div>
     </div>
 
     <script>
         function togglePassword(id, btn) { const i = document.getElementById(id); i.type = i.type === 'password' ? 'text' : 'password'; btn.innerHTML = i.type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>'; }
-        
         document.getElementById('registerpassword')?.addEventListener('input', function() {
             let s = 0; if (this.value.length >= 8) s++; if (/[a-z]/.test(this.value) && /[A-Z]/.test(this.value)) s++; if (/\d/.test(this.value)) s++; if (/[^a-zA-Z\d]/.test(this.value)) s++;
             const c = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500'];
