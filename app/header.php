@@ -67,9 +67,9 @@ $usertype = $_SESSION['type'] ?? '';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GameCrown - V1</title>
-    <script src="http://cdn.agence-prestige-numerique.fr/tailwindcss/3.4.17.js"></script>
+    <script src="https://cdn.agence-prestige-numerique.fr/tailwindcss/3.4.17.js"></script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap">
-    <link rel="stylesheet" href="http://cdn.agence-prestige-numerique.fr/fontawesome/all.min.css">
+    <link rel="stylesheet" href="https://cdn.agence-prestige-numerique.fr/fontawesome/all.min.css">
     <link rel="stylesheet" href="../assets/css/index.css">
     <link rel="icon" type="image/png" href="../assets/img/logo.png">
 </head>
