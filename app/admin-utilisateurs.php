@@ -2,33 +2,19 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-
 require_once 'classes/init.php';
-
-// ==================== VÉRIFICATION ACCÈS ====================
-
 if (!isset($_SESSION['id_utilisateur']) || ($_SESSION['type'] ?? '') !== 'admin') {
     echo "<script>alert('Accès réservé aux administrateurs'); window.location.href = 'index.php';</script>";
     exit;
 }
 
-// ==================== SERVICES ====================
-
 $adminUserService = ServiceContainer::getAdminUserService();
 $authService = ServiceContainer::getAuthenticationService();
-
-// ==================== VARIABLES ====================
-
 $id_utilisateur = $_SESSION['id_utilisateur'];
 $error = '';
 $success = '';
 $users = [];
-
-// ==================== ACTIONS ====================
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    
-    // ➕ Créer utilisateur
     if ($_POST['action'] === 'add_user') {
         $result = $adminUserService->createUser(
             $_POST['email'] ?? '',
@@ -44,7 +30,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
     }
     
-    // 🔄 Changer type utilisateur
     elseif ($_POST['action'] === 'change_type') {
         $result = $adminUserService->changeUserType(
             (int)($_POST['user_id'] ?? 0),
@@ -59,13 +44,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
     }
     
-    // 🗑️ Supprimer utilisateur
     elseif ($_POST['action'] === 'delete_user') {
         $result = $adminUserService->deleteUser(
             (int)($_POST['user_id'] ?? 0),
             $id_utilisateur
         );
-        
         if ($result['success']) {
             $success = $result['message'];
         } else {
@@ -74,25 +57,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 }
 
-// ==================== RÉCUPÉRATION DONNÉES ====================
-
 $users = $adminUserService->getAllUsers();
-
-// ==================== CONFIG ====================
-
 $type_config = [
     'joueur' => ['label' => 'Joueur', 'color' => 'blue', 'icon' => 'fa-gamepad'],
     'candidat' => ['label' => 'Candidat', 'color' => 'purple', 'icon' => 'fa-trophy'],
     'admin' => ['label' => 'Admin', 'color' => 'red', 'icon' => 'fa-shield-alt']
 ];
-
 require_once 'header.php';
 ?>
-
 <br><br><br>
 <section class="py-20 px-6 min-h-screen">
     <div class="container mx-auto max-w-7xl">
-        
         <div class="mb-12 flex flex-wrap items-center justify-between gap-4">
             <div>
                 <h1 class="text-5xl md:text-6xl font-bold font-orbitron mb-4 accent-gradient">
@@ -101,7 +76,6 @@ require_once 'header.php';
                 <p class="text-xl text-light-80">Gérez les comptes utilisateurs</p>
             </div>
         </div>
-
         <!-- Messages d'erreur/succès -->
         <?php if ($error): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
@@ -109,17 +83,13 @@ require_once 'header.php';
                 <span class="text-red-400"><?php echo htmlspecialchars($error); ?></span>
             </div>
         <?php endif; ?>
-        
         <?php if ($success): ?>
             <div class="mb-8 p-4 rounded-2xl bg-green-500/10 border border-green-500/30 flex items-center gap-3">
                 <i class="fas fa-check-circle text-green-400"></i>
                 <span class="text-green-400"><?php echo htmlspecialchars($success); ?></span>
             </div>
         <?php endif; ?>
-        
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            <!-- ➕ Formulaire création -->
             <div class="lg:col-span-1">
                 <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10 sticky top-24">
                     <h2 class="text-2xl font-bold text-accent mb-4 flex items-center gap-2">
@@ -127,21 +97,18 @@ require_once 'header.php';
                     </h2>
                     <form method="POST" class="space-y-4">
                         <input type="hidden" name="action" value="add_user">
-                        
                         <div>
                             <label class="block mb-2 text-light-80 text-sm font-medium">Email *</label>
                             <input type="email" name="email" required
                                 class="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-light appearance-none focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all duration-300"
                                 placeholder="email@exemple.com">
                         </div>
-                        
                         <div>
                             <label class="block mb-2 text-light-80 text-sm font-medium">Mot de passe * (min 8 car.)</label>
                             <input type="password" name="password" required minlength="8"
                                 class="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-light appearance-none focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all duration-300"
                                 placeholder="••••••••">
                         </div>
-                        
                         <div>
                             <label class="block mb-2 text-light-80 text-sm font-medium">Type *</label>
                             <div class="relative">
@@ -156,7 +123,6 @@ require_once 'header.php';
                                 </div>
                             </div>
                         </div>
-                        
                         <button type="submit" class="w-full px-6 py-4 rounded-2xl bg-accent text-dark font-bold hover:bg-accent/80 transition-colors border border-white/10">
                             <i class="fas fa-plus mr-2"></i>Créer
                         </button>
@@ -164,13 +130,12 @@ require_once 'header.php';
                 </div>
             </div>
             
-            <!-- 📋 Liste utilisateurs -->
+            <!-- Liste utilisateurs -->
             <div class="lg:col-span-2">
                 <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10">
                     <h2 class="text-2xl font-bold text-accent mb-4 flex items-center gap-2">
                         <i class="fas fa-list"></i> Utilisateurs (<?php echo count($users); ?>)
                     </h2>
-                    
                     <?php if (empty($users)): ?>
                         <div class="text-center py-12">
                             <i class="fas fa-inbox text-4xl text-light-80 mb-3"></i>
@@ -211,10 +176,8 @@ require_once 'header.php';
                                                 </span>
                                             </div>
                                         </div>
-                                        
                                         <?php if (!$is_me): ?>
                                             <div class="flex gap-2">
-                                                <!-- 🔄 Changer type -->
                                                 <form method="POST" class="inline">
                                                     <input type="hidden" name="action" value="change_type">
                                                     <input type="hidden" name="user_id" value="<?php echo $user['id_utilisateur']; ?>">
@@ -230,8 +193,6 @@ require_once 'header.php';
                                                         </div>
                                                     </div>
                                                 </form>
-                                                
-                                                <!-- 🗑️ Supprimer -->
                                                 <form method="POST" class="inline">
                                                     <input type="hidden" name="action" value="delete_user">
                                                     <input type="hidden" name="user_id" value="<?php echo $user['id_utilisateur']; ?>">
@@ -252,5 +213,4 @@ require_once 'header.php';
         </div>
     </div>
 </section>
-
 <?php require_once 'footer.php'; ?>

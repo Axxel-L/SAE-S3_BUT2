@@ -1,40 +1,26 @@
 <?php
-
-
-
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
-
 require_once 'classes/init.php';
-
-// ✅ VÉRIFIER QUE L'UTILISATEUR EST CANDIDAT
 if (!isCandidate()) {
     echo "<script>alert('Accès réservé aux candidats'); window.location.href = './dashboard.php';</script>";
     exit;
 }
 
 $id_utilisateur = (int)getAuthUserId();
-
-// ✅ RÉCUPÉRER LE SERVICE VIA SERVICECONTAINER
 $campaignService = ServiceContainer::getCandidatCampaignService();
-
-// ✅ RÉCUPÉRER LES DONNÉES
 $data = $campaignService->getCampaignData($id_utilisateur);
 $candidat = $data['candidat'];
 $commentaires = $data['commentaires'];
 $stats = $data['stats'];
 $error = '';
 $success = '';
-
-// ✅ TRAITEMENT SOUMISSION - GESTION COMMENTAIRES
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'add_comment') {
         $result = $campaignService->addComment($id_utilisateur, $_POST['contenu'] ?? '');
-        
         if ($result['success']) {
             $success = $result['message'];
-            // Rafraîchir les données
             $data = $campaignService->getCampaignData($id_utilisateur);
             $commentaires = $data['commentaires'];
             $stats = $data['stats'];
@@ -43,10 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
     } elseif ($_POST['action'] === 'delete_comment') {
         $result = $campaignService->deleteComment($id_utilisateur, (int)($_POST['id_comment'] ?? 0));
-        
         if ($result['success']) {
             $success = $result['message'];
-            // Rafraîchir les données
             $data = $campaignService->getCampaignData($id_utilisateur);
             $commentaires = $data['commentaires'];
             $stats = $data['stats'];
@@ -55,13 +39,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
     }
 }
-
 require_once 'header.php';
 ?>
 <br><br><br>
 <section class="py-20 px-6">
     <div class="container mx-auto max-w-7xl">
-        <!-- Header -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
             <div class="md:col-span-2">
                 <div class="text-center md:text-left">
@@ -81,14 +63,12 @@ require_once 'header.php';
                 </div>
             </div>
         </div>
-
         <?php if (!empty($error)): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
                 <i class="fas fa-exclamation-circle text-red-400"></i>
                 <span class="text-red-400"><?php echo htmlspecialchars($error); ?></span>
             </div>
         <?php endif; ?>
-
         <?php if (!empty($success)): ?>
             <div class="mb-8 p-4 rounded-2xl bg-green-500/10 border border-green-500/30 flex items-center gap-3">
                 <i class="fas fa-check-circle text-green-400"></i>
@@ -185,7 +165,6 @@ require_once 'header.php';
                 </div>
                 <span>Publier un message</span>
             </h2>
-
             <?php if (!empty($candidat['id_jeu'])): ?>
                 <div class="mb-8 p-6 rounded-2xl bg-white/5 border border-white/10">
                     <p class="text-light/80 mb-4">Partagez des actualités, répondez aux électeurs, faites votre promotion !</p>
@@ -222,7 +201,6 @@ require_once 'header.php';
                 <i class="fas fa-comments text-accent"></i>
                 <span>Fil de discussion (<?php echo count($commentaires); ?>)</span>
             </h3>
-
             <?php if (empty($commentaires)): ?>
                 <div class="text-center py-12">
                     <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-white/5 mb-4">
@@ -280,10 +258,8 @@ require_once 'header.php';
 </section>
 
 <script>
-// Compteur de caractères
 document.querySelector('textarea[name="contenu"]')?.addEventListener('input', function() {
     document.querySelector('.conteur').textContent = this.value.length;
 });
 </script>
-
 <?php require_once 'footer.php'; ?>

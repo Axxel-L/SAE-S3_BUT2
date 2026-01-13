@@ -1,46 +1,15 @@
 <?php
-/**
- * salon-jeux.php - REFACTORISÉ avec Architecture SOLID
- * 
- * Page du salon des jeux avec recherche, filtres et statistiques
- * 
- * Nouvelles features:
- * - Service métier pour les jeux (GameService)
- * - Validation centralisée des paramètres
- * - Queries optimisées et réutilisables
- * - Séparation données/présentation
- * 
- * SOLID principles:
- * - S: GameService = jeux uniquement
- * - O: Facile d'ajouter de nouveaux filtres
- * - L: Services substitutables
- * - I: GameService expose méthodes spécifiques
- * - D: Services injectés via ServiceContainer
- */
-
 require_once 'classes/init.php';
-
-// ==================== SETUP ====================
-
 $search = htmlspecialchars(trim($_GET['q'] ?? ''), ENT_QUOTES, 'UTF-8');
-$filter = $_GET['filter'] ?? 'all'; // all, with_candidat, popular
-$sort = $_GET['sort'] ?? 'recent'; // recent, alpha, popular
-
-// Valider les paramètres
+$filter = $_GET['filter'] ?? 'all';
+$sort = $_GET['sort'] ?? 'recent';
 $validSorts = ['recent', 'alpha', 'popular'];
 $validFilters = ['all', 'with_candidat', 'popular'];
-
 if (!in_array($sort, $validSorts)) $sort = 'recent';
 if (!in_array($filter, $validFilters)) $filter = 'all';
 
-// ==================== SERVICES ====================
-
 $db = ServiceContainer::getDatabase();
 $validationService = ServiceContainer::getValidationService();
-
-// ==================== RÉCUPÉRER LES DONNÉES ====================
-
-// Initialiser les variables
 $jeux = [];
 $popular_jeux = [];
 $active_candidats = [];
@@ -50,25 +19,16 @@ $stats = [
     'total_comments' => 0
 ];
 
-// ==================== STATISTIQUES GLOBALES ====================
-
 try {
-    // Total jeux
     $stmt = $db->query("SELECT COUNT(*) FROM jeu");
     $stats['total_jeux'] = intval($stmt->fetchColumn());
     
-    // Total candidats validés
     $stmt = $db->query("SELECT COUNT(*) FROM candidat WHERE statut = 'valide'");
     $stats['total_candidats'] = intval($stmt->fetchColumn());
     
-    // Total commentaires
     $stmt = $db->query("SELECT COUNT(*) FROM commentaire");
     $stats['total_comments'] = intval($stmt->fetchColumn());
-} catch (Exception $e) {
-    // Erreur non bloquante
-}
-
-// ==================== RECHERCHE & FILTRAGE ====================
+} catch (Exception $e) {}
 
 try {
     $baseQuery = "
@@ -84,22 +44,18 @@ try {
         LEFT JOIN candidat c ON j.id_jeu = c.id_jeu AND c.statut = 'valide'
         WHERE 1=1
     ";
-    
     $params = [];
     
-    // Ajouter la recherche
     if (!empty($search)) {
         $baseQuery .= " AND (j.titre LIKE ? OR j.editeur LIKE ? OR c.nom LIKE ?)";
         $likeSearch = "%{$search}%";
         $params = [$likeSearch, $likeSearch, $likeSearch];
     }
     
-    // Ajouter le filtre
     if ($filter === 'with_candidat') {
         $baseQuery .= " AND c.id_candidat IS NOT NULL";
     }
     
-    // Ajouter le tri
     switch ($sort) {
         case 'alpha':
             $baseQuery .= " ORDER BY j.titre ASC";
@@ -114,18 +70,13 @@ try {
     }
     
     $baseQuery .= " LIMIT 50";
-    
-    // Exécuter la requête
     $stmt = $db->prepare($baseQuery);
     $stmt->execute($params);
     $jeux = $stmt->fetchAll(\PDO::FETCH_ASSOC);
-    
 } catch (Exception $e) {
     error_log("Error fetching games: " . $e->getMessage());
     $jeux = [];
 }
-
-// ==================== TOP 5 JEUX POPULAIRES ====================
 
 try {
     $stmt = $db->query("
@@ -141,8 +92,6 @@ try {
     error_log("Error fetching popular games: " . $e->getMessage());
 }
 
-// ==================== TOP CANDIDATS ACTIFS ====================
-
 try {
     $stmt = $db->query("
         SELECT c.id_candidat, c.nom, c.photo, j.id_jeu, j.titre as jeu_titre,
@@ -157,15 +106,11 @@ try {
 } catch (Exception $e) {
     error_log("Error fetching active candidates: " . $e->getMessage());
 }
-
 require_once 'header.php';
 ?>
-
 <br><br><br>
 <section class="py-20 px-6">
     <div class="container mx-auto max-w-7xl">
-        
-        <!-- Titre -->
         <div class="text-center mb-12">
             <h1 class="text-5xl md:text-6xl font-bold font-orbitron mb-4 accent-gradient">
                 <i class="fas fa-store text-accent mr-3"></i>Salon des Jeux
@@ -197,13 +142,8 @@ require_once 'header.php';
             </div>
         </div>
         
-        <!-- Contenu principal -->
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            
-            <!-- Sidebar -->
             <div class="lg:col-span-1 space-y-6 order-2 lg:order-1">
-                
-                <!-- Recherche -->
                 <div class="glass-card rounded-3xl p-5 modern-border border-2 border-white/10">
                     <h3 class="text-lg font-bold text-light mb-4 flex items-center gap-2">
                         <i class="fas fa-search text-accent"></i> Rechercher
@@ -243,8 +183,6 @@ require_once 'header.php';
                         </a>
                     </div>
                 </div>
-                
-                <!-- Top 5 Jeux -->
                 <div class="glass-card rounded-3xl p-5 modern-border border-2 border-white/10">
                     <h3 class="text-lg font-bold text-light mb-4 flex items-center gap-2">
                         <i class="fas fa-trophy text-yellow-400"></i> Top 5 Jeux
@@ -312,11 +250,7 @@ require_once 'header.php';
                     </div>
                 </div>
             </div>
-            
-            <!-- Grille des jeux -->
             <div class="lg:col-span-3 order-1 lg:order-2">
-                
-                <!-- Résultats -->
                 <?php if (!empty($search)): ?>
                     <div class="mb-6 flex items-center justify-between">
                         <p class="text-light-80">
@@ -328,8 +262,6 @@ require_once 'header.php';
                         </a>
                     </div>
                 <?php endif; ?>
-                
-                <!-- Pas de résultats -->
                 <?php if (empty($jeux)): ?>
                     <div class="glass-card rounded-3xl p-12 modern-border border-2 border-white/10 text-center">
                         <i class="fas fa-search text-5xl text-light/20 mb-6"></i>
@@ -339,15 +271,11 @@ require_once 'header.php';
                             <i class="fas fa-redo"></i> Voir tous les jeux
                         </a>
                     </div>
-                
-                <!-- Grille des jeux -->
                 <?php else: ?>
                     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                         <?php foreach ($jeux as $jeu): ?>
                             <a href="jeu-campagne.php?id=<?php echo intval($jeu['id_jeu']); ?>" class="group">
                                 <div class="glass-card rounded-2xl overflow-hidden modern-border border-2 border-white/10 hover:border-accent/50 transition-all duration-300 h-full flex flex-col">
-                                    
-                                    <!-- Image & Stats -->
                                     <div class="relative h-44 bg-accent/10 overflow-hidden">
                                         <?php if (!empty($jeu['image'])): ?>
                                             <img src="<?php echo htmlspecialchars($jeu['image']); ?>" alt="<?php echo htmlspecialchars($jeu['titre']); ?>" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
@@ -356,8 +284,6 @@ require_once 'header.php';
                                                 <i class="fas fa-gamepad text-5xl text-light/10"></i>
                                             </div>
                                         <?php endif; ?>
-                                        
-                                        <!-- Badges stats -->
                                         <div class="absolute top-3 right-3 flex gap-2">
                                             <?php if (intval($jeu['nb_votes']) > 0): ?>
                                                 <span class="px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-sm text-xs font-medium text-accent border border-accent/30">
@@ -370,8 +296,6 @@ require_once 'header.php';
                                                 </span>
                                             <?php endif; ?>
                                         </div>
-                                        
-                                        <!-- Badge candidat -->
                                         <?php if (!empty($jeu['candidat_nom'])): ?>
                                             <div class="absolute bottom-3 left-3 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-sm border border-yellow-500/30">
                                                 <div class="w-5 h-5 rounded-full overflow-hidden bg-yellow-500/20 border border-yellow-500/50">
@@ -389,8 +313,6 @@ require_once 'header.php';
                                             </div>
                                         <?php endif; ?>
                                     </div>
-                                    
-                                    <!-- Infos -->
                                     <div class="p-5 flex flex-col flex-1">
                                         <h3 class="text-lg font-bold text-light mb-1 group-hover:text-accent transition-colors truncate">
                                             <?php echo htmlspecialchars($jeu['titre']); ?>
@@ -400,7 +322,6 @@ require_once 'header.php';
                                                 <?php echo htmlspecialchars($jeu['editeur']); ?>
                                             </p>
                                         <?php endif; ?>
-                                        
                                         <div class="flex items-center justify-between pt-3 mt-auto border-t border-white/10">
                                             <span class="text-xs text-light-80">
                                                 <?php if (!empty($jeu['candidat_nom'])): ?>
@@ -425,5 +346,4 @@ require_once 'header.php';
         </div>
     </div>
 </section>
-
 <?php require_once 'footer.php'; ?>

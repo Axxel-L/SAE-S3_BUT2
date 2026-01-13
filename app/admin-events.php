@@ -2,11 +2,7 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-
 require_once 'classes/init.php';
-
-// ==================== VÉRIFICATION ACCÈS ====================
-
 if (!isset($_SESSION['id_utilisateur']) || ($_SESSION['type'] ?? '') !== 'admin') {
     echo "<script>
         alert('Accès réservé aux administrateurs');
@@ -15,22 +11,12 @@ if (!isset($_SESSION['id_utilisateur']) || ($_SESSION['type'] ?? '') !== 'admin'
     exit;
 }
 
-// ==================== SERVICES ====================
-
 $adminEventService = ServiceContainer::getAdminEventService();
-
-// ==================== VARIABLES ====================
-
 $id_utilisateur = $_SESSION['id_utilisateur'];
 $error = '';
 $success = '';
 $events = [];
-
-// ==================== ACTIONS ====================
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    
-    // ➕ Créer événement
     if ($_POST['action'] === 'create_event') {
         $result = $adminEventService->createEvent(
             $_POST['nom'] ?? '',
@@ -41,21 +27,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $_POST['date_fermeture_vote_final'] ?? '',
             $id_utilisateur
         );
-
         if ($result['success']) {
             $success = $result['message'];
         } else {
             $error = $result['message'];
         }
     }
-    
-    // 🗑️ Supprimer événement
+
     elseif ($_POST['action'] === 'delete_event') {
         $result = $adminEventService->deleteEvent(
             (int)($_POST['id_evenement'] ?? 0),
             $id_utilisateur
         );
-
         if ($result['success']) {
             $success = $result['message'];
         } else {
@@ -64,14 +47,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 }
 
-// ==================== RÉCUPÉRATION DONNÉES ====================
-
 $events = $adminEventService->getAllEvents();
 $statut_config = AdminEventService::getStatusConfig();
-
 require_once 'header.php';
 ?>
-
 <br><br><br>
 <section class="py-20 px-6">
     <div class="container mx-auto max-w-7xl">
@@ -81,7 +60,6 @@ require_once 'header.php';
             </h1>
             <p class="text-xl text-light-80">Les statuts se mettent à jour automatiquement selon les dates ⏱️</p>
         </div>
-
         <!-- Messages d'erreur/succès -->
         <?php if ($error): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
@@ -89,17 +67,13 @@ require_once 'header.php';
                 <span class="text-red-400"><?php echo $error; ?></span>
             </div>
         <?php endif; ?>
-
         <?php if ($success): ?>
             <div class="mb-8 p-4 rounded-2xl bg-green-500/10 border border-green-500/30 flex items-center gap-3">
                 <i class="fas fa-check-circle text-green-400"></i>
                 <span class="text-green-400"><?php echo htmlspecialchars($success); ?></span>
             </div>
         <?php endif; ?>
-
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            <!-- ➕ Formulaire création -->
             <div class="lg:col-span-1">
                 <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10">
                     <h2 class="text-2xl font-bold font-orbitron mb-6 flex items-center gap-2">
@@ -107,17 +81,14 @@ require_once 'header.php';
                     </h2>
                     <form method="POST" class="space-y-4">
                         <input type="hidden" name="action" value="create_event">
-                        
                         <div>
                             <label class="block mb-2 text-light-80">Nom *</label>
                             <input type="text" name="nom" class="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 focus:border-accent/50 outline-none text-light" placeholder="Ex: GameCrown 2025" required>
                         </div>
-
                         <div>
                             <label class="block mb-2 text-light-80">Description</label>
                             <textarea name="description" class="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 focus:border-accent/50 outline-none text-light" rows="3" placeholder="Description de l'événement"></textarea>
                         </div>
-                        
                         <div class="p-4 rounded-2xl bg-green-500/10 border border-green-500/30">
                             <h4 class="font-bold text-green-400 mb-3 flex items-center gap-2">
                                 <i class="fas fa-layer-group"></i> Phase 1 : Vote par Catégories
@@ -133,7 +104,6 @@ require_once 'header.php';
                                 </div>
                             </div>
                         </div>
-                        
                         <div class="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/30">
                             <h4 class="font-bold text-purple-400 mb-3 flex items-center gap-2">
                                 <i class="fas fa-crown"></i> Phase 2 : Vote Final
@@ -150,12 +120,10 @@ require_once 'header.php';
                                 </div>
                             </div>
                         </div>
-                        
                         <button type="submit" class="w-full px-6 py-3 rounded-2xl bg-accent text-dark font-bold hover:bg-accent/80 transition-colors border border-white/10">
                             <i class="fas fa-plus mr-2"></i> Créer
                         </button>
                     </form>
-                    
                     <div class="mt-6 p-4 rounded-2xl bg-blue-500/10 border border-blue-500/30">
                         <p class="text-sm text-blue-400 mb-2"><i class="fas fa-info-circle mr-2"></i><strong>Cycle de vie :</strong></p>
                         <div class="text-xs text-blue-300 space-y-1">
@@ -169,13 +137,12 @@ require_once 'header.php';
                 </div>
             </div>
 
-            <!-- 📋 Liste événements -->
+            <!-- Liste événements -->
             <div class="lg:col-span-2">
                 <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10">
                     <h2 class="text-2xl font-bold font-orbitron mb-6 flex items-center gap-2">
                         <i class="fas fa-list text-accent"></i> Événements (<?php echo count($events); ?>)
                     </h2>
-                    
                     <?php if (empty($events)): ?>
                         <div class="text-center py-12">
                             <i class="fas fa-inbox text-4xl text-light-80 mb-3"></i>
@@ -197,7 +164,6 @@ require_once 'header.php';
                                                     <?php echo $status['label']; ?>
                                                 </span>
                                             </div>
-                                            
                                             <div class="grid grid-cols-2 gap-2 text-xs">
                                                 <div class="p-2 rounded-lg bg-green-500/10">
                                                     <p class="text-green-400 font-medium mb-1"><i class="fas fa-layer-group mr-1"></i>Vote Catégories</p>
@@ -220,13 +186,11 @@ require_once 'header.php';
                                             </div>
                                         </div>
                                     </div>
-                                    
                                     <?php if ($event['description']): ?>
                                         <p class="text-sm text-light-80 mb-3 pb-3 border-b border-white/10">
                                             <?php echo htmlspecialchars(substr($event['description'], 0, 100)); ?><?php echo strlen($event['description']) > 100 ? '...' : ''; ?>
                                         </p>
                                     <?php endif; ?>
-                                    
                                     <div class="flex gap-2 pt-2">
                                         <a href="admin-resultats.php?event=<?php echo $event['id_evenement']; ?>" class="flex-1 px-4 py-2 rounded-2xl bg-white/5 border border-white/10 hover:border-accent/50 text-center transition-colors text-sm">
                                             <i class="fas fa-chart-bar mr-1"></i> Résultats
@@ -253,5 +217,4 @@ require_once 'header.php';
         </div>
     </div>
 </section>
-
 <?php require_once 'footer.php'; ?>

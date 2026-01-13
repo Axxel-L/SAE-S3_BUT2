@@ -1,15 +1,8 @@
 <?php
-
-
-
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
-
-// ✅ UTILISER LE init.php POUR ACCÉDER AU SERVICE
 require_once 'classes/init.php';
-
-// ✅ Vérifier que l'utilisateur est connecté
 if (!isset($_SESSION['id_utilisateur'])) {
     header('Location: login.php');
     exit;
@@ -17,32 +10,18 @@ if (!isset($_SESSION['id_utilisateur'])) {
 
 $id_utilisateur = (int)$_SESSION['id_utilisateur'];
 $useremail = (string)($_SESSION['useremail'] ?? '');
-
-/**
- * ✅ RÉCUPÉRER LE SERVICE VIA init.php
- * $dashboardService est instancié dans init.php et disponible
- */
 $dashboardService = ServiceContainer::getDashboardService();
-
 $data = $dashboardService->getUserDashboardData($id_utilisateur);
-
-/**
- * ✅ UNE SEULE LIGNE DE LOGIQUE - Toute la logique métier est encapsulée
- */
 $data = $dashboardService->getUserDashboardData($id_utilisateur);
-
-// ✅ Extraire les données (simples variables pour la vue)
 $user = $data['user'];
 $events = $data['events'];
 $votes = $data['votes'];
 $voteStatus = $data['voteStatus'];
 $error = $data['error'];
 $stats = $data['statistics'];
-
-// Affichage du header
 require_once 'header.php';
 ?>
-<br><br><br> <!-- Espace pour le header -->
+<br><br><br>
 <section class="py-20 px-6">
     <div class="container mx-auto max-w-7xl">
         <div class="text-center mb-12">
@@ -51,7 +30,6 @@ require_once 'header.php';
             </h1>
             <p class="text-xl text-light-80">Gérez vos votes et informations personnelles</p>
         </div>
-        
         <!-- Messages d'erreur -->
         <?php if ($error): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
@@ -59,7 +37,6 @@ require_once 'header.php';
                 <span class="text-red-400"><?php echo htmlspecialchars($error); ?></span>
             </div>
         <?php endif; ?>
-
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <!-- Profil utilisateur -->
             <div class="lg:col-span-1">
@@ -77,7 +54,6 @@ require_once 'header.php';
                             </p>
                         <?php endif; ?>
                     </div>
-                    
                     <?php if ($user): ?>
                         <div class="mb-6 pb-6 border-b border-white/10">
                             <div class="text-sm text-light-80 mb-2">Type de compte</div>
@@ -94,7 +70,6 @@ require_once 'header.php';
                             </div>
                         </div>
                     <?php endif; ?>
-                    
                     <div class="space-y-4">
                         <div class="flex items-center justify-between">
                             <span class="text-light-80 flex items-center gap-2">
@@ -109,7 +84,6 @@ require_once 'header.php';
                             <span class="text-2xl font-bold text-accent"><?php echo $stats['total_votes']; ?></span>
                         </div>
                     </div>
-                    
                     <div class="mt-8 space-y-3">
                         <a href="vote.php" class="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-white/5 border border-white/10 hover:border-accent/50 hover:bg-accent/5 transition-colors text-light-80 hover:text-accent">
                             <i class="fas fa-vote-yea"></i> Aller voter
@@ -120,12 +94,10 @@ require_once 'header.php';
 
             <!-- Événements et historique -->
             <div class="lg:col-span-2 space-y-8">
-                <!-- Mes événements -->
                 <div>
                     <h3 class="text-2xl font-bold font-orbitron mb-4 flex items-center gap-2">
                         <i class="fas fa-calendar-check text-accent"></i> Mes Événements
                     </h3>
-                    
                     <?php if (empty($events)): ?>
                         <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10 text-center">
                             <i class="fas fa-inbox text-4xl text-light-80 mb-3"></i>
@@ -153,8 +125,6 @@ require_once 'header.php';
                                             <?php echo $isOpen ? '🟢 Ouvert' : '⚫ Fermé'; ?>
                                         </span>
                                     </div>
-                                    
-                                    <!-- Progression des votes -->
                                     <div class="mb-4">
                                         <div class="flex items-center justify-between mb-2">
                                             <span class="text-sm text-light-80">Progression des votes</span>
@@ -177,8 +147,6 @@ require_once 'header.php';
                                             ></div>
                                         </div>
                                     </div>
-                                    
-                                    <!-- Status finale -->
                                     <div class="mb-4 flex items-center gap-2">
                                         <span class="text-sm text-light-80">Vote final</span>
                                         <?php if ($status['final'] ?? false): ?>
@@ -191,7 +159,6 @@ require_once 'header.php';
                                             </span>
                                         <?php endif; ?>
                                     </div>
-                                    
                                     <?php if ($isOpen): ?>
                                         <a href="vote.php" class="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-2xl bg-accent/20 text-accent hover:bg-accent/30 transition-colors text-sm font-medium border border-white/10">
                                             <i class="fas fa-vote-yea"></i> Voter maintenant
@@ -208,7 +175,6 @@ require_once 'header.php';
                     <h3 class="text-2xl font-bold font-orbitron mb-4 flex items-center gap-2">
                         <i class="fas fa-history text-accent"></i> Historique des Votes
                     </h3>
-                    
                     <?php if (empty($votes)): ?>
                         <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10 text-center">
                             <i class="fas fa-inbox text-4xl text-light-80 mb-3"></i>
@@ -244,5 +210,4 @@ require_once 'header.php';
         </div>
     </div>
 </section>
-
 <?php require_once 'footer.php'; ?>

@@ -1,31 +1,8 @@
 <?php
-/**
- * login.php - REFACTORISÉ avec Architecture SOLID
- * 
- * Page d'authentification complète avec inscription candidat 2 étapes
- * 
- * Services SOLID utilisés:
- * - AuthenticationService (connexion utilisateur)
- * - UserService (inscription joueur/candidat)
- * - ValidationService (validation données)
- * - AuditLogger (logging sécurité)
- * - PasswordManager (hachage)
- * 
- * SOLID principles:
- * - S: Chaque service = responsabilité unique
- * - O: Facile d'ajouter validations/étapes
- * - L: Services substitutables
- * - I: Interfaces spécifiques
- * - D: Services injectés via ServiceContainer
- */
-
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
-
 require_once 'classes/init.php';
-
-// ==================== INITIALISER ====================
 
 $loginerror = '';
 $registererror = '';
@@ -34,16 +11,11 @@ $registerinfo = '';
 $step = intval($_POST['step'] ?? 1);
 $jeux = [];
 $showregister = isset($_GET['register']) || $step === 2;
-
-// ==================== SERVICES ====================
-
 $db = ServiceContainer::getDatabase();
 $authService = ServiceContainer::getAuthenticationService();
 $userService = ServiceContainer::getUserService();
 $validationService = ServiceContainer::getValidationService();
 $auditLogger = ServiceContainer::getAuditLogger();
-
-// ==================== RÉCUPÉRER LES JEUX ====================
 
 try {
     $stmt = $db->prepare("SELECT id_jeu, titre, editeur FROM jeu ORDER BY titre ASC");
@@ -54,27 +26,17 @@ try {
     $jeux = [];
 }
 
-// ==================== ACTION: CONNEXION ====================
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'login') {
     $email = ValidationService::sanitizeEmail($_POST['loginemail'] ?? '');
     $password = $_POST['loginpassword'] ?? '';
-    
-    // Utiliser AuthenticationService
     $result = $authService->authenticate($email, $password);
     
     if ($result['success']) {
         $user = $result['user'];
-        
-        // Créer la session
         $authService->createSession($user);
-        
-        // Redirection selon le type
         $redirectUrl = ($user->getType() === 'candidat') 
             ? './candidat-profil.php' 
             : './dashboard.php';
-        
-        // JavaScript pour redirection (modal ou page complète)
         echo "<script>
             if (window.opener) { window.opener.location.reload(); window.close(); }
             else { window.location.href = '{$redirectUrl}'; }
@@ -85,32 +47,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 
-// ==================== ACTION: INSCRIPTION ÉTAPE 1 ====================
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'register_step1') {
     $email = ValidationService::sanitizeEmail($_POST['registeremail'] ?? '');
     $pseudo = ValidationService::sanitizeHtml($_POST['registerpseudo'] ?? '');
     $password = $_POST['registerpassword'] ?? '';
     $confirm_password = $_POST['registerconfirmpassword'] ?? '';
     $type = htmlspecialchars(trim($_POST['registertype'] ?? 'joueur'));
-    
-    // Valider le type
     if (!in_array($type, ['joueur', 'candidat'])) {
         $type = 'joueur';
     }
     
-    // Utiliser UserService
     $result = $userService->register($email, $pseudo, $password, $confirm_password, $type);
-    
     if ($result['success']) {
         if ($type === 'candidat') {
-            // Passer à l'étape 2
             $_SESSION['temp_id_utilisateur'] = $result['id'];
             $_SESSION['temp_email'] = $email;
             $step = 2;
             $registersuccess = '✓ Compte créé ! Complétez votre profil candidat.';
         } else {
-            // Succès pour les joueurs
             $registersuccess = '✓ Compte créé avec succès ! Vous pouvez maintenant vous connecter.';
             $step = 1;
         }
@@ -120,8 +74,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 
-// ==================== ACTION: INSCRIPTION ÉTAPE 2 (CANDIDAT) ====================
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'register_step2') {
     $id_utilisateur = intval($_SESSION['temp_id_utilisateur'] ?? 0);
     $nom = ValidationService::sanitizeHtml($_POST['nom'] ?? '');
@@ -129,8 +81,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $photo = ValidationService::sanitizeUrl($_POST['photo'] ?? '');
     $jeu_choice = $_POST['jeu_choice'] ?? 'existant';
     $id_jeu = intval($_POST['id_jeu'] ?? 0);
-    
-    // Validation basique
     if (empty($id_utilisateur)) {
         $registererror = "Session expirée ! Recommencez l'inscription.";
         $step = 1;
@@ -142,10 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $step = 2;
     } else {
         try {
-            // Utiliser la BD
             $db->beginTransaction();
-            
-            // Créer un nouveau jeu si demandé
             if ($jeu_choice === 'nouveau') {
                 $nouveau_titre = ValidationService::sanitizeHtml($_POST['nouveau_jeu_titre'] ?? '');
                 $nouveau_editeur = ValidationService::sanitizeHtml($_POST['nouveau_jeu_editeur'] ?? '');
@@ -186,12 +133,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $stmt = $db->prepare("UPDATE utilisateur SET pseudo = ? WHERE id_utilisateur = ?");
             $stmt->execute([$nom, $id_utilisateur]);
             
-            // Logger
+            // Ajoute aux logs
             $auditLogger->logCandidateRegistration($id_utilisateur, $nom, $id_jeu);
-            
+
             $db->commit();
-            
-            // Nettoyer la session
             unset($_SESSION['temp_id_utilisateur']);
             unset($_SESSION['temp_email']);
             
@@ -199,7 +144,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $registerinfo = "Vous recevrez une notification une fois votre candidature examinée.";
             $step = 1;
             $showregister = false;
-            
         } catch (Exception $e) {
             $db->rollBack();
             error_log("Candidate registration error: " . $e->getMessage());
@@ -208,7 +152,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }
     }
 }
-
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -249,11 +192,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         <h1 class="text-3xl font-bold font-orbitron text-white mb-2">Connexion</h1>
                         <p class="text-white/60 text-sm">Accédez à votre compte GameCrown</p>
                     </div>
-
                     <?php if ($loginerror): ?>
                         <div class="message-box message-error"><i class="fas fa-exclamation-circle"></i><span><?php echo $loginerror; ?></span></div>
                     <?php endif; ?>
-
                     <form method="POST" class="space-y-4">
                         <input type="hidden" name="action" value="login">
                         <div>
@@ -275,7 +216,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     <div class="text-center"><p class="text-white/60 text-sm">Pas encore de compte ? <a href="?register=1" class="text-cyan-400 font-medium hover:underline">S'inscrire</a></p></div>
                 <?php endif; ?>
 
-                <!-- INSCRIPTION ÉTAPE 1 -->
+                <!-- Inscription -->
                 <?php if ($showregister && $step === 1): ?>
                     <div class="text-center mb-6">
                         <div class="rounded-2xl p-4 w-16 h-16 flex items-center justify-center bg-gradient-to-br from-cyan-500/20 to-cyan-500/5 border border-cyan-500/30 mx-auto mb-4">
@@ -284,10 +225,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         <h1 class="text-3xl font-bold font-orbitron text-white mb-2">Inscription</h1>
                         <p class="text-white/60 text-sm">Rejoignez la communauté GameCrown</p>
                     </div>
-
                     <?php if ($registererror): ?><div class="message-box message-error"><i class="fas fa-exclamation-circle"></i><span><?php echo $registererror; ?></span></div><?php endif; ?>
                     <?php if ($registersuccess): ?><div class="message-box message-success"><i class="fas fa-check-circle"></i><span><?php echo $registersuccess; ?></span></div><?php if ($registerinfo): ?><div class="message-box message-info"><i class="fas fa-info-circle"></i><span><?php echo $registerinfo; ?></span></div><?php endif; ?><?php else: ?>
-
                     <form method="POST" class="space-y-4">
                         <input type="hidden" name="action" value="register_step1">
                         <div>
@@ -323,15 +262,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                                 <p class="text-xs text-orange-400"><i class="fas fa-exclamation-triangle mr-1"></i>Validation admin requise</p>
                             </div>
                         </div>
-
                         <button type="submit" class="w-full py-4 rounded-xl font-semibold bg-gradient-to-r from-cyan-500 to-cyan-600 text-dark flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-cyan-500/30 transition-all mt-4"><i class="fas fa-arrow-right"></i><span>Continuer</span></button>
                     </form>
                     <?php endif; ?>
                     <div class="flex items-center my-6"><div class="flex-1 h-px bg-white/20"></div><span class="px-4 text-white/40 text-sm">ou</span><div class="flex-1 h-px bg-white/20"></div></div>
                     <div class="text-center"><p class="text-white/60 text-sm">Déjà un compte ? <a href="login.php" class="text-cyan-400 font-medium hover:underline">Se connecter</a></p></div>
                 <?php endif; ?>
-
-                <!-- INSCRIPTION ÉTAPE 2 (CANDIDAT) -->
                 <?php if ($step === 2): ?>
                     <div class="text-center mb-6">
                         <div class="rounded-2xl p-4 w-16 h-16 flex items-center justify-center bg-gradient-to-br from-purple-500/20 to-purple-500/5 border border-purple-500/30 mx-auto mb-4"><i class="fas fa-trophy text-2xl text-purple-400"></i></div>
@@ -339,12 +275,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         <p class="text-white/60 text-sm">Étape 2/2</p>
                         <div class="flex justify-center gap-2 mt-3"><div class="w-3 h-3 rounded-full bg-purple-500"></div><div class="w-3 h-3 rounded-full bg-purple-500"></div></div>
                     </div>
-
                     <?php if ($registererror): ?><div class="message-box message-error"><i class="fas fa-exclamation-circle"></i><span><?php echo $registererror; ?></span></div><?php endif; ?>
                     <div class="message-box message-info mb-4"><i class="fas fa-user"></i><span>Email : <strong><?php echo htmlspecialchars($_SESSION['temp_email'] ?? ''); ?></strong></span></div>
                     <form method="POST" class="space-y-4">
                         <input type="hidden" name="action" value="register_step2">
-                        
                         <div><label class="block mb-2 font-medium text-white text-sm"><i class="fas fa-id-card text-purple-400 mr-2"></i>Votre nom * <span class="text-white/40 text-xs">(sera votre pseudo)</span></label><input type="text" name="nom" required minlength="2" maxlength="100" class="input-glow w-full rounded-xl p-3 text-white bg-white/5 border border-white/10 focus:border-purple-500/50 focus:outline-none transition-all placeholder-white/30" placeholder="ex: Jean Dupont"></div>
                         <div><label class="block mb-2 font-medium text-white text-sm"><i class="fas fa-align-left text-purple-400 mr-2"></i>Biographie</label><textarea name="bio" rows="2" maxlength="500" class="input-glow w-full rounded-xl p-3 text-white bg-white/5 border border-white/10 focus:border-purple-500/50 focus:outline-none transition-all resize-none placeholder-white/30" placeholder="Parlez de vous..."></textarea></div>
                         <div><label class="block mb-2 font-medium text-white text-sm"><i class="fas fa-image text-purple-400 mr-2"></i>Photo (URL)</label><input type="url" name="photo" maxlength="500" class="input-glow w-full rounded-xl p-3 text-white bg-white/5 border border-white/10 focus:border-purple-500/50 focus:outline-none transition-all placeholder-white/30" placeholder="https://..."></div>
@@ -369,7 +303,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             </div>
         </div>
     </div>
-
     <script>
         function togglePassword(id, btn) { const i = document.getElementById(id); i.type = i.type === 'password' ? 'text' : 'password'; btn.innerHTML = i.type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>'; }
         document.getElementById('registerpassword')?.addEventListener('input', function() {

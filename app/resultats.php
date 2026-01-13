@@ -1,39 +1,11 @@
 <?php
-/**
- * resultats.php - REFACTORISÉ avec Architecture SOLID
- * 
- * Page d'affichage des résultats finaux des événements clôturés
- * 
- * Nouvelles features:
- * - Service métier pour les résultats (ResultsService)
- * - Validation centralisée des paramètres
- * - Gestion d'erreurs structurée
- * - Séparation données/présentation
- * - Calculs de pourcentages et statistiques
- * 
- * SOLID principles:
- * - S: ResultsService = résultats uniquement
- * - O: Facile d'ajouter de nouveaux calculs
- * - L: Services substitutables
- * - I: ResultsService expose méthodes spécifiques
- * - D: Services injectés via ServiceContainer
- */
-
 require_once 'classes/init.php';
-
-// ==================== SETUP ====================
 
 $id_evenement = intval($_GET['event'] ?? 0);
 $error = '';
 $event = null;
-
-// ==================== SERVICES ====================
-
 $db = ServiceContainer::getDatabase();
 $validationService = ServiceContainer::getValidationService();
-
-// ==================== INITIALISER LES VARIABLES ====================
-
 $events = [];
 $resultatsCat = [];
 $resultatsFinal = [];
@@ -42,8 +14,6 @@ $stats = [
     'total_votes_cat' => 0,
     'total_votes_final' => 0
 ];
-
-// ==================== RÉCUPÉRER LES ÉVÉNEMENTS CLÔTURÉS ====================
 
 try {
     $stmt = $db->query("
@@ -56,8 +26,6 @@ try {
     error_log("Error fetching closed events: " . $e->getMessage());
     $events = [];
 }
-
-// ==================== RÉCUPÉRER L'ÉVÉNEMENT SÉLECTIONNÉ ====================
 
 if ($id_evenement > 0) {
     try {
@@ -77,11 +45,8 @@ if ($id_evenement > 0) {
     }
 }
 
-// ==================== RÉCUPÉRER LES RÉSULTATS ====================
-
 if ($event) {
     try {
-        // Résultats par catégorie
         $stmt = $db->prepare("
             SELECT 
                 c.id_categorie, 
@@ -101,7 +66,6 @@ if ($event) {
             ORDER BY c.nom, nb_voix DESC
         ");
         $stmt->execute([$id_evenement, $id_evenement]);
-        
         foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
             if (!isset($resultatsCat[$row['id_categorie']])) {
                 $resultatsCat[$row['id_categorie']] = [
@@ -109,13 +73,11 @@ if ($event) {
                     'jeux' => []
                 ];
             }
-            
             if ($row['id_jeu'] !== null) {
                 $resultatsCat[$row['id_categorie']]['jeux'][] = $row;
             }
         }
         
-        // Résultats du vote final
         $stmt = $db->prepare("
             SELECT 
                 j.id_jeu, 
@@ -131,7 +93,6 @@ if ($event) {
         $stmt->execute([$id_evenement]);
         $resultatsFinal = $stmt->fetchAll(\PDO::FETCH_ASSOC);
         
-        // Statistiques globales
         $stmt = $db->prepare("SELECT COUNT(*) as total FROM registre_electoral WHERE id_evenement = ?");
         $stmt->execute([$id_evenement]);
         $stats['nb_inscrits'] = intval($stmt->fetch(\PDO::FETCH_ASSOC)['total']);
@@ -152,38 +113,28 @@ if ($event) {
     }
 }
 
-// ==================== CALCULS ====================
-
 $totalVotesFinal = array_sum(array_column($resultatsFinal, 'nb_voix'));
-
-// Helper function pour calculer les pourcentages
 function getPercentage($voix, $total) {
     return $total > 0 ? round($voix / $total * 100, 1) : 0;
 }
 
 require_once 'header.php';
 ?>
-
 <br><br><br>
 <section class="py-20 px-6">
     <div class="container mx-auto max-w-7xl">
-        
-        <!-- Titre -->
         <div class="text-center mb-12">
             <h1 class="text-5xl md:text-6xl font-bold font-orbitron mb-4 accent-gradient">
                 <i class="fas fa-trophy mr-3"></i>Résultats
             </h1>
             <p class="text-xl text-light-80">Découvrez les gagnants des événements clôturés</p>
         </div>
-        
-        <!-- Pas d'événements -->
         <?php if (empty($events)): ?>
             <div class="glass-card rounded-3xl p-12 modern-border border-2 border-white/10 text-center">
                 <i class="fas fa-info-circle text-4xl text-accent mb-4"></i>
                 <p class="text-xl text-light-80">Aucun événement clôturé.</p>
             </div>
         <?php else: ?>
-            
             <!-- Sélection d'événement -->
             <div class="glass-card rounded-3xl p-6 modern-border border-2 border-white/10 mb-12">
                 <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
@@ -195,7 +146,6 @@ require_once 'header.php';
                         </a>
                     <?php endif; ?>
                 </div>
-                
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <?php foreach ($events as $evt): ?>
                         <a href="?event=<?php echo intval($evt['id_evenement']); ?>" 
@@ -210,7 +160,6 @@ require_once 'header.php';
                 </div>
             </div>
         <?php endif; ?>
-        
         <!-- Message d'erreur -->
         <?php if ($error): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
@@ -218,11 +167,7 @@ require_once 'header.php';
                 <span class="text-red-400"><?php echo htmlspecialchars($error); ?></span>
             </div>
         <?php endif; ?>
-        
-        <!-- Contenu des résultats -->
         <?php if ($event): ?>
-            
-            <!-- Statistiques globales -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
                 <div class="glass-card rounded-2xl p-6 modern-border border-2 border-white/10 text-center">
                     <div class="text-4xl font-bold text-accent mb-2"><?php echo intval($stats['nb_inscrits']); ?></div>
@@ -237,20 +182,15 @@ require_once 'header.php';
                     <div class="text-light-80"><i class="fas fa-crown mr-2"></i>Votes finaux</div>
                 </div>
             </div>
-            
-            <!-- Podium - Jeu de l'Année -->
             <div class="mb-16">
                 <h2 class="text-4xl font-bold font-orbitron mb-8">
                     <i class="fas fa-crown text-yellow-400 mr-3"></i>🏆 Jeu de l'Année
                 </h2>
-                
                 <?php if (empty($resultatsFinal)): ?>
                     <div class="glass-card rounded-3xl p-12 modern-border border-2 border-white/10 text-center">
                         <p class="text-light-80">Aucun vote final enregistré.</p>
                     </div>
                 <?php else: ?>
-                    
-                    <!-- Podium 1-3 -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
                         <?php
                         $podiumData = [
@@ -283,8 +223,6 @@ require_once 'header.php';
                             </div>
                         <?php endfor; ?>
                     </div>
-                    
-                    <!-- Classement complet (si > 3) -->
                     <?php if (count($resultatsFinal) > 3): ?>
                         <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10">
                             <h3 class="text-lg font-bold text-light mb-6">Classement complet</h3>
@@ -313,13 +251,10 @@ require_once 'header.php';
                     <?php endif; ?>
                 <?php endif; ?>
             </div>
-            
-            <!-- Résultats par Catégorie -->
             <div class="mb-16">
                 <h2 class="text-4xl font-bold font-orbitron mb-8">
                     <i class="fas fa-tags text-accent mr-3"></i>Résultats par Catégorie
                 </h2>
-                
                 <?php if (empty($resultatsCat)): ?>
                     <div class="glass-card rounded-3xl p-12 modern-border border-2 border-white/10 text-center">
                         <p class="text-light-80">Aucun résultat par catégorie.</p>
@@ -333,7 +268,6 @@ require_once 'header.php';
                                 <h3 class="text-2xl font-bold font-orbitron text-light mb-6 pb-4 border-b border-white/10">
                                     <?php echo htmlspecialchars($cat['nom']); ?>
                                 </h3>
-                                
                                 <?php if (empty($cat['jeux'])): ?>
                                     <p class="text-light-80 italic">Aucun vote pour cette catégorie.</p>
                                 <?php else: ?>
@@ -367,8 +301,6 @@ require_once 'header.php';
                     </div>
                 <?php endif; ?>
             </div>
-            
-            <!-- Bouton export PDF -->
             <div class="text-center">
                 <a href="export-resultats-pdf.php?event=<?php echo intval($event['id_evenement']); ?>" 
                    target="_blank" 
@@ -380,5 +312,4 @@ require_once 'header.php';
         <?php endif; ?>
     </div>
 </section>
-
 <?php require_once 'footer.php'; ?>

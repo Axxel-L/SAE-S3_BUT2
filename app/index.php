@@ -1,49 +1,22 @@
 <?php
-/**
- * index.php - REFACTORISÉ avec SOLID
- * 
- * Page d'accueil principal
- * Affiche les jeux, événement actif, formulaire de contact
- * 
- * Utilise IndexService pour toute la logique métier
- */
-
 require_once 'classes/init.php';
-
-
-
-// ==================== INITIALISATION ====================
-
 $error = '';
 $success = '';
 $activeEvent = null;
 $featuredGames = [];
 $globalStats = ['nb_games' => 0, 'nb_users' => 0, 'nb_votes' => 0, 'nb_comments' => 0];
 $userId = AuthenticationService::getAuthenticatedUserId();
-
-// ==================== LOGIQUE MÉTIER ====================
-
 try {
     $indexService = ServiceContainer::getIndexService();
-    
-    // Récupérer l'événement actif
     $activeEvent = $indexService->getActiveEvent();
-    
-    // Récupérer les jeux en vedette
     $featuredGames = $indexService->getFeaturedGames(6);
-    
-    // Récupérer les stats
     $globalStats = $indexService->getGlobalStats();
-    
-    // Traiter le formulaire de contact
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'send_contact') {
         $name = $_POST['name'] ?? '';
         $email = $_POST['contactEmail'] ?? '';
         $subject = $_POST['subject'] ?? '';
         $message = $_POST['message'] ?? '';
-        
         $result = $indexService->sendContactMessage($name, $email, $subject, $message);
-        
         if ($result['success']) {
             $success = "Message envoyé avec succès! Nous vous répondrons dès que possible.";
         } else {
@@ -57,8 +30,6 @@ try {
 
 require_once 'header.php';
 ?>
-
-<!-- Fond gaming -->
 <div class="gaming-bg">
     <div class="diagonal-lines"></div>
     <div class="diagonal-lines-2"></div>
@@ -78,7 +49,6 @@ require_once 'header.php';
         <button id="closeLoginModal" class="close-btn absolute -top-3 -right-3 z-10 w-11 h-11 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center text-light hover:bg-accent/20 hover:border-accent/50 transition-all duration-300 group rounded-[1rem]">
             <i class="fas fa-times text-lg group-hover:rotate-90 group-hover:text-accent transition-all duration-300"></i>
         </button>
-        
         <div class="modal-content rounded-[2rem] p-8 md:p-10 backdrop-blur-xl border-2 border-white/10">
             <div class="text-center mb-8">
                 <div class="inline-block mb-5 animate-float">
@@ -175,8 +145,6 @@ require_once 'header.php';
         <div class="typewriter text-2xl md:text-3xl max-w-3xl mx-auto mb-16 text-light/80">
             Célébrons l'<span class="text-accent font-medium">excellence</span> et l'<span class="text-accent font-medium">innovation</span> du jeu vidéo. :)
         </div>
-
-        <!-- Boutons dynamiques selon connexion -->
         <div class="flex flex-col md:flex-row justify-center gap-6">
             <?php if ($userId): ?>
                 <a href="vote.php" class="glass-button px-12 py-5 rounded-[1.5rem] text-xl font-medium flex items-center justify-center space-x-3 border-2 border-white/10">
@@ -201,7 +169,7 @@ require_once 'header.php';
     </div>
 </section>
 
-<!-- Section Présentation -->
+<!-- Présentation -->
 <section id="presentation" class="py-28 px-6">
     <div class="container mx-auto">
         <h2 class="text-5xl font-bold text-center mb-20 font-orbitron section-title text-light">Présentation du site</h2>
@@ -221,7 +189,6 @@ require_once 'header.php';
                     Créer une plateforme technique innovante dédiée aux organisateurs d'événements gaming, leur offrant une solution complète et fiable pour gérer des procédures de vote électronique.
                 </p>
             </div>
-
             <div class="glass-card rounded-[2rem] p-12 border-2 border-white/10">
                 <div class="flex items-start mb-8">
                     <div class="glass-button rounded-[1rem] p-4 mr-6 border border-white/10">
@@ -239,7 +206,7 @@ require_once 'header.php';
         </div>
     </section>
 
-<!-- Section Mode de scrutin -->
+<!-- Mode de scrutin -->
 <section id="scrutin" class="py-28 px-6">
     <div class="container mx-auto">
         <h2 class="text-5xl font-bold text-center mb-20 font-orbitron section-title text-light">Mode de scrutin</h2>
@@ -249,7 +216,6 @@ require_once 'header.php';
             <p class="text-xl mb-12 text-light/80 leading-relaxed">
                 Notre système de vote se déroule en deux phases distinctes qui permettent de déterminer d'abord les meilleurs jeux par catégorie, puis le jeu ultime de l'année.
             </p>
-
             <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
                 <div class="text-center">
                     <div class="glass-button rounded-[1rem] p-6 mb-6 mx-auto w-24 h-24 flex items-center justify-center border border-white/10">
@@ -277,31 +243,27 @@ require_once 'header.php';
     </div>
 </section>
 
-<!-- Section Contact -->
+<!-- Contact -->
 <section id="contact" class="py-20 px-6">
     <div class="container mx-auto max-w-6xl">
         <h2 class="text-4xl font-bold text-center mb-16 font-orbitron text-light">Contactez-nous</h2>
-
         <?php if ($error): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
                 <i class="fas fa-exclamation-circle text-red-400"></i>
                 <span class="text-red-400"><?php echo htmlspecialchars($error); ?></span>
             </div>
         <?php endif; ?>
-
         <?php if ($success): ?>
             <div class="mb-8 p-4 rounded-2xl bg-green-500/10 border border-green-500/30 flex items-center gap-3">
                 <i class="fas fa-check-circle text-green-400"></i>
                 <span class="text-green-400"><?php echo htmlspecialchars($success); ?></span>
             </div>
         <?php endif; ?>
-
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
             <div class="glass-card rounded-[1.5rem] p-8 border-2 border-white/10">
                 <h3 class="text-2xl font-bold font-orbitron text-light mb-6 flex items-center gap-2">
                     <i class="fas fa-envelope text-accent"></i> Formulaire de contact
                 </h3>
-
                 <form method="POST" class="space-y-6">
                     <input type="hidden" name="action" value="send_contact">
                     <div>
@@ -331,12 +293,10 @@ require_once 'header.php';
                     </button>
                 </form>
             </div>
-
             <div class="glass-card rounded-[1.5rem] p-8 border-2 border-white/10">
                 <h3 class="text-2xl font-bold font-orbitron text-light mb-6 flex items-center gap-2">
                     <i class="fas fa-address-card text-accent"></i> Informations
                 </h3>
-
                 <div class="space-y-6">
                     <div class="flex items-start">
                         <div class="glass-button rounded-[1rem] p-2 mr-4 border border-white/10">
@@ -347,7 +307,6 @@ require_once 'header.php';
                             <p class="text-light/80">11 Rue de l'Université, <br>88100 Saint-Dié-des-Vosges, France</p>
                         </div>
                     </div>
-
                     <div class="flex items-start">
                         <div class="glass-button rounded-[1rem] p-2 mr-4 border border-white/10">
                             <i class="fas fa-phone text-accent text-sm"></i>
@@ -357,7 +316,6 @@ require_once 'header.php';
                             <p class="text-light/80">+33 6 00 00 00 00</p>
                         </div>
                     </div>
-
                     <div class="flex items-start">
                         <div class="glass-button rounded-[1rem] p-2 mr-4 border border-white/10">
                             <i class="fas fa-envelope text-accent text-sm"></i>
@@ -372,5 +330,4 @@ require_once 'header.php';
         </div>
     </div>
 </section>
-
 <?php require_once 'footer.php'; ?>

@@ -1,24 +1,11 @@
 <?php
 /**
- * resultats.php - REFACTORISÉ avec SOLID
- * 
- * Page des résultats de l'événement
- * Affiche:
- * - Jeu de l'année (vote final)
- * - Résultats par catégorie
- * - Statistiques
- * 
  * Utilise ResultatsService pour toute la logique métier
  */
-
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
-
 require_once 'classes/init.php';
-
-// ==================== INITIALISATION ====================
-
 $id_evenement = intval($_GET['event'] ?? 0);
 $event = null;
 $resultatsCat = [];
@@ -29,52 +16,34 @@ $stats = [
     'nb_categories' => 0,
     'nb_inscrits' => 0
 ];
-
-// ==================== LOGIQUE MÉTIER ====================
-
 try {
     $resultatsService = ServiceContainer::getResultatsService();
-    
-    // Récupérer l'événement
     $event = $resultatsService->getClosedEvent($id_evenement);
-    
     if (!$event) {
         header('Location: resultats.php');
         exit;
     }
-    
-    // Récupérer les résultats par catégorie
+
     $resultatsCat = $resultatsService->getResultsByCategory($id_evenement);
-    
-    // Récupérer les résultats du vote final
     $resultatsFinal = $resultatsService->getFinalResults($id_evenement);
-    
-    // Récupérer les statistiques
     $stats = $resultatsService->getEventStats($id_evenement, count($resultatsCat));
-    
 } catch (Exception $e) {
     error_log("Resultats Error: " . $e->getMessage());
     die("Erreur : " . htmlspecialchars($e->getMessage()));
 }
 
-// Calcul du total votes final
 $totalVotesFinal = array_sum(array_column($resultatsFinal, 'nb_voix'));
-
 require_once 'header.php';
 ?>
-
-<br><br><br> <!-- Espace pour le header -->
+<br><br><br> 
 <section class="py-20 px-6">
     <div class="container mx-auto max-w-7xl">
-        <!-- Bouton Imprimer/PDF -->
         <div class="flex justify-end gap-4 mb-8 no-print">
             <button onclick="window.print()" class="glass-button px-6 py-3 rounded-2xl font-medium flex items-center gap-2 bg-gradient-to-r from-accent/20 to-accent/10 border border-accent/30 hover:from-accent/30 hover:to-accent/20 transition-all duration-300">
                 <i class="fas fa-print text-accent"></i>
                 <span class="text-accent font-semibold">Imprimer / PDF</span>
             </button>
         </div>
-
-        <!-- En-tête -->
         <div class="text-center mb-12 pb-8 border-b border-white/10">
             <h1 class="text-5xl md:text-6xl font-bold font-orbitron mb-4 accent-gradient">
                 🏆 <?php echo htmlspecialchars($event['nom']); ?>
@@ -108,8 +77,6 @@ require_once 'header.php';
         <!-- Jeu de l'Année -->
         <?php if (!empty($resultatsFinal)): ?>
             <h2 class="text-4xl font-bold font-orbitron mb-10 accent-gradient border-b border-white/10 pb-4"><i class="fa-solid fa-ranking-star" style="color: #FFD43B;"></i> Jeu de l'Année</h2>
-            
-            <!-- Podium Grand Winner -->
             <div class="glass-card rounded-3xl p-10 mb-10 modern-border border-2 border-white/10 bg-gradient-to-r from-[#ffd700]/10 to-[#ff8c00]/5 border border-[#ffd700]/30 text-center">
                 <div class="text-6xl mb-6"><i class="fa-solid fa-crown" style="color: #FFD43B;"></i></div>
                 <h2 class="text-5xl font-bold font-orbitron mb-6 text-light"><?php echo htmlspecialchars($resultatsFinal[0]['titre']); ?></h2>
@@ -118,11 +85,8 @@ require_once 'header.php';
                     (<?php echo $resultatsService->calculatePercentage($resultatsFinal[0]['nb_voix'], $totalVotesFinal); ?>%)
                 </div>
             </div>
-
-            <!-- Podium 3 premiers -->
             <?php if (count($resultatsFinal) >= 3): ?>
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
-                    <!-- 2e place -->
                     <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10 bg-gradient-to-r from-[#c0c0c0]/10 to-[#888]/5 border border-[#c0c0c0]/30 text-center lg:mt-8">
                         <div class="text-5xl mb-6">🥈</div>
                         <div class="text-3xl font-bold font-orbitron mb-4 text-light"><?php echo htmlspecialchars($resultatsFinal[1]['titre']); ?></div>
@@ -131,8 +95,6 @@ require_once 'header.php';
                             (<?php echo $resultatsService->calculatePercentage($resultatsFinal[1]['nb_voix'], $totalVotesFinal); ?>%)
                         </div>
                     </div>
-
-                    <!-- 1ère place (redéfinie au milieu) -->
                     <div class="glass-card rounded-3xl p-10 modern-border border-2 border-white/10 bg-gradient-to-r from-[#ffd700]/20 to-[#ffaa00]/10 border border-[#ffd700]/30 text-center order-first lg:order-none">
                         <div class="text-6xl mb-8">🥇</div>
                         <div class="text-4xl font-bold font-orbitron mb-6 text-light"><?php echo htmlspecialchars($resultatsFinal[0]['titre']); ?></div>
@@ -141,8 +103,6 @@ require_once 'header.php';
                             (<?php echo $resultatsService->calculatePercentage($resultatsFinal[0]['nb_voix'], $totalVotesFinal); ?>%)
                         </div>
                     </div>
-
-                    <!-- 3e place -->
                     <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10 bg-gradient-to-r from-[#cd7f32]/10 to-[#8b4513]/5 border border-[#cd7f32]/30 text-center lg:mt-8">
                         <div class="text-5xl mb-6">🥉</div>
                         <div class="text-3xl font-bold font-orbitron mb-4 text-light"><?php echo htmlspecialchars($resultatsFinal[2]['titre']); ?></div>
@@ -159,7 +119,6 @@ require_once 'header.php';
                 <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10 mb-16">
                     <h3 class="text-3xl font-bold font-orbitron mb-10 text-center accent-gradient"><i class="fa-solid fa-chart-area"></i> Répartition des votes - Vote Final</h3>
                     <div class="flex flex-col lg:flex-row items-center justify-between gap-10">
-                        <!-- Histogramme -->
                         <div class="flex items-end justify-center gap-4 h-80 lg:w-1/2">
                             <?php 
                             $maxVotes = max(array_column($resultatsFinal, 'nb_voix'));
@@ -175,8 +134,6 @@ require_once 'header.php';
                                 </div>
                             <?php endforeach; ?>
                         </div>
-
-                        <!-- Légende -->
                         <div class="lg:w-1/2">
                             <div class="space-y-4">
                                 <?php 
@@ -235,7 +192,6 @@ require_once 'header.php';
                             (<?php echo $totalVotesCat; ?> votes)
                         </span>
                     </h3>
-                    
                     <?php if (empty($categorie['jeux'])): ?>
                         <p class="text-light-80 italic text-lg">Aucun vote enregistré</p>
                     <?php else: ?>
@@ -266,5 +222,4 @@ require_once 'header.php';
         </div>
     </div>
 </section>
-
 <?php require_once 'footer.php'; ?>

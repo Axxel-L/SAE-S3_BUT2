@@ -1,32 +1,19 @@
 <?php
-
-
-
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
-
-// ✅ CHARGER init.php POUR ACCÉDER AUX SERVICES
 require_once 'classes/init.php';
-
-// ✅ VÉRIFIER QUE L'UTILISATEUR EST CANDIDAT
 if (!isCandidate()) {
     echo "<script>alert('Accès réservé aux candidats'); window.location.href = './dashboard.php';</script>";
     exit;
 }
 
 $id_utilisateur = (int)getAuthUserId();
-
-// ✅ RÉCUPÉRER LE SERVICE VIA SERVICECONTAINER
 $profileService = ServiceContainer::getCandidatProfileService();
-
-// ✅ RÉCUPÉRER LE PROFIL
 $data = $profileService->getCandidatProfile($id_utilisateur);
 $candidat = $data['candidat'];
 $stats = $data['stats'];
 $error = $data['error'];
-
-// ✅ TRAITEMENT FORMULAIRE - UNE LIGNE!
 $success = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_profil') {
     $result = $profileService->updateCandidatProfile(
@@ -35,10 +22,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         !empty($_POST['bio']) ? htmlspecialchars(trim($_POST['bio']), ENT_QUOTES, 'UTF-8') : null,
         !empty($_POST['photo']) ? filter_var(trim($_POST['photo']), FILTER_SANITIZE_URL) : null
     );
-    
     if ($result['success']) {
         $success = $result['message'];
-        // Rafraîchir les données
         $data = $profileService->getCandidatProfile($id_utilisateur);
         $candidat = $data['candidat'];
         $stats = $data['stats'];
@@ -48,11 +33,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 }
 
 require_once 'header.php';
-
-// ✅ Récupérer statut
 $statut = CandidatProfileService::getStatutConfig($candidat['statut'] ?? 'en_attente');
 ?>
-
 <br><br><br>
 <section class="py-20 px-6">
     <div class="container mx-auto max-w-4xl">
@@ -63,31 +45,25 @@ $statut = CandidatProfileService::getStatutConfig($candidat['statut'] ?? 'en_att
             </h1>
             <p class="text-xl text-light/80">Gérez votre profil de candidat</p>
         </div>
-        
         <?php if (!empty($error)): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
                 <i class="fas fa-exclamation-circle text-red-400"></i>
                 <span class="text-red-400"><?php echo htmlspecialchars($error); ?></span>
             </div>
         <?php endif; ?>
-        
         <?php if (!empty($success)): ?>
             <div class="mb-8 p-4 rounded-2xl bg-green-500/10 border border-green-500/30 flex items-center gap-3">
                 <i class="fas fa-check-circle text-green-400"></i>
                 <span class="text-green-400"><?php echo htmlspecialchars($success); ?></span>
             </div>
         <?php endif; ?>
-        
         <?php if ($candidat): ?>
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                
-                <!-- Colonne gauche : Infos du jeu (non modifiable) -->
                 <div class="lg:col-span-1">
                     <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10">
                         <h2 class="text-2xl font-bold font-orbitron mb-6 flex items-center gap-2">
                             <i class="fas fa-gamepad text-accent"></i> Jeu représenté
                         </h2>
-                        
                         <?php if (!empty($candidat['image_jeu'])): ?>
                             <div class="rounded-2xl overflow-hidden h-48 bg-black/50 mb-6">
                                 <img src="<?php echo htmlspecialchars($candidat['image_jeu']); ?>" 
@@ -99,7 +75,6 @@ $statut = CandidatProfileService::getStatutConfig($candidat['statut'] ?? 'en_att
                                 <i class="fas fa-gamepad text-5xl text-light/30"></i>
                             </div>
                         <?php endif; ?>
-                        
                         <h3 class="text-2xl font-bold mb-2">
                             <span class="text-accent font-bold"><?php echo htmlspecialchars($candidat['titre_jeu'] ?? 'Aucun jeu'); ?></span>
                         </h3>
@@ -108,7 +83,6 @@ $statut = CandidatProfileService::getStatutConfig($candidat['statut'] ?? 'en_att
                                 <i class="fas fa-building mr-1"></i><?php echo htmlspecialchars($candidat['editeur']); ?>
                             </p>
                         <?php endif; ?>
-                        
                         <div class="p-4 rounded-2xl bg-orange-500/10 border border-orange-500/30 mb-6">
                             <p class="text-sm text-orange-400 flex items-center gap-2">
                                 <i class="fas fa-lock"></i>
@@ -130,12 +104,11 @@ $statut = CandidatProfileService::getStatutConfig($candidat['statut'] ?? 'en_att
                         </div>
                     </div>
                     
-                    <!-- Statistiques rapides -->
+                    <!-- Statistiques -->
                     <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10 mt-8">
                         <h2 class="text-2xl font-bold font-orbitron mb-6 flex items-center gap-2">
                             <i class="fas fa-chart-bar text-accent"></i> Statistiques
                         </h2>
-                        
                         <div class="space-y-4">
                             <div class="flex justify-between items-center p-3 rounded-xl bg-green-500/10 border border-green-500/30">
                                 <div class="flex items-center gap-3">
@@ -165,24 +138,20 @@ $statut = CandidatProfileService::getStatutConfig($candidat['statut'] ?? 'en_att
                                 </div>
                             </div>
                         </div>
-                        
                         <a href="candidat-statistiques.php" class="flex items-center justify-center mt-6 w-full px-6 py-3 rounded-2xl bg-accent text-dark font-bold hover:bg-accent/80 transition-colors border border-white/10 gap-2">
                             <i class="fas fa-chart-line"></i> Voir détails
                         </a>
                     </div>
                 </div>
                 
-                <!-- Colonne droite : Formulaire profil (modifiable) -->
+                <!-- Formulaire profil -->
                 <div class="lg:col-span-2">
                     <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10">
                         <h2 class="text-2xl font-bold font-orbitron mb-6 flex items-center gap-2">
                             <i class="fas fa-edit text-accent"></i> Modifier mon profil
                         </h2>
-                        
                         <form method="POST" class="space-y-6">
                             <input type="hidden" name="action" value="update_profil">
-                            
-                            <!-- Email (non modifiable) -->
                             <div>
                                 <label class="block mb-3 text-light/80 text-sm font-medium">
                                     <i class="fas fa-envelope text-accent mr-2"></i>Email
@@ -192,8 +161,6 @@ $statut = CandidatProfileService::getStatutConfig($candidat['statut'] ?? 'en_att
                                     value="<?php echo htmlspecialchars($candidat['email']); ?>">
                                 <p class="text-xs text-light/40 mt-2 ml-1">L'email ne peut pas être modifié.</p>
                             </div>
-                            
-                            <!-- Inscrit depuis -->
                             <div>
                                 <label class="block mb-3 text-light/80 text-sm font-medium">
                                     <i class="fas fa-calendar text-accent mr-2"></i>Inscrit depuis
@@ -202,10 +169,7 @@ $statut = CandidatProfileService::getStatutConfig($candidat['statut'] ?? 'en_att
                                     class="w-full px-6 py-4 rounded-2xl bg-white/5 border border-white/10 text-light/50 cursor-not-allowed font-medium"
                                     value="<?php echo date('d/m/Y', strtotime($candidat['date_inscription'])); ?>">
                             </div>
-                            
                             <div class="h-px bg-white/10 my-4"></div>
-                            
-                            <!-- Nom -->
                             <div>
                                 <label class="block mb-3 text-light/80 text-sm font-medium">
                                     <i class="fas fa-id-card text-accent mr-2"></i>Nom *
@@ -215,8 +179,6 @@ $statut = CandidatProfileService::getStatutConfig($candidat['statut'] ?? 'en_att
                                     value="<?php echo htmlspecialchars($candidat['nom'] ?? ''); ?>"
                                     placeholder="Votre nom">
                             </div>
-                            
-                            <!-- Bio -->
                             <div>
                                 <label class="block mb-3 text-light/80 text-sm font-medium">
                                     <i class="fas fa-align-left text-accent mr-2"></i>Biographie
@@ -231,8 +193,6 @@ $statut = CandidatProfileService::getStatutConfig($candidat['statut'] ?? 'en_att
                                     </p>
                                 </div>
                             </div>
-                            
-                            <!-- Photo -->
                             <div>
                                 <label class="block mb-3 text-light/80 text-sm font-medium">
                                     <i class="fas fa-image text-accent mr-2"></i>Photo (URL)
@@ -241,7 +201,6 @@ $statut = CandidatProfileService::getStatutConfig($candidat['statut'] ?? 'en_att
                                     class="w-full px-6 py-4 rounded-2xl bg-white/5 border border-white/10 text-light focus:border-accent/50 focus:outline-none transition-all font-medium placeholder:text-light/40"
                                     value="<?php echo htmlspecialchars($candidat['photo'] ?? ''); ?>"
                                     placeholder="https://...">
-                                
                                 <?php if (!empty($candidat['photo'])): ?>
                                     <div class="mt-4 p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-4">
                                         <img src="<?php echo htmlspecialchars($candidat['photo']); ?>" 
@@ -254,7 +213,6 @@ $statut = CandidatProfileService::getStatutConfig($candidat['statut'] ?? 'en_att
                                     </div>
                                 <?php endif; ?>
                             </div>
-                            
                             <button type="submit" class="w-full px-8 py-4 rounded-2xl bg-accent text-dark font-bold hover:bg-accent/80 transition-colors border-2 border-white/10 flex items-center justify-center gap-3 text-lg">
                                 <i class="fas fa-save"></i> Enregistrer les modifications
                             </button>
@@ -285,10 +243,8 @@ $statut = CandidatProfileService::getStatutConfig($candidat['statut'] ?? 'en_att
 </section>
 
 <script>
-// Compteur de caractères pour la bio
 const bioTextarea = document.querySelector('textarea[name="bio"]');
 const bioCount = document.getElementById('bio-count');
-
 if (bioTextarea && bioCount) {
     bioTextarea.addEventListener('input', function() {
         bioCount.textContent = this.value.length;
@@ -301,5 +257,4 @@ if (bioTextarea && bioCount) {
     });
 }
 </script>
-
 <?php require_once 'footer.php'; ?>

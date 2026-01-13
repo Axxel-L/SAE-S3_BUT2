@@ -2,10 +2,7 @@
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
-
 require_once 'classes/init.php';
-
-// Vérifier candidat
 if (!isset($_SESSION['type']) || $_SESSION['type'] !== 'candidat') {
     echo "<script>alert('Accès réservé aux candidats'); window.location.href = './dashboard.php';</script>";
     exit;
@@ -14,73 +11,56 @@ if (!isset($_SESSION['type']) || $_SESSION['type'] !== 'candidat') {
 $id_utilisateur = $_SESSION['id_utilisateur'];
 $error = '';
 $success = '';
-
 try {
-    // Récupérer le service
     $eventsService = ServiceContainer::getCandidatEventsService();
-    
-    // Récupérer le candidat depuis ses données utilisateur
     $stmt = \DatabaseConnection::getInstance()->prepare("
         SELECT id_candidat FROM candidat WHERE id_utilisateur = ?
     ");
     $stmt->execute([$id_utilisateur]);
     $candidatResult = $stmt->fetch(\PDO::FETCH_ASSOC);
-    
     if (!$candidatResult) {
         header('Location: candidat-profil.php');
         exit;
     }
     
     $id_candidat = $candidatResult['id_candidat'];
-    
-    // Récupérer les données du candidat
     $candidat = $eventsService->getCandidatData($id_candidat);
     if (!$candidat) {
         header('Location: candidat-profil.php');
         exit;
     }
-    
-    // Vérifier que le candidat a un jeu associé
+
     if (empty($candidat['id_jeu'])) {
         $error = "Vous devez d'abord sélectionner un jeu dans votre profil avant de postuler !";
     }
-    
-    // Soumettre une candidature
+
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'postuler') {
         $id_event = intval($_POST['event_id'] ?? 0);
         $id_categorie = intval($_POST['categorie_id'] ?? 0);
-        
         try {
             if (empty($candidat['id_jeu'])) {
                 throw new Exception("Vous devez d'abord sélectionner un jeu dans votre profil !");
             }
-            
             if ($id_categorie <= 0) {
                 throw new Exception("Veuillez sélectionner une catégorie !");
             }
-            
             $eventsService->submitApplication(
                 $id_candidat,
                 $id_event,
                 $id_categorie,
                 $candidat['jeu_titre']
             );
-            
             $success = "✅ Candidature soumise avec succès pour la catégorie \"" . htmlspecialchars($candidat['jeu_titre']) . "\" ! Elle sera examinée par un administrateur.";
         } catch (Exception $e) {
             $error = $e->getMessage();
         }
     }
-    
-    // Récupérer les événements
     $events = $eventsService->getEventsWithDetails($id_candidat);
-    
 } catch (Exception $e) {
     $error = "Erreur: " . $e->getMessage();
     $candidat = null;
     $events = [];
 }
-
 require_once 'header.php';
 ?>
 <br><br><br>
@@ -92,14 +72,12 @@ require_once 'header.php';
             </h1>
             <p class="text-xl text-light/80">Inscrivez votre jeu dans les catégories qui vous correspondent</p>
         </div>
-        
         <?php if ($error): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
                 <i class="fas fa-exclamation-circle text-red-400"></i>
                 <span class="text-red-400"><?php echo htmlspecialchars($error); ?></span>
             </div>
         <?php endif; ?>
-        
         <?php if ($success): ?>
             <div class="mb-8 p-4 rounded-2xl bg-green-500/10 border border-green-500/30 flex items-center gap-3">
                 <i class="fas fa-check-circle text-green-400"></i>
@@ -172,7 +150,6 @@ require_once 'header.php';
                 </div>
                 <span>Événements en préparation</span>
             </h2>
-            
             <?php if (empty($events)): ?>
                 <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10 text-center">
                     <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-white/5 mb-6">
@@ -208,7 +185,6 @@ require_once 'header.php';
                                     </div>
                                 </div>
                             </div>
-                            
                             <?php if (!empty($event['mes_candidatures'])): ?>
                                 <div class="mb-8 p-6 rounded-2xl bg-white/5 border border-white/10">
                                     <h4 class="text-lg font-bold text-light mb-4 flex items-center gap-2">
@@ -236,7 +212,6 @@ require_once 'header.php';
                                     </div>
                                 </div>
                             <?php endif; ?>
-                            
                             <?php if (empty($event['categories'])): ?>
                                 <div class="p-6 rounded-2xl bg-orange-500/10 border border-orange-500/30">
                                     <div class="flex items-center gap-3">
@@ -268,7 +243,6 @@ require_once 'header.php';
                                     <form method="POST" class="space-y-6">
                                         <input type="hidden" name="action" value="postuler">
                                         <input type="hidden" name="event_id" value="<?php echo $event['id_evenement']; ?>">
-
                                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                             <?php
                                             $candidaturesCategories = array_column($event['mes_candidatures'], 'id_categorie');
@@ -329,14 +303,12 @@ require_once 'header.php';
 
 <script>
 function changeColor(input) {
-    // Réinitialiser toutes les bordures
     document.querySelectorAll('input[name="categorie_id"]').forEach(r => {
         const label = r.nextElementSibling;
         if (label && !label.classList.contains('pointer-events-none')) {
             label.style.borderColor = 'rgba(255, 255, 255, 0.1)';
         }
     });
-    // Appliquer la bordure accent à la sélection
     const selectedLabel = input.nextElementSibling;
     if (selectedLabel) {
         selectedLabel.style.borderColor = '#00d4ff';

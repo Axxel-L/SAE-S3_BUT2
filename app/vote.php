@@ -1,23 +1,6 @@
 <?php
-/**
- * vote-final.php - REFACTORISÉ avec Architecture SOLID
- * 
- * Page de vote final (Phase 2)
- * Utilise VoteService pour toute la logique métier
- * 
- * SOLID:
- * - S: VoteService gère UNIQUEMENT les votes
- * - O: Facile d'ajouter de nouveaux filtres/features
- * - L: Services substitutables
- * - I: VoteService expose méthodes spécifiques
- * - D: Services injectés via ServiceContainer
- */
-
 require_once 'classes/init.php';
 
-// ==================== PROTECTION & SETUP ====================
-
-// Vérifier authentification
 if (!isLogged()) {
     redirect('login.php', 'Vous devez vous connecter', 'error');
 }
@@ -26,22 +9,13 @@ $id_utilisateur = getAuthUserId();
 $error = '';
 $success = '';
 $events = [];
-
-// ==================== SERVICES ====================
-
 $voteService = ServiceContainer::getVoteService();
 $db = ServiceContainer::getDatabase();
 
-// ==================== RÉCUPÉRER LES ÉVÉNEMENTS ====================
-
 try {
-    // Mettre à jour les statuts des événements
     $db->query("CALL update_event_statuts()");
-} catch (Exception $e) {
-    // Erreur non bloquante
-}
+} catch (Exception $e) {}
 
-// Récupérer les événements
 try {
     $stmt = $db->prepare("
         SELECT * FROM evenement 
@@ -55,7 +29,6 @@ try {
     $events = [];
 }
 
-// ==================== TRAITEMENT DU VOTE FINAL ====================
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'vote_final') {
     $result = $voteService->voteFinalVote(
@@ -66,14 +39,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     
     if ($result['success']) {
         $success = '✓ Vote enregistré avec succès !';
-        // Recharger la page après succès
         redirect($_SERVER['REQUEST_URI'], 'Vote enregistré!', 'success');
     } else {
         $error = implode(' | ', $result['errors']);
     }
 }
-
-// ==================== CONFIGURATION DES STATUTS ====================
 
 $statut_config = [
     'preparation' => [
@@ -120,35 +90,27 @@ $statut_config = [
 
 require_once 'header.php';
 ?>
-
-<br><br><br> <!-- Espace pour le header -->
+<br><br><br>
 <section class="py-20 px-6">
     <div class="container mx-auto max-w-7xl">
-        
-        <!-- Titre -->
         <div class="text-center mb-12">
             <h1 class="text-5xl md:text-6xl font-bold font-orbitron mb-4 accent-gradient">
                 <i class="fas fa-crown text-accent mr-3"></i>Vote Final
             </h1>
             <p class="text-xl text-light-80">Phase 2 : Élisez le Jeu de l'Année</p>
         </div>
-        
-        <!-- Messages d'erreur/succès -->
         <?php if ($error): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3 max-w-2xl mx-auto">
                 <i class="fas fa-exclamation-circle text-red-400"></i>
                 <span class="text-red-400"><?php echo htmlspecialchars($error); ?></span>
             </div>
         <?php endif; ?>
-        
         <?php if ($success): ?>
             <div class="mb-8 p-4 rounded-2xl bg-green-500/10 border border-green-500/30 flex items-center gap-3 max-w-2xl mx-auto">
                 <i class="fas fa-check-circle text-green-400"></i>
                 <span class="text-green-400"><?php echo htmlspecialchars($success); ?></span>
             </div>
         <?php endif; ?>
-        
-        <!-- Aucun événement -->
         <?php if (empty($events)): ?>
             <div class="glass-card rounded-3xl p-12 modern-border border-2 border-white/10 text-center max-w-2xl mx-auto">
                 <i class="fas fa-calendar-times text-5xl text-light/20 mb-6"></i>
@@ -156,11 +118,10 @@ require_once 'header.php';
                 <p class="text-light-80">Les votes ne sont pas encore ouverts. Revenez bientôt !</p>
             </div>
         <?php else: ?>
-            
             <?php foreach ($events as $event): 
                 $status = $statut_config[$event['statut']] ?? $statut_config['preparation'];
                 
-                // Vérifier inscription
+                // Vérifie inscription
                 try {
                     $stmt = $db->prepare("SELECT id_registre FROM registre_electoral WHERE id_utilisateur = ? AND id_evenement = ?");
                     $stmt->execute([$id_utilisateur, $event['id_evenement']]);
@@ -169,7 +130,7 @@ require_once 'header.php';
                     $isRegistered = false; 
                 }
                 
-                // Récupérer les finalistes
+                // Récupére les finalistes
                 try {
                     $stmt = $db->prepare("
                         SELECT j.* 
@@ -184,7 +145,7 @@ require_once 'header.php';
                     $finalistes = []; 
                 }
                 
-                // Vérifier si l'utilisateur a déjà voté au final
+                // Vérifie si l'utilisateur a déjà voté au final
                 try {
                     $stmt = $db->prepare("
                         SELECT id_emargement FROM emargement_final 
@@ -196,10 +157,7 @@ require_once 'header.php';
                     $dejaVoteFinal = false; 
                 }
             ?>
-                
                 <div class="glass-card rounded-3xl modern-border border-2 border-white/10 mb-8 overflow-hidden">
-                    
-                    <!-- Header événement -->
                     <div class="p-6 border-b border-white/10 bg-white/5">
                         <div class="flex flex-wrap items-center justify-between gap-4">
                             <div>
@@ -217,18 +175,12 @@ require_once 'header.php';
                                     <?php endif; ?>
                                 </div>
                             </div>
-                            
-                            <!-- Lien retour vers votes catégories -->
                             <a href="vote.php" class="px-5 py-2 rounded-2xl bg-light/10 text-light hover:bg-light/20 transition-colors flex items-center gap-2 border border-white/10">
                                 <i class="fas fa-arrow-left"></i> Votes Catégories
                             </a>
                         </div>
                     </div>
-                    
-                    <!-- Contenu -->
                     <div class="p-6">
-                        
-                        <!-- Pas inscrit -->
                         <?php if (!$isRegistered): ?>
                             <div class="p-6 rounded-2xl bg-yellow-500/10 border border-yellow-500/30 text-center">
                                 <i class="fas fa-exclamation-triangle text-yellow-400 text-3xl mb-3"></i>
@@ -237,8 +189,7 @@ require_once 'header.php';
                                     <i class="fas fa-user-plus"></i> S'inscrire
                                 </a>
                             </div>
-                        
-                        <!-- Vote final pas ouvert -->
+
                         <?php elseif (!$status['can_vote_final']): ?>
                             <div class="p-6 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-center">
                                 <i class="fas fa-info-circle text-blue-400 text-3xl mb-3"></i>
@@ -278,8 +229,6 @@ require_once 'header.php';
                                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                         <?php foreach ($finalistes as $jeu): ?>
                                             <div class="group relative glass-card rounded-2xl overflow-hidden hover:border-accent/50 transition-all border border-white/10 <?php echo $dejaVoteFinal ? 'opacity-75' : ''; ?>">
-                                                
-                                                <!-- Image -->
                                                 <div class="h-40 bg-accent/10">
                                                     <?php if ($jeu['image']): ?>
                                                         <img src="<?php echo htmlspecialchars($jeu['image']); ?>" alt="<?php echo htmlspecialchars($jeu['titre']); ?>" class="w-full h-full object-cover">
@@ -289,15 +238,11 @@ require_once 'header.php';
                                                         </div>
                                                     <?php endif; ?>
                                                 </div>
-                                                
-                                                <!-- Infos -->
                                                 <div class="p-4">
                                                     <h4 class="font-bold text-light mb-1 truncate"><?php echo htmlspecialchars($jeu['titre']); ?></h4>
                                                     <?php if ($jeu['editeur']): ?>
                                                         <p class="text-xs text-light-80 mb-3"><?php echo htmlspecialchars($jeu['editeur']); ?></p>
                                                     <?php endif; ?>
-                                                    
-                                                    <!-- Actions -->
                                                     <div class="flex gap-2">
                                                         <?php if (!$dejaVoteFinal): ?>
                                                             <form method="POST" class="flex-1">
@@ -310,7 +255,6 @@ require_once 'header.php';
                                                                 </button>
                                                             </form>
                                                         <?php endif; ?>
-                                                        
                                                         <a href="jeu-campagne.php?id=<?php echo $jeu['id_jeu']; ?>" 
                                                            class="px-3 py-2 rounded-xl bg-white/5 text-light-80 hover:text-light hover:bg-white/10 transition-all border border-white/10" 
                                                            title="Voir la campagne">
@@ -328,8 +272,6 @@ require_once 'header.php';
                 </div>
             <?php endforeach; ?>
         <?php endif; ?>
-        
-        <!-- Lien retour -->
         <div class="text-center mt-8">
             <a href="vote.php" class="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-light/10 text-light hover:bg-light/20 transition-colors border border-white/10">
                 <i class="fas fa-arrow-left"></i> Retour aux votes par catégories
@@ -337,5 +279,4 @@ require_once 'header.php';
         </div>
     </div>
 </section>
-
 <?php require_once 'footer.php'; ?>

@@ -1,19 +1,5 @@
 <?php
-/**
- * salon-jeux.php - REFACTORISÉ avec SOLID
- * 
- * Page de détail d'un jeu
- * Affiche le jeu, les commentaires, et permet d'ajouter un commentaire
- * 
- * Utilise GameService pour toute la logique métier
- */
-
 require_once 'classes/init.php';
-
-
-
-// ==================== INITIALISATION ====================
-
 $id_jeu = intval($_GET['id'] ?? 0);
 $error = '';
 $success = '';
@@ -21,21 +7,14 @@ $jeu = null;
 $commentaires = [];
 $stats = ['nb_votes_cat' => 0, 'nb_votes_final' => 0, 'nb_comments' => 0];
 $userId = AuthenticationService::getAuthenticatedUserId();
-
-// ==================== LOGIQUE MÉTIER ====================
-
 try {
     $gameService = ServiceContainer::getGameService();
-    
-    // Récupérer le jeu
     $jeu = $gameService->getGameWithCandidat($id_jeu);
-    
     if (!$jeu) {
         header('Location: index.php');
         exit;
     }
     
-    // Ajouter commentaire
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_comment') {
         if (!$userId) {
             $error = "Vous devez être connecté pour commenter !";
@@ -51,31 +30,22 @@ try {
         }
     }
     
-    // Récupérer les commentaires
     $commentaires = $gameService->getComments($id_jeu);
-    
-    // Récupérer les stats
     $stats = $gameService->getGameStats($id_jeu);
-    
 } catch (Exception $e) {
     $error = "Erreur : " . $e->getMessage();
 }
-
 require_once 'header.php';
 ?>
-
 <br><br><br>
 <section class="py-20 px-6 lg:px-16">
     <div class="container mx-auto max-w-7xl">
-        
-        <!-- Messages d'erreur/succès -->
         <?php if ($error): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
                 <i class="fas fa-exclamation-circle text-red-400"></i>
                 <span class="text-red-400"><?php echo htmlspecialchars($error); ?></span>
             </div>
         <?php endif; ?>
-        
         <?php if ($success): ?>
             <div class="mb-8 p-4 rounded-2xl bg-green-500/10 border border-green-500/30 flex items-center gap-3">
                 <i class="fas fa-check-circle text-green-400"></i>
@@ -90,7 +60,6 @@ require_once 'header.php';
                     <img src="<?php echo htmlspecialchars($jeu['image']); ?>" alt="<?php echo htmlspecialchars($jeu['titre']); ?>" class="w-full h-full object-cover opacity-50">
                     <div class="absolute inset-0 bg-gradient-to-t from-dark via-dark/50 to-transparent"></div>
                 <?php endif; ?>
-                
                 <div class="absolute bottom-0 left-0 right-0 p-6">
                     <div class="flex items-end gap-6">
                         <div class="w-24 h-24 md:w-32 md:h-32 rounded-2xl overflow-hidden border-4 border-dark shadow-xl bg-dark/80 flex-shrink-0">
@@ -134,11 +103,7 @@ require_once 'header.php';
         </div>
         
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            <!-- Contenu principal -->
             <div class="lg:col-span-2 space-y-8">
-                
-                <!-- Description -->
                 <?php if ($jeu['description']): ?>
                     <div class="glass-card rounded-3xl p-6 modern-border border-2 border-white/10">
                         <h2 class="text-xl font-bold text-light mb-4 flex items-center gap-2">
@@ -149,13 +114,10 @@ require_once 'header.php';
                         </p>
                     </div>
                 <?php endif; ?>
-                
-                <!-- Formulaire commentaire -->
                 <div class="glass-card rounded-3xl p-6 modern-border border-2 border-white/10">
                     <h2 class="text-xl font-bold text-light mb-4 flex items-center gap-2">
                         <i class="fas fa-comment-dots text-accent"></i> Laisser un commentaire
                     </h2>
-                    
                     <?php if ($userId): ?>
                         <form method="POST" class="space-y-4">
                             <input type="hidden" name="action" value="add_comment">
@@ -187,13 +149,10 @@ require_once 'header.php';
                         </div>
                     <?php endif; ?>
                 </div>
-                
-                <!-- Liste des commentaires -->
                 <div class="glass-card rounded-3xl p-6 modern-border border-2 border-white/10">
                     <h2 class="text-xl font-bold text-light mb-6 flex items-center gap-2">
                         <i class="fas fa-comments text-accent"></i> Commentaires (<?php echo count($commentaires); ?>)
                     </h2>
-                    
                     <?php if (empty($commentaires)): ?>
                         <div class="text-center py-12">
                             <i class="fas fa-comment-slash text-4xl text-light/20 mb-4"></i>
@@ -203,11 +162,9 @@ require_once 'header.php';
                     <?php else: ?>
                         <div class="space-y-4">
                             <?php foreach ($commentaires as $comment): 
-                                // Style du pseudo selon type
                                 $is_owner = $comment['is_owner'] == 1;
                                 $is_candidat = $comment['type'] === 'candidat';
                                 $is_admin = $comment['type'] === 'admin';
-                                
                                 if ($is_owner) {
                                     $pseudo_class = 'text-yellow-400 font-bold';
                                     $badge = '<span class="ml-2 px-2 py-0.5 rounded-full text-xs bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"><i class="fas fa-crown mr-1"></i>Candidat</span>';
@@ -244,11 +201,7 @@ require_once 'header.php';
                     <?php endif; ?>
                 </div>
             </div>
-            
-            <!-- Barre latérale -->
             <div class="space-y-6">
-                
-                <!-- Candidat représentant -->
                 <?php if ($jeu['candidat_nom']): ?>
                     <div class="glass-card rounded-3xl p-6 modern-border border-2 border-white/10">
                         <h3 class="text-lg font-bold text-light mb-4 flex items-center gap-2">
@@ -315,5 +268,4 @@ require_once 'header.php';
         </div>
     </div>
 </section>
-
 <?php require_once 'footer.php'; ?>

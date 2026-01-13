@@ -2,13 +2,8 @@
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
-
-
 require_once 'classes/init.php';
-
 use App\Services\AuditLogsService;
-
-// Vérifier que l'utilisateur est admin
 if (!isset($_SESSION['id_utilisateur']) || ($_SESSION['type'] ?? '') !== 'admin') {
     echo "<script>
         alert('Accès réservé aux administrateurs');
@@ -17,23 +12,16 @@ if (!isset($_SESSION['id_utilisateur']) || ($_SESSION['type'] ?? '') !== 'admin'
     exit;
 }
 
-// ✅ 1. Récupérer le service (1 ligne)
 $auditLogsService = ServiceContainer::getAuditLogsService();
-
-// ✅ 2. Récupérer les données paginées avec filtres
 $filters = [
     'user' => intval($_GET['user'] ?? 0),
     'action' => $_GET['action'] ?? '',
     'days' => intval($_GET['days'] ?? 30)
 ];
 $page = intval($_GET['page'] ?? 1);
-
 $data = $auditLogsService->getLogsWithFilters($filters, $page);
-
-// ✅ 3. Récupérer listes pour les selects
 $actions = $auditLogsService->getAvailableActions();
 $users = $auditLogsService->getAvailableUsers();
-
 require_once 'header.php';
 ?>
 <br><br><br>
@@ -45,7 +33,6 @@ require_once 'header.php';
             </h1>
             <p class="text-xl text-light-80">Historique des actions</p>
         </div>
-
         <?php if ($data['error']): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
                 <i class="fas fa-exclamation-circle text-red-400"></i>
@@ -59,7 +46,6 @@ require_once 'header.php';
                 <i class="fas fa-filter text-accent"></i> Filtres de recherche
             </h2>
             <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <!-- Utilisateur -->
                 <div>
                     <label class="block mb-2 text-light-80">Utilisateur</label>
                     <div class="relative">
@@ -76,8 +62,6 @@ require_once 'header.php';
                         </div>
                     </div>
                 </div>
-
-                <!-- Action -->
                 <div>
                     <label class="block mb-2 text-light-80">Action</label>
                     <div class="relative">
@@ -94,8 +78,6 @@ require_once 'header.php';
                         </div>
                     </div>
                 </div>
-
-                <!-- Période -->
                 <div>
                     <label class="block mb-2 text-light-80">Période</label>
                     <div class="relative">
@@ -111,8 +93,6 @@ require_once 'header.php';
                         </div>
                     </div>
                 </div>
-
-                <!-- Bouton Appliquer -->
                 <div class="flex items-end">
                     <button type="submit" class="w-full px-6 py-3 rounded-2xl bg-accent text-dark font-bold hover:bg-accent/80 transition-colors border border-white/10">
                         <i class="fas fa-search mr-2"></i>Appliquer
@@ -131,7 +111,6 @@ require_once 'header.php';
                     <i class="fas fa-list mr-2"></i> <?php echo $data['total']; ?> résultat(s) | Page <?php echo $data['current_page']; ?>/<?php echo $data['pages']; ?>
                 </div>
             </div>
-
             <?php if (empty($data['logs'])): ?>
                 <div class="text-center py-12">
                     <i class="fas fa-inbox text-4xl text-light-80 mb-3"></i>
@@ -191,7 +170,6 @@ require_once 'header.php';
                         </tbody>
                     </table>
                 </div>
-
                 <div class="mt-6 pt-6 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-light-80">
                     <div class="flex items-center gap-2">
                         <i class="fas fa-info-circle text-accent"></i>
@@ -215,19 +193,16 @@ require_once 'header.php';
                             <i class="fas fa-chevron-left"></i> Précédent
                         </button>
                     <?php endif; ?>
-
                     <div class="flex gap-1">
                         <?php
                         $start = max(1, $data['current_page'] - 2);
                         $end = min($data['pages'], $data['current_page'] + 2);
-                        
                         if ($start > 1): ?>
                             <a href="?page=1&user=<?php echo $filters['user']; ?>&action=<?php echo urlencode($filters['action']); ?>&days=<?php echo $filters['days']; ?>" class="px-3 py-2 rounded-lg bg-white/10 text-light hover:bg-white/20 transition-colors">1</a>
                             <?php if ($start > 2): ?>
                                 <span class="px-3 py-2 text-light-80">...</span>
                             <?php endif; ?>
                         <?php endif; ?>
-
                         <?php for ($i = $start; $i <= $end; $i++): ?>
                             <?php if ($i === $data['current_page']): ?>
                                 <button disabled class="px-3 py-2 rounded-lg bg-accent text-dark font-bold">
@@ -239,7 +214,6 @@ require_once 'header.php';
                                 </a>
                             <?php endif; ?>
                         <?php endfor; ?>
-
                         <?php if ($end < $data['pages']): ?>
                             <?php if ($end < $data['pages'] - 1): ?>
                                 <span class="px-3 py-2 text-light-80">...</span>
@@ -249,7 +223,6 @@ require_once 'header.php';
                             </a>
                         <?php endif; ?>
                     </div>
-
                     <?php if ($data['current_page'] < $data['pages']): ?>
                         <a href="?page=<?php echo $data['current_page'] + 1; ?>&user=<?php echo $filters['user']; ?>&action=<?php echo urlencode($filters['action']); ?>&days=<?php echo $filters['days']; ?>" class="px-4 py-2 rounded-xl bg-accent text-dark font-medium hover:bg-accent/80 transition-colors flex items-center gap-2">
                             Suivant <i class="fas fa-chevron-right"></i>
@@ -265,5 +238,4 @@ require_once 'header.php';
         </div>
     </div>
 </section>
-
 <?php require_once 'footer.php'; ?>

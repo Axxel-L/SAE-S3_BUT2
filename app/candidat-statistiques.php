@@ -1,36 +1,21 @@
 <?php
-
-
-
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
-
-// ✅ CHARGER init.php POUR ACCÉDER AUX SERVICES
 require_once 'classes/init.php';
 require_once 'header.php';
-
-// ✅ VÉRIFIER QUE L'UTILISATEUR EST CANDIDAT
 if (!isCandidate()) {
     echo "<script>alert('Accès réservé aux candidats'); window.location.href = './dashboard.php';</script>";
     exit;
 }
 
 $id_utilisateur = (int)getAuthUserId();
-
-// ✅ RÉCUPÉRER LE SERVICE VIA SERVICECONTAINER
 $candidatStatsService = ServiceContainer::getCandidatStatisticsService();
-
-// ✅ UNE SEULE LIGNE DE LOGIQUE MÉTIER
 $data = $candidatStatsService->getCandidatStatistics($id_utilisateur);
-
-// ✅ EXTRAIRE LES DONNÉES
 $candidat = $data['candidat'];
 $stats = $data['stats'];
 $error = $data['error'];
-
 ?>
-
 <br><br><br>
 <section class="py-20 px-6">
     <div class="container mx-auto max-w-7xl">
@@ -40,7 +25,6 @@ $error = $data['error'];
             </h1>
             <p class="text-xl text-light/80">Suivez la performance de <span class="accent-gradient font-bold"><?php echo htmlspecialchars($candidat['titre_jeu'] ?? 'votre jeu'); ?></span></p>
         </div>
-
         <?php if (!empty($error)): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
                 <i class="fas fa-exclamation-circle text-red-400"></i>
@@ -201,5 +185,4 @@ $error = $data['error'];
         </div>
     </div>
 </section>
-
 <?php require_once 'footer.php'; ?>

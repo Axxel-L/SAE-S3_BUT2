@@ -1,116 +1,68 @@
 <?php
-/**
- * joueur-events-refactored.php
- * 
- * Logique métier refactorisée avec architecture SOLID
- * Utilise EventService pour gestion des événements
- */
-
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
-
 require_once 'classes/init.php';
-
-// ========== VÉRIFICATIONS D'ACCÈS ==========
-
-// 1. Vérifier authentification
 if (!AuthenticationService::isAuthenticated()) {
     header('Location: index.php');
     exit;
 }
 
-// 2. Vérifier type joueur
 if (AuthenticationService::getAuthenticatedUserType() !== 'joueur') {
     header('Location: index.php');
     exit;
 }
 
-// 3. Récupérer ID utilisateur
 $userId = AuthenticationService::getAuthenticatedUserId();
-
-// ========== INITIALISATION SERVICES ==========
-
 $db = DatabaseConnection::getInstance();
 $eventService = ServiceContainer::getEventService();
-
 $error = '';
 $success = '';
-
-// ========== MISE À JOUR STATUTS ==========
-
-// Appeler procédure stockée pour mettre à jour statuts (optionnel)
 try {
     $db->query("CALL update_event_statuts()");
-} catch (Exception $e) {
-    // Erreur non bloquante
-}
-
-// ========== RÉCUPÉRATION ÉVÉNEMENTS ==========
+} catch (Exception $e) {}
 
 $events = [];
 $eventResult = $eventService->getActiveEvents($userId);
-
 if (!$eventResult['success']) {
     $error = implode(' | ', $eventResult['errors']);
 } else {
     $events = $eventResult['events'] ?? [];
 }
 
-// ========== INSCRIPTION À UN ÉVÉNEMENT ==========
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && 
     isset($_POST['action']) && 
     $_POST['action'] === 'register') {
-    
     $eventId = intval($_POST['id_evenement'] ?? 0);
-    
-    // Appeler service inscription
     $registerResult = $eventService->registerEvent($userId, $eventId);
-    
     if ($registerResult['success']) {
         $success = "Inscription réussie ! ✅";
-        
-        // Rafraîchir la liste événements
         $eventResult = $eventService->getActiveEvents($userId);
         if ($eventResult['success']) {
             $events = $eventResult['events'] ?? [];
         }
-        
-        // Reset error
         $error = '';
     } else {
         $error = implode(' | ', $registerResult['errors']);
     }
 }
 
-// ========== DÉSINSCRIPTION (OPTIONNEL) ==========
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && 
     isset($_POST['action']) && 
     $_POST['action'] === 'unregister') {
-    
     $eventId = intval($_POST['id_evenement'] ?? 0);
-    
-    // Appeler service désinscription
     $unregisterResult = $eventService->unregisterEvent($userId, $eventId);
-    
     if ($unregisterResult['success']) {
         $success = "Désinscription réussie ! ✅";
-        
-        // Rafraîchir la liste
         $eventResult = $eventService->getActiveEvents($userId);
         if ($eventResult['success']) {
             $events = $eventResult['events'] ?? [];
         }
-        
         $error = '';
     } else {
         $error = implode(' | ', $unregisterResult['errors']);
     }
 }
-
-// ========== CONFIGURATION STATUTS ==========
 
 $statut_config = [
     'preparation' => [
@@ -157,14 +109,8 @@ $color_classes = [
     'purple' => ['bg' => 'bg-purple-500/20', 'text' => 'text-purple-400', 'border' => 'border-purple-500/30'],
     'red' => ['bg' => 'bg-red-500/20', 'text' => 'text-red-400', 'border' => 'border-red-500/30']
 ];
-
-// ========== INCLURE TEMPLATE ==========
-
-
-
 require_once 'header.php';
-?>
-                                                                                           
+?>                                                                                        
 <section class="py-20 px-6">
     <div class="container mx-auto max-w-7xl">
         <div class="text-center mb-12">
@@ -186,8 +132,6 @@ require_once 'header.php';
                 <span class="text-green-400"><?php echo htmlspecialchars($success); ?></span>
             </div>
         <?php endif; ?>
-
-        <!-- Explication -->
         <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10 mb-8">
             <h3 class="text-2xl font-bold font-orbitron mb-6 flex items-center gap-2">
                 <i class="fas fa-info-circle text-accent"></i> Comment ça marche ?
@@ -209,7 +153,6 @@ require_once 'header.php';
                 </div>
             </div>
         </div>
-
         <?php if (empty($events)): ?>
             <div class="glass-card rounded-3xl p-12 modern-border border-2 border-white/10 text-center">
                 <i class="fas fa-inbox text-6xl text-light-80 mb-4"></i>
@@ -322,7 +265,6 @@ require_once 'header.php';
                 </div>
             </div>
         <?php endif; ?>
-        
         <div class="text-center mt-12">
             <a href="./dashboard.php" class="inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-white/5 border-2 border-white/10 hover:border-accent/50 hover:bg-white/10 transition-all duration-300 text-lg">
                 <i class="fas fa-arrow-left"></i> Retour

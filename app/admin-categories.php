@@ -2,11 +2,7 @@
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
-
 require_once 'classes/init.php';
-
-// ==================== VÉRIFICATION ACCÈS ====================
-
 if (!isset($_SESSION['id_utilisateur']) || ($_SESSION['type'] ?? '') !== 'admin') {
     echo "<script>
         alert('Accès réservé aux administrateurs');
@@ -14,41 +10,25 @@ if (!isset($_SESSION['id_utilisateur']) || ($_SESSION['type'] ?? '') !== 'admin'
     </script>";
     exit;
 }
-
-// ==================== SERVICES ====================
-
 $adminCategoryService = ServiceContainer::getAdminCategoryService();
 $adminEventService = ServiceContainer::getAdminEventService();
-
-// ==================== VARIABLES ====================
-
 $id_utilisateur = $_SESSION['id_utilisateur'];
 $id_evenement = (int)($_GET['event'] ?? 0);
 $error = '';
 $success = '';
-
-// ==================== RÉCUPÉRATION EVENT ====================
-
 $events = $adminEventService->getAllEvents();
 $event = null;
-
 foreach ($events as $e) {
     if ($e['id_evenement'] == $id_evenement) {
         $event = $e;
         break;
     }
 }
-
 if (!$event) {
     header('Location: admin-events.php');
     exit;
 }
-
-// ==================== ACTIONS ====================
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    
-    // ➕ Créer catégorie
     if ($_POST['action'] === 'create_category') {
         $result = $adminCategoryService->createCategory(
             $_POST['nom'] ?? '',
@@ -56,22 +36,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $id_evenement,
             $id_utilisateur
         );
-
         if ($result['success']) {
             $success = $result['message'];
         } else {
             $error = $result['message'];
         }
     }
-    
-    // 🗑️ Supprimer catégorie
+
     elseif ($_POST['action'] === 'delete_category') {
         $result = $adminCategoryService->deleteCategory(
             (int)($_POST['id_categorie'] ?? 0),
             $id_evenement,
             $id_utilisateur
         );
-
         if ($result['success']) {
             $success = $result['message'];
         } else {
@@ -80,14 +57,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 }
 
-// ==================== RÉCUPÉRATION DONNÉES ====================
-
 $categories = $adminCategoryService->getCategoriesByEvent($id_evenement);
 $nbCandidaturesAttente = $adminCategoryService->countEventPendingApplications($id_evenement);
-
 require_once 'header.php';
 ?>
-
 <br><br><br>
 <section class="py-20 px-6">
     <div class="container mx-auto max-w-7xl">
@@ -110,7 +83,6 @@ require_once 'header.php';
                 </a>
             </div>
         </div>
-
         <!-- Messages d'erreur/succès -->
         <?php if ($error): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
@@ -118,15 +90,12 @@ require_once 'header.php';
                 <span class="text-red-400"><?php echo htmlspecialchars($error); ?></span>
             </div>
         <?php endif; ?>
-
         <?php if ($success): ?>
             <div class="mb-8 p-4 rounded-2xl bg-green-500/10 border border-green-500/30 flex items-center gap-3">
                 <i class="fas fa-check-circle text-green-400"></i>
                 <span class="text-green-400"><?php echo htmlspecialchars($success); ?></span>
             </div>
         <?php endif; ?>
-
-        <!-- Info sur le système -->
         <div class="mb-8 p-4 rounded-2xl bg-blue-500/10 border border-blue-500/30">
             <p class="text-blue-400">
                 <i class="fas fa-info-circle mr-2"></i>
@@ -137,27 +106,21 @@ require_once 'header.php';
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            <!-- ➕ Formulaire création catégorie -->
             <div class="lg:col-span-1">
                 <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10 sticky top-8">
                     <h2 class="text-2xl font-bold font-orbitron mb-6 flex items-center gap-2">
                         <i class="fas fa-plus text-accent"></i>Créer une catégorie
                     </h2>
-                    
                     <form method="POST" class="space-y-4">
                         <input type="hidden" name="action" value="create_category">
-                        
                         <div>
                             <label class="block mb-2 text-light-80">Nom *</label>
                             <input type="text" name="nom" required class="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 focus:border-accent/50 outline-none text-light" placeholder="Ex: Meilleur Gameplay">
                         </div>
-                        
                         <div>
                             <label class="block mb-2 text-light-80">Description</label>
                             <textarea name="description" rows="3" class="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 focus:border-accent/50 outline-none text-light" placeholder="Description de la catégorie..."></textarea>
                         </div>
-                        
                         <button type="submit" class="w-full px-6 py-3 rounded-2xl bg-accent text-dark font-bold hover:bg-accent/80 transition-colors">
                             <i class="fas fa-plus mr-2"></i>Créer
                         </button>
@@ -165,13 +128,12 @@ require_once 'header.php';
                 </div>
             </div>
 
-            <!-- 📋 Liste des catégories -->
+            <!-- Liste des catégories -->
             <div class="lg:col-span-2">
                 <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10">
                     <h2 class="text-2xl font-bold font-orbitron mb-6 flex items-center gap-2">
                         <i class="fas fa-list text-accent"></i>Catégories (<?php echo count($categories); ?>)
                     </h2>
-                    
                     <?php if (empty($categories)): ?>
                         <div class="text-center py-12">
                             <i class="fas fa-inbox text-4xl text-light-80 mb-3"></i>
@@ -200,8 +162,6 @@ require_once 'header.php';
                                             </button>
                                         </form>
                                     </div>
-                                    
-                                    <!-- Stats -->
                                     <div class="flex flex-wrap gap-3 mb-4">
                                         <span class="px-3 py-1 rounded-2xl bg-green-500/20 border border-green-500/30 text-green-400 text-sm">
                                             <i class="fas fa-gamepad mr-1"></i>
@@ -214,8 +174,6 @@ require_once 'header.php';
                                             </a>
                                         <?php endif; ?>
                                     </div>
-                                    
-                                    <!-- Jeux nominés -->
                                     <?php if (!empty($jeux_nomines)): ?>
                                         <div class="border-t border-white/10 pt-4">
                                             <p class="text-xs text-light-80 mb-3">Jeux approuvés (apparaîtront dans les votes) :</p>
@@ -251,5 +209,4 @@ require_once 'header.php';
         </div>
     </div>
 </section>
-
 <?php require_once 'footer.php'; ?>
