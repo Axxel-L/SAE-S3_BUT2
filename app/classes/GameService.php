@@ -1,25 +1,11 @@
 <?php
 /**
- * GameService.php
- * 
- * Gère la logique métier des jeux
- * - Récupération des jeux
- * - Gestion des commentaires
- * - Statistiques des jeux
- * 
- * Single Responsibility: Logique métier jeux
+ * Gère la logique des jeux
  */
-
-
-
-
-
 class GameService {
-    
     private $db;
     private $validator;
     private $auditLogger;
-    
     public function __construct(
         $db,
         $validator,
@@ -32,7 +18,6 @@ class GameService {
     
     /**
      * Récupère les détails complets d'un jeu avec candidat
-     * 
      * @param int $gameId ID du jeu
      * @return array|null
      */
@@ -57,7 +42,6 @@ class GameService {
     
     /**
      * Ajoute un commentaire à un jeu
-     * 
      * @param int $userId ID utilisateur
      * @param int $gameId ID jeu
      * @param string $content Contenu du commentaire
@@ -65,48 +49,34 @@ class GameService {
      */
     public function addComment(int $userId, int $gameId, string $content): array {
         $errors = [];
-        
-        // Validation
         $content = htmlspecialchars(trim($content), ENT_QUOTES, 'UTF-8');
-        
         if (empty($content) || strlen($content) < 3) {
             $errors[] = "Le commentaire doit contenir au moins 3 caractères !";
         } elseif (strlen($content) > 1000) {
             $errors[] = "Le commentaire est trop long (max 1000 caractères) !";
         }
-        
         if (!empty($errors)) {
             return ['success' => false, 'errors' => $errors];
         }
-        
         try {
             $this->db->beginTransaction();
-            
-            // Vérifier le jeu existe
             $stmt = $this->db->prepare("SELECT id_jeu FROM jeu WHERE id_jeu = ?");
             $stmt->execute([$gameId]);
             if (!$stmt->fetch()) {
                 throw new Exception("Jeu non trouvé");
             }
-            
-            // Insérer le commentaire
             $stmt = $this->db->prepare("
                 INSERT INTO commentaire (id_utilisateur, id_jeu, contenu, date_commentaire) 
                 VALUES (?, ?, ?, NOW())
             ");
             $stmt->execute([$userId, $gameId, $content]);
-            
-            // Logger
             $this->auditLogger->logAction(
                 $userId,
                 'COMMENT_ADD',
                 "Jeu: $gameId"
             );
-            
             $this->db->commit();
-            
             return ['success' => true, 'errors' => []];
-            
         } catch (Exception $e) {
             if ($this->db->inTransaction()) {
                 $this->db->rollBack();
@@ -118,7 +88,6 @@ class GameService {
     
     /**
      * Récupère tous les commentaires d'un jeu
-     * 
      * @param int $gameId ID jeu
      * @return array
      */
@@ -150,7 +119,6 @@ class GameService {
     
     /**
      * Récupère les statistiques d'un jeu
-     * 
      * @param int $gameId ID jeu
      * @return array ['nb_votes_cat' => int, 'nb_votes_final' => int, 'nb_comments' => int]
      */
@@ -160,33 +128,26 @@ class GameService {
             'nb_votes_final' => 0,
             'nb_comments' => 0
         ];
-        
         try {
-            // Votes catégories
             $stmt = $this->db->prepare("SELECT COUNT(*) FROM bulletin_categorie WHERE id_jeu = ?");
             $stmt->execute([$gameId]);
             $stats['nb_votes_cat'] = (int)$stmt->fetchColumn();
             
-            // Votes finaux
             $stmt = $this->db->prepare("SELECT COUNT(*) FROM bulletin_final WHERE id_jeu = ?");
             $stmt->execute([$gameId]);
             $stats['nb_votes_final'] = (int)$stmt->fetchColumn();
             
-            // Commentaires
             $stmt = $this->db->prepare("SELECT COUNT(*) FROM commentaire WHERE id_jeu = ?");
             $stmt->execute([$gameId]);
             $stats['nb_comments'] = (int)$stmt->fetchColumn();
-            
         } catch (Exception $e) {
             error_log("GameService getGameStats Error: " . $e->getMessage());
         }
-        
         return $stats;
     }
     
     /**
      * Vérifie si un jeu existe
-     * 
      * @param int $gameId ID jeu
      * @return bool
      */
@@ -202,7 +163,6 @@ class GameService {
     
     /**
      * Récupère tous les jeux avec pagination
-     * 
      * @param int $limit Limite de résultats
      * @param int $offset Décalage
      * @return array
@@ -232,7 +192,6 @@ class GameService {
     
     /**
      * Recherche des jeux par titre ou éditeur
-     * 
      * @param string $search Terme de recherche
      * @return array
      */
@@ -253,5 +212,4 @@ class GameService {
         }
     }
 }
-
 ?>

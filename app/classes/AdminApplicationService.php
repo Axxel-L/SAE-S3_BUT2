@@ -1,6 +1,6 @@
 <?php
 /**
- * AdminApplicationService - Gestion des candidatures d'événements
+ * Gestion des candidatures d'événements
  */
 class AdminApplicationService
 {

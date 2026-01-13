@@ -1,10 +1,7 @@
 <?php
 /**
- * DatabaseConnection
- * Singleton pattern - Gestion de la connexion à la BD
- * SOLID: Single Responsibility (responsabilité unique: connexion BD)
+ * Gestion de la connexion à la BD
  */
-
 class DatabaseConnection {
     private static ?self $instance = null;
     private \PDO $pdo;

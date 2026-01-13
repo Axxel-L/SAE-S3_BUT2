@@ -1,12 +1,8 @@
 <?php
 /**
- * PasswordManager
  * Gestion du hachage et vérification des mots de passe
- * SOLID: Single Responsibility (responsabilité unique: mots de passe)
  */
-
 class PasswordManager {
-    // Constantes de hachage
     private const HASH_ALGO = 'sha256';
     private const SALT_LENGTH = 16;
     
@@ -37,19 +33,15 @@ class PasswordManager {
      */
     public static function validateComplexity(string $password): array {
         $errors = [];
-        
         if (strlen($password) < 8) {
             $errors[] = "Le mot de passe doit contenir au minimum 8 caractères";
         }
-        
         if (!preg_match('/[A-Z]/', $password)) {
             $errors[] = "Le mot de passe doit contenir au moins une majuscule";
         }
-        
         if (!preg_match('/[0-9]/', $password)) {
             $errors[] = "Le mot de passe doit contenir au moins un chiffre";
         }
-        
         return $errors;
     }
 }

@@ -1,34 +1,20 @@
-
 <?php
-
-
-
 /**
- * AuditLogger - Système d'audit centralisé
- * 
- * Responsabilité UNIQUE: Écrire dans journal_securite
- * 
- * Méthodes spécialisées pour:
- * - Authentification (login/logout/failures)
- * - Actions utilisateur
- * - Erreurs
- * - Événements sécurité
+ * Système d'audit centralisé
  */
 class AuditLogger
 {
     private DatabaseConnection $db;
-
     public function __construct(DatabaseConnection $db)
     {
         $this->db = $db;
     }
 
-
-
-    /** * 👤 USER REGISTRATION - Enregistre une inscription utilisateur * 
-     * * @param int $userId 
-     * * @param string $userType Type d'utilisateur (joueur, candidat, etc.) 
-     * * @return bool Succès */
+    /** Enregistre une inscription utilisateur
+     * @param int $userId 
+     * @param string $userType Type d'utilisateur
+     * @return bool Succès 
+     */
     public function logUserRegistration(int $userId, string $userType = 'joueur'): bool
     {
         $details = "Type: $userType | Nouvelle inscription";
@@ -36,8 +22,7 @@ class AuditLogger
     }
 
     /**
-     * 🗳️ VOTE CATEGORIE - Enregistre un vote en catégorie
-     * 
+     * Enregistre un vote en catégorie
      * @param int $userId
      * @param int $categoryId ID de la catégorie
      * @param int $eventId ID de l'événement
@@ -52,11 +37,8 @@ class AuditLogger
         return $this->log('VOTE_CATEGORY', $details, $userId);
     }
 
-    
-
     /**
-     * 🏆 VOTE FINAL - Enregistre un vote final
-     * 
+     * Enregistre un vote final
      * @param int $userId
      * @param int $gameId ID du jeu voté
      * @param int $eventId ID de l'événement
@@ -72,8 +54,7 @@ class AuditLogger
     }
 
     /**
-     * 👤 CANDIDATE REGISTRATION - Enregistre l'inscription d'un candidat
-     * 
+     * Enregistre l'inscription d'un candidat
      * @param int $userId
      * @param string $nom Nom/prénom du candidat
      * @param int $gameId ID du jeu choisi
@@ -90,8 +71,7 @@ class AuditLogger
 
 
     /**
-     * 📝 LOG GÉNÉRAL - Base pour tout logging
-     * 
+     * Base pour tout logging
      * @param string $action Type d'action (LOGIN, LOGOUT, UPDATE, etc.)
      * @param string $details Contexte optionnel
      * @param int|null $userId ID utilisateur (optionnel)
@@ -121,14 +101,11 @@ class AuditLogger
     }
 
     /**
-     * 🔐 LOGIN SUCCESS - Enregistre une connexion réussie
-     * 
+     * Enregistre une connexion réussie
      * @param int $userId
      * @param string|null $email (optionnel)
      * @param string|null $userType Type d'utilisateur (optionnel)
      * @return bool Succès
-     * 
-     * FLEXIBILITÉ: Accepte JUSTE l'userId si email/type pas dispo
      */
     public function logLoginSuccess(
         int $userId,
@@ -136,20 +113,17 @@ class AuditLogger
         ?string $userType = null
     ): bool {
         $details = "User ID: $userId";
-
         if (!empty($email)) {
             $details = "Email: $email";
         }
         if (!empty($userType)) {
             $details .= " | Type: $userType";
         }
-
         return $this->log('LOGIN_SUCCESS', $details, $userId);
     }
 
     /**
-     * ❌ LOGIN FAILURE - Enregistre un échec de connexion
-     * 
+     * Enregistre un échec de connexion
      * @param string $email Email qui a échoué
      * @param string $reason Raison de l'échec (optionnel)
      * @return bool Succès
@@ -163,8 +137,7 @@ class AuditLogger
     }
 
     /**
-     * 🔌 LOGOUT - Enregistre une déconnexion
-     * 
+     * Enregistre une déconnexion
      * @param int $userId
      * @param string $email (optionnel)
      * @return bool Succès
@@ -178,17 +151,11 @@ class AuditLogger
     }
 
     /**
-     * 👤 LOG CANDIDAT - Raccourci spécialisé pour les services Candidat
-     * 
-     * Récupère automatiquement l'utilisateur du candidat
-     * 
+     * Enregistre une action liée à un candidat
      * @param int $candidatId ID du candidat
      * @param string $action Type d'action
      * @param string $details Contexte optionnel
      * @return bool Succès
-     * 
-     * Exemple:
-     * $logger->logCandidatAction(5, 'PROFILE_UPDATE', 'Nom: Jean');
      */
     public function logCandidatAction(
         int $candidatId,
@@ -196,23 +163,19 @@ class AuditLogger
         string $details = ''
     ): bool {
         try {
-            // Récupérer l'utilisateur du candidat
             $stmt = $this->db->prepare("
                 SELECT id_utilisateur FROM candidat WHERE id_candidat = ?
             ");
             $stmt->execute([$candidatId]);
             $candidat = $stmt->fetch(\PDO::FETCH_ASSOC);
-
             if (!$candidat) {
                 error_log("AuditLogger::logCandidatAction() - Candidat non trouvé: $candidatId");
                 return false;
             }
-
             $fullDetails = "Candidat: $candidatId";
             if (!empty($details)) {
                 $fullDetails .= " | $details";
             }
-
             return $this->log($action, $fullDetails, $candidat['id_utilisateur']);
         } catch (\Exception $e) {
             error_log("AuditLogger::logCandidatAction() Error: " . $e->getMessage());
@@ -221,17 +184,11 @@ class AuditLogger
     }
 
     /**
-     * ⚠️ LOG ERREUR - Enregistre une erreur avec contexte
-     * 
+     * Enregistre une erreur avec contexte
      * @param string $action Contexte (quelle action a échoué)
      * @param \Exception $exception L'exception
-     * @param int|null $userId ID utilisateur (optionnel)
+     * @param int|null $userId ID utilisateur
      * @return bool Succès
-     * 
-     * Exemple:
-     * } catch (\Exception $e) {
-     *     $logger->logError('UPDATE_PROFILE', $e, $userId);
-     * }
      */
     public function logError(
         string $action,
@@ -249,11 +206,10 @@ class AuditLogger
     }
 
     /**
-     * 🔐 LOG SÉCURITÉ - Pour actions critiques
-     * 
+     * Enregistre une actions critiques
      * @param string $action Type d'action sécurité
-     * @param string $reason Raison/détail
-     * @param int|null $userId ID utilisateur (optionnel)
+     * @param string $reason Raison
+     * @param int|null $userId ID utilisateur
      * @return bool Succès
      */
     public function logSecurityEvent(
@@ -266,9 +222,8 @@ class AuditLogger
     }
 
     /**
-     * 🚫 ACCESS DENIED - Enregistre un accès refusé
-     * 
-     * @param int|null $userId ID utilisateur (optionnel)
+     * Enregistre un accès refusé
+     * @param int|null $userId ID utilisateur
      * @param string $resource Ressource demandée
      * @param string $reason Raison du refus
      * @return bool Succès
@@ -283,8 +238,7 @@ class AuditLogger
     }
 
     /**
-     * 🗑️ DATA DELETE - Enregistre une suppression
-     * 
+     * Enregistre une suppression
      * @param int $userId
      * @param string $entityType Type d'entité supprimée
      * @param int $entityId ID de l'entité
@@ -300,8 +254,7 @@ class AuditLogger
     }
 
     /**
-     * 📊 RÉCUPÈRE LES LOGS D'UN UTILISATEUR
-     * 
+     * Récupère les logs d'un utilisateur
      * @param int $userId
      * @param int $limit Nombre de logs max
      * @return array[] Liste des logs
@@ -324,8 +277,7 @@ class AuditLogger
     }
 
     /**
-     * 📊 RÉCUPÈRE LES LOGS D'UNE ACTION
-     * 
+     * Récupère les logs d'une action spécifique
      * @param string $action Type d'action
      * @param int $limit
      * @return array[] Liste des logs
@@ -348,8 +300,7 @@ class AuditLogger
     }
 
     /**
-     * 📊 RÉCUPÈRE LES LOGS RÉCENTS
-     * 
+     * Récupère les logs récents
      * @param int $limit
      * @return array[] Liste des logs
      */
@@ -370,8 +321,7 @@ class AuditLogger
     }
 
     /**
-     * 📊 RÉCUPÈRE LES LOGS DE SÉCURITÉ
-     * 
+     * Récupère les logs de sécurité
      * @param int $days Nombre de jours (défaut 7)
      * @return array[] Liste des logs sécurité
      */
@@ -393,8 +343,7 @@ class AuditLogger
     }
 
     /**
-     * 🔍 RÉCUPÈRE LES LOGS D'ERREURS
-     * 
+     * Récupère les logs d'erreurs
      * @param int $limit
      * @return array[] Liste des erreurs
      */
@@ -416,8 +365,7 @@ class AuditLogger
     }
 
     /**
-     * 🧹 NETTOIE LES VIEUX LOGS
-     * 
+     * Nettoie les vieux logs 
      * @param int $daysOld Nombre de jours
      * @return int Nombre de logs supprimés
      */

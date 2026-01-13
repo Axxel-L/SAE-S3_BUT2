@@ -1,16 +1,11 @@
 <?php
 /**
- * UserService
  * Service de gestion des utilisateurs
- * SOLID: Single Responsibility (CRUD utilisateurs)
- *        Dependency Inversion (injecte ValidationService, PasswordManager, AuditLogger)
  */
-
 class UserService {
     private DatabaseConnection $db;
     private ValidationService $validator;
     private AuditLogger $auditLogger;
-    
     public function __construct(
         DatabaseConnection $db,
         ValidationService $validator,
@@ -23,7 +18,6 @@ class UserService {
     
     /**
      * Crée un nouvel utilisateur
-     * 
      * @return array ['success' => bool, 'user' => User|null, 'errors' => string[]]
      */
     public function register(
@@ -34,27 +28,18 @@ class UserService {
         string $type = 'joueur'
     ): array {
         $errors = [];
-        
-        // Valider email
         $errors = array_merge($errors, $this->validator->validateEmail($email));
-        
-        // Valider pseudo pour les joueurs
         if ($type === 'joueur') {
             $errors = array_merge($errors, $this->validator->validatePseudo($pseudo));
         }
-        
-        // Valider mot de passe
         $errors = array_merge(
             $errors,
             $this->validator->validatePassword($password, $confirmPassword)
         );
-        
         if (!empty($errors)) {
             return ['success' => false, 'user' => null, 'errors' => $errors];
         }
-        
         try {
-            // Vérifier email unique
             $stmt = $this->db->prepare("SELECT id_utilisateur FROM utilisateur WHERE email = ?");
             $stmt->execute([$email]);
             if ($stmt->fetch()) {
@@ -64,8 +49,6 @@ class UserService {
                     'errors' => ['Cet email est déjà utilisé']
                 ];
             }
-            
-            // Vérifier pseudo unique pour joueurs
             if ($type === 'joueur' && !empty($pseudo)) {
                 $stmt = $this->db->prepare("SELECT id_utilisateur FROM utilisateur WHERE pseudo = ?");
                 $stmt->execute([$pseudo]);
@@ -78,17 +61,14 @@ class UserService {
                 }
             }
             
-            // Créer l'utilisateur
             $salt = PasswordManager::generateSalt();
             $passwordHash = PasswordManager::hashPassword($password, $salt);
             $pseudoToSave = ($type === 'joueur') ? $pseudo : null;
-            
             $stmt = $this->db->prepare("
                 INSERT INTO utilisateur 
                 (email, pseudo, mot_de_passe, salt, type, date_inscription)
                 VALUES (?, ?, ?, ?, ?, NOW())
             ");
-            
             $success = $stmt->execute([
                 $email,
                 $pseudoToSave,
@@ -96,7 +76,6 @@ class UserService {
                 $salt,
                 $type
             ]);
-            
             if (!$success) {
                 return [
                     'success' => false,
@@ -107,10 +86,7 @@ class UserService {
             
             $userId = $this->db->lastInsertId();
             $user = new User($userId, $email, $pseudoToSave ?? '', $passwordHash, $salt, $type);
-            
-            // Logger
             $this->auditLogger->logUserRegistration($userId, $type);
-            
             return ['success' => true, 'user' => $user, 'errors' => [], 'id' => $userId];
         } catch (\Exception $e) {
             error_log("Register Error: " . $e->getMessage());
@@ -158,7 +134,6 @@ class UserService {
         if (!empty($errors)) {
             return ['success' => false, 'errors' => $errors];
         }
-        
         try {
             $stmt = $this->db->prepare("UPDATE utilisateur SET pseudo = ? WHERE id_utilisateur = ?");
             $success = $stmt->execute([$pseudo, $userId]);
@@ -173,38 +148,26 @@ class UserService {
      */
     public function changePassword(int $userId, string $oldPassword, string $newPassword): array {
         $errors = [];
-        
-        // Valider le nouveau mot de passe
         $errors = array_merge($errors, $this->validator->validatePassword($newPassword));
-        
         if (!empty($errors)) {
             return ['success' => false, 'errors' => $errors];
         }
-        
         try {
             $user = $this->getUserById($userId);
             if (!$user) {
                 return ['success' => false, 'errors' => ['Utilisateur non trouvé']];
             }
-            
-            // Vérifier ancien mot de passe
             if (!PasswordManager::verifyPassword($oldPassword, $user->getPasswordHash(), $user->getSalt())) {
                 return ['success' => false, 'errors' => ['Ancien mot de passe incorrect']];
             }
-            
-            // Générer le nouveau hash
             $newSalt = PasswordManager::generateSalt();
             $newHash = PasswordManager::hashPassword($newPassword, $newSalt);
-            
-            // Mettre à jour
             $stmt = $this->db->prepare("
                 UPDATE utilisateur 
                 SET mot_de_passe = ?, salt = ? 
                 WHERE id_utilisateur = ?
             ");
-            
             $success = $stmt->execute([$newHash, $newSalt, $userId]);
-            
             return ['success' => $success, 'errors' => []];
         } catch (\Exception $e) {
             return ['success' => false, 'errors' => ['Erreur système']];

@@ -1,32 +1,15 @@
 <?php
-
 /**
- * init.php - UPDATED with EventService
- * Bootstrappe toute l'architecture SOLID
- * 
- * Utilisation:
- * require_once 'classes/init.php';
- * $authService = ServiceContainer::getAuthenticationService();
- * $eventService = ServiceContainer::getEventService();
+ * Bootstrappe toute l'architecture de l'application
  */
 
-
-// ==================== CHARGEMENT DES CLASSES ====================
-
-
-// Database
+// Base de données
 require_once __DIR__ . '/DatabaseConnection.php';
-
-
-// Models
+// Modèles
 require_once __DIR__ . '/User.php';
-
-
-// Security
+// Sécurité
 require_once __DIR__ . '/PasswordManager.php';
 require_once __DIR__ . '/AuditLogger.php';
-
-
 // Services
 require_once __DIR__ . '/ValidationService.php';
 require_once __DIR__ . '/AuthenticationService.php';
@@ -50,18 +33,13 @@ require_once __DIR__ . '/AdminEventService.php';
 require_once __DIR__ . '/AdminApplicationService.php';
 require_once __DIR__ . '/AdminCandidateService.php';
 
-// ==================== SERVICE CONTAINER (INJECTION DE DÉPENDANCES) ====================
-
-
 /**
- * ServiceContainer
  * Conteneur d'injection de dépendances
  * Gère la création et le cache des services
  */
 class ServiceContainer
 {
     private static array $services = [];
-
     /**
      * Récupère l'instance DatabaseConnection (Singleton)
      */
@@ -178,11 +156,6 @@ class ServiceContainer
         return self::$candidatEventsService;
     }
 
-
-
-
-
-
     public static function getDashboardService(): DashboardService
     {
         if (!isset(self::$services['dashboardService'])) {
@@ -218,8 +191,6 @@ class ServiceContainer
         }
         return self::$services['candidatProfileService'];
     }
-
-
 
     /**
      *  Récupère le ResultatsService
@@ -371,7 +342,7 @@ class ServiceContainer
     }
 
     /**
-     * ✅ NOUVEAU! Récupère l'EventService
+     * Récupère l'EventService
      */
     public static function getEventService(): EventService
     {
@@ -386,17 +357,9 @@ class ServiceContainer
     }
 }
 
-
-// ==================== SETUP SESSION ====================
-
-
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-
-
-// ==================== AIDE: UTILITY HELPERS ====================
-
 
 /**
  * Récupère l'ID utilisateur connecté
@@ -406,7 +369,6 @@ function getAuthUserId(): ?int
     return AuthenticationService::getAuthenticatedUserId();
 }
 
-
 /**
  * Vérifie si l'utilisateur est connecté
  */
@@ -415,7 +377,6 @@ function isLogged(): bool
     return AuthenticationService::isAuthenticated();
 }
 
-
 /**
  * Vérifie si l'utilisateur est admin
  */
@@ -423,7 +384,6 @@ function isAdmin(): bool
 {
     return AuthenticationService::isAdmin();
 }
-
 
 /**
  * Vérifie si l'utilisateur est candidat
@@ -435,13 +395,12 @@ function isCandidate(): bool
 
 
 /**
- * ✅ NOUVEAU! Vérifie si l'utilisateur est joueur
+ * Vérifie si l'utilisateur est joueur
  */
 function isPlayer(): bool
 {
     return AuthenticationService::getAuthenticatedUserType() === 'joueur';
 }
-
 
 /**
  * Redirect avec message
@@ -455,7 +414,6 @@ function redirect(string $url, ?string $message = null, string $type = 'info'): 
     header("Location: $url");
     exit;
 }
-
 
 /**
  * Récupère et efface le message de session

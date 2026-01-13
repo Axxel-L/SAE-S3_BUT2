@@ -1,29 +1,12 @@
 <?php
-
-
-
 /**
- * AdminCategoryService - Gestion des catégories d'événements (Admin)
- * 
- * Responsabilités:
- * - CRUD catégories
- * - Récupération des catégories avec stats
- * - Gestion des jeux nominés par catégorie
- * - Validation des données
- * 
- * SOLID principles:
- * - S: Une seule responsabilité (gestion catégories)
- * - O: Facile d'ajouter de nouvelles stats/filtres
- * - L: Services substitutables
- * - I: Méthodes spécifiques et claires
- * - D: Dépendances injectées (DB, ValidationService, AuditLogger)
+ * Gestion des catégories d'événements
  */
 class AdminCategoryService
 {
     private DatabaseConnection $db;
     private ValidationService $validationService;
     private AuditLogger $auditLogger;
-
     public function __construct(
         DatabaseConnection $db,
         ValidationService $validationService,
@@ -35,8 +18,7 @@ class AdminCategoryService
     }
 
     /**
-     * 📋 Récupère toutes les catégories d'un événement avec stats
-     * 
+     * Récupère toutes les catégories d'un événement avec stats
      * @param int $eventId ID de l'événement
      * @return array[] Liste des catégories avec nombre de jeux nominés
      */
@@ -60,8 +42,7 @@ class AdminCategoryService
     }
 
     /**
-     * 📊 Récupère les jeux nominés pour une catégorie
-     * 
+     * Récupère les jeux nominés pour une catégorie
      * @param int $categoryId ID de la catégorie
      * @param int $eventId ID de l'événement
      * @return array[] Liste des jeux nominés
@@ -85,8 +66,7 @@ class AdminCategoryService
     }
 
     /**
-     * 📊 Compte les candidatures en attente pour une catégorie
-     * 
+     * Compte les candidatures en attente pour une catégorie 
      * @param int $categoryId ID de la catégorie
      * @param int $eventId ID de l'événement
      * @return int Nombre de candidatures en attente
@@ -107,8 +87,7 @@ class AdminCategoryService
     }
 
     /**
-     * 📊 Compte TOUTES les candidatures en attente pour un événement
-     * 
+     * Compte les candidatures en attente pour un événement
      * @param int $eventId ID de l'événement
      * @return int Nombre de candidatures en attente
      */
@@ -144,35 +123,28 @@ class AdminCategoryService
     ): array {
         $nom = trim($nom);
         $description = trim($description);
-
         if (empty($nom)) {
             return [
                 'success' => false,
                 'message' => 'Le nom est obligatoire!'
             ];
         }
-
         try {
             $stmt = $this->db->prepare("
                 INSERT INTO categorie (nom, description, id_evenement)
                 VALUES (?, ?, ?)
             ");
-
             $stmt->execute([
                 $nom,
                 !empty($description) ? $description : null,
                 $eventId
             ]);
-
             $newCategoryId = (int)$this->db->lastInsertId();
-
-            // Log audit
             $this->auditLogger->log(
                 'ADMIN_CATEGORY_CREATE',
                 "Catégorie '$nom' créée pour événement #$eventId",
                 $adminId
             );
-
             return [
                 'success' => true,
                 'message' => 'Catégorie créée avec succès!',
@@ -188,8 +160,7 @@ class AdminCategoryService
     }
 
     /**
-     * 🗑️ Supprime une catégorie
-     * 
+     * Supprime une catégorie
      * @param int $categoryId ID de la catégorie à supprimer
      * @param int $eventId ID de l'événement (sécurité)
      * @param int $adminId ID de l'admin qui supprime
@@ -198,38 +169,30 @@ class AdminCategoryService
     public function deleteCategory(int $categoryId, int $eventId, int $adminId): array
     {
         try {
-            // Récupérer le nom pour le log
             $stmt = $this->db->prepare("SELECT nom FROM categorie WHERE id_categorie = ?");
             $stmt->execute([$categoryId]);
             $category = $stmt->fetch(\PDO::FETCH_ASSOC);
-
             if (!$category) {
                 return [
                     'success' => false,
                     'message' => 'Catégorie non trouvée!'
                 ];
             }
-
-            // Supprimer la catégorie (vérifier qu'elle appartient à l'événement)
             $stmt = $this->db->prepare(
                 "DELETE FROM categorie WHERE id_categorie = ? AND id_evenement = ?"
             );
             $stmt->execute([$categoryId, $eventId]);
-
             if ($stmt->rowCount() === 0) {
                 return [
                     'success' => false,
                     'message' => 'Catégorie non trouvée dans cet événement!'
                 ];
             }
-
-            // Log audit
             $this->auditLogger->log(
                 'ADMIN_CATEGORY_DELETE',
                 "Catégorie '{$category['nom']}' (#$categoryId) supprimée",
                 $adminId
             );
-
             return [
                 'success' => true,
                 'message' => 'Catégorie supprimée!'
@@ -244,8 +207,7 @@ class AdminCategoryService
     }
 
     /**
-     * 🎯 Récupère une catégorie avec tous ses détails
-     * 
+     * Récupère une catégorie
      * @param int $categoryId ID de la catégorie
      * @param int $eventId ID de l'événement (sécurité)
      * @return array|null Détails de la catégorie

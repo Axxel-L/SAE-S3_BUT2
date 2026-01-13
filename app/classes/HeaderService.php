@@ -1,23 +1,10 @@
 <?php
 /**
- * HeaderService.php - CORRIGÉ
- * 
- * Gère la logique de l'en-tête (navbar)
- * - Mise à jour des statuts événements
- * - Données d'authentification
- * - Menu items dynamiques
- * - Labels utilisateurs
+ * Gère la logique de l'en-tête
  */
-
-
-
-
-
 class HeaderService {
-    
     private $db;
     private $authService;
-    
     public function __construct($db, $authService) {
         $this->db = $db;
         $this->authService = $authService;
@@ -25,28 +12,23 @@ class HeaderService {
     
     /**
      * Met à jour les statuts des événements selon les dates
-     * 
      * @return bool
      */
     public function updateEventStatuses(): bool {
         try {
-            // Essayer via procédure stockée
             $this->db->query("CALL update_event_statuts()");
             return true;
         } catch (Exception $e) {
-            // Fallback: mise à jour manuelle
             return $this->updateEventStatusesFallback();
         }
     }
     
     /**
-     * Fallback pour mise à jour des statuts (sans procédure stockée)
-     * 
+     * Fallback pour mise à jour des statuts
      * @return bool
      */
     private function updateEventStatusesFallback(): bool {
         try {
-            // Ouvert catégories
             $stmt = $this->db->prepare("
                 UPDATE evenement
                 SET statut = 'ouvert_categories'
@@ -55,8 +37,6 @@ class HeaderService {
                 AND NOW() < date_fermeture
             ");
             $stmt->execute();
-            
-            // Fermé catégories
             $stmt = $this->db->prepare("
                 UPDATE evenement
                 SET statut = 'ferme_categories'
@@ -65,8 +45,6 @@ class HeaderService {
                 AND (date_debut_vote_final IS NULL OR NOW() < date_debut_vote_final)
             ");
             $stmt->execute();
-            
-            // Ouvert final
             $stmt = $this->db->prepare("
                 UPDATE evenement
                 SET statut = 'ouvert_final'
@@ -76,8 +54,6 @@ class HeaderService {
                 AND NOW() < date_fermeture_vote_final
             ");
             $stmt->execute();
-            
-            // Clôturé
             $stmt = $this->db->prepare("
                 UPDATE evenement
                 SET statut = 'cloture'
@@ -86,8 +62,6 @@ class HeaderService {
                 AND NOW() >= date_fermeture_vote_final
             ");
             $stmt->execute();
-            
-            // Clôturé sans vote final
             $stmt = $this->db->prepare("
                 UPDATE evenement
                 SET statut = 'cloture'
@@ -96,7 +70,6 @@ class HeaderService {
                 AND NOW() >= DATE_ADD(date_fermeture, INTERVAL 1 DAY)
             ");
             $stmt->execute();
-            
             return true;
         } catch (Exception $e) {
             error_log("HeaderService updateEventStatusesFallback Error: " . $e->getMessage());
@@ -106,7 +79,6 @@ class HeaderService {
     
     /**
      * Récupère les données de connexion de l'utilisateur
-     * 
      * @return array ['isLogged' => bool, 'userType' => string, 'userId' => int|null]
      */
     public function getAuthenticationData(): array {
@@ -118,21 +90,14 @@ class HeaderService {
     }
     
     /**
-     * Récupère les items de menu selon le type d'utilisateur
-     * 
-     * ✅ CORRIGÉ: Accepte ?string = null et convertit en 'visiteur' par défaut
-     * 
+     * Récupère les items du menu selon le type d'utilisateur
      * @param ?string $userType Type d'utilisateur (null converti en 'visiteur')
      * @param bool $isMobile Format mobile ou desktop
      * @return array
      */
     public function getMenuItems(?string $userType = null, bool $isMobile = false): array {
-        // ✅ FIX: Convertir null en 'visiteur'
         $userType = $userType ?? 'visiteur';
-        
         $items = [];
-        
-        // Menu public (non connecté)
         if ($userType === 'visiteur' || $userType === '') {
             $items['home'] = [
                 'label' => 'Accueil',
@@ -153,16 +118,12 @@ class HeaderService {
                 'visible' => true
             ];
         }
-        
-        // Menu résultats (pour tous)
         $items['results'] = [
             'label' => 'Résultats',
             'url' => 'resultats.php',
             'icon' => 'fa-trophy',
             'visible' => true
         ];
-        
-        // Menu joueur
         if ($userType === 'joueur') {
             $items['events'] = [
                 'label' => 'Événements',
@@ -195,8 +156,6 @@ class HeaderService {
                 'visible' => true
             ];
         }
-        
-        // Menu admin
         if ($userType === 'admin') {
             $items['admin_events'] = [
                 'label' => 'Événements',
@@ -229,8 +188,6 @@ class HeaderService {
                 'visible' => true
             ];
         }
-        
-        // Menu candidat
         if ($userType === 'candidat') {
             $items['candidat_profile'] = [
                 'label' => 'Mon Profil',
@@ -257,29 +214,23 @@ class HeaderService {
                 'visible' => true
             ];
         }
-        
         return $items;
     }
     
     /**
      * Récupère le label du type d'utilisateur
-     * 
      * @param ?string $userType Type d'utilisateur
      * @return string
      */
     public function getUserTypeLabel(?string $userType = null): string {
-        // ✅ FIX: Convertir null en 'visiteur'
-        $userType = $userType ?? 'visiteur';
-        
+        $userType = $userType ?? 'visiteur';        
         $labels = [
             'joueur' => 'Joueur',
             'admin' => 'Administrateur',
             'candidat' => 'Candidat',
             'visiteur' => 'Visiteur'
         ];
-        
         return $labels[$userType] ?? ucfirst($userType);
     }
 }
-
 ?>

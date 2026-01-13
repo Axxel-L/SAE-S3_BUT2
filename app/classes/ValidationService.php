@@ -1,24 +1,18 @@
 <?php
 /**
- * ValidationService
- * Service centralisé de validation des données
- * SOLID: Single Responsibility (validations)
- *        Dependency Inversion (injecté dans les autres services)
+ * Service de validation des données
  */
-
 class ValidationService {
     /**
      * Valide un email
      */
     public static function validateEmail(string $email): array {
         $errors = [];
-        
         if (empty($email)) {
             $errors[] = "L'email est requis";
         } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $errors[] = "L'email est invalide";
         }
-        
         return $errors;
     }
     
@@ -27,7 +21,6 @@ class ValidationService {
      */
     public static function validatePseudo(string $pseudo, int $minLength = 3, int $maxLength = 30): array {
         $errors = [];
-        
         if (empty($pseudo)) {
             $errors[] = "Le pseudo est requis";
         } elseif (strlen($pseudo) < $minLength) {
@@ -35,7 +28,6 @@ class ValidationService {
         } elseif (strlen($pseudo) > $maxLength) {
             $errors[] = "Le pseudo doit contenir au maximum $maxLength caractères";
         }
-        
         return $errors;
     }
     
@@ -44,17 +36,14 @@ class ValidationService {
      */
     public static function validatePassword(string $password, string $confirm = ''): array {
         $errors = [];
-        
         if (empty($password)) {
             $errors[] = "Le mot de passe est requis";
         } elseif (strlen($password) < 8) {
             $errors[] = "Le mot de passe doit contenir au minimum 8 caractères";
         }
-        
         if (!empty($confirm) && $password !== $confirm) {
             $errors[] = "Les mots de passe ne correspondent pas";
         }
-        
         return $errors;
     }
     
@@ -63,11 +52,9 @@ class ValidationService {
      */
     public static function validateUrl(string $url): array {
         $errors = [];
-        
         if (!empty($url) && !filter_var($url, FILTER_VALIDATE_URL)) {
             $errors[] = "L'URL est invalide: $url";
         }
-        
         return $errors;
     }
     
@@ -76,7 +63,6 @@ class ValidationService {
      */
     public static function validateText(string $text, int $minLength = 1, int $maxLength = 5000): array {
         $errors = [];
-        
         if (empty($text)) {
             $errors[] = "Le texte est requis";
         } elseif (strlen($text) < $minLength) {
@@ -84,7 +70,6 @@ class ValidationService {
         } elseif (strlen($text) > $maxLength) {
             $errors[] = "Le texte doit contenir au maximum $maxLength caractères";
         }
-        
         return $errors;
     }
     
@@ -94,7 +79,6 @@ class ValidationService {
     public static function validateInteger(mixed $value, ?int $min = null, ?int $max = null): array {
         $errors = [];
         $intValue = intval($value);
-        
         if ($intValue === 0 && $value !== 0 && $value !== '0') {
             $errors[] = "La valeur doit être un nombre entier valide";
         } elseif ($min !== null && $intValue < $min) {
@@ -102,7 +86,6 @@ class ValidationService {
         } elseif ($max !== null && $intValue > $max) {
             $errors[] = "La valeur doit être au maximum $max";
         }
-        
         return $errors;
     }
     

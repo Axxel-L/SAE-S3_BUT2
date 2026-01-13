@@ -1,19 +1,12 @@
 <?php
-
 /**
- * CandidatStatisticsService - Gère les statistiques des candidats
- * 
- * Principes SOLID:
- * - Single Responsibility: Récupère et organise les stats du candidat
- * - Dependency Injection: Reçoit PDO et services via le constructeur
- * - Testable: Pas de dépendances globales
+ * Gère les statistiques des candidats
  */
 class CandidatStatisticsService
 {
     private $db;
     private UserService $userService;
     private AuditLogger $auditLogger;
-
     public function __construct(
         $db,
         UserService $userService,
@@ -25,18 +18,12 @@ class CandidatStatisticsService
     }
 
     /**
-     * ⭐ MÉTHODE PRINCIPALE - Récupère TOUTES les stats du candidat
-     * 
-     * Retourne un tableau avec:
-     * - candidat: infos du candidat
-     * - stats: statistiques complètes
-     * - error: message d'erreur ou null
+     * Récupère les stats du candidat
      */
     public function getCandidatStatistics(int $userId): array
     {
         try {
             $candidat = $this->getCandidatInfo($userId);
-            
             if (!$candidat) {
                 return [
                     'candidat' => null,
@@ -44,7 +31,6 @@ class CandidatStatisticsService
                     'error' => 'Candidat non trouvé'
                 ];
             }
-
             return [
                 'candidat' => $candidat,
                 'stats' => $this->getGameStatistics($candidat['id_jeu'] ?? null),
@@ -81,7 +67,7 @@ class CandidatStatisticsService
     }
 
     /**
-     * Récupère toutes les statistiques du jeu
+     * Récupère les statistiques du jeu
      */
     private function getGameStatistics(?int $idJeu): array
     {
@@ -92,30 +78,18 @@ class CandidatStatisticsService
             'votes_total' => 0,
             'derniers_commentaires' => []
         ];
-
         if (!$idJeu) {
             return $stats;
         }
-
         try {
-            // Commentaires
             $stats['commentaires'] = $this->getCommentairesCount($idJeu);
-            
-            // Votes catégories
             $stats['votes_categorie'] = $this->getVotesCategorieCount($idJeu);
-            
-            // Votes finaux
             $stats['votes_final'] = $this->getVotesFinalCount($idJeu);
-            
-            // Total
             $stats['votes_total'] = $stats['votes_categorie'] + $stats['votes_final'];
-            
-            // Derniers commentaires
             $stats['derniers_commentaires'] = $this->getDerniersCommentaires($idJeu);
         } catch (\Exception $e) {
             error_log("getGameStatistics Error: " . $e->getMessage());
         }
-
         return $stats;
     }
 

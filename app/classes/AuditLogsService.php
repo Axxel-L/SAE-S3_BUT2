@@ -1,29 +1,18 @@
 <?php
-
-
 /**
  * Service pour gérer les logs de sécurité
- * Refactorisation: admin-security-logs.php → logique métier centralisée
- * 
- * ✅ Principes SOLID appliqués:
- * - Single Responsibility: Gérer les logs (métier)
- * - Dependency Injection: PDO injecté via constructor
- * - Liskov Substitution: Format uniforme retourné
- * - Interface Segregation: Méthodes publiques cohérentes
  */
 class AuditLogsService
 {
     private $db;
     private const LOGS_PER_PAGE = 30;
-
     public function __construct($db)
     {
         $this->db = $db;
     }
 
     /**
-     * ⭐ MÉTHODE PRINCIPALE - Récupère les logs avec filtres et pagination
-     * 
+     * Récupère les logs avec filtres et pagination
      * @param array $filters ['user' => int, 'action' => string, 'days' => int]
      * @param int $page Numéro de page (1-indexed)
      * @return array Format uniforme: ['logs' => array, 'total' => int, 'pages' => int, 'current_page' => int, 'error' => string|null]
@@ -31,21 +20,15 @@ class AuditLogsService
     public function getLogsWithFilters(array $filters = [], int $page = 1): array
     {
         try {
-            // Validation
             $page = max(1, $page);
             $offset = ($page - 1) * self::LOGS_PER_PAGE;
-            
-            // Normaliser les filtres
             $filters = [
                 'user' => intval($filters['user'] ?? 0),
                 'action' => trim($filters['action'] ?? ''),
                 'days' => intval($filters['days'] ?? 30)
             ];
-
-            // Récupérer le nombre total de logs
             $countQuery = "SELECT COUNT(*) as total FROM journal_securite j WHERE 1=1";
             $countParams = [];
-
             if ($filters['user'] > 0) {
                 $countQuery .= " AND j.id_utilisateur = ?";
                 $countParams[] = $filters['user'];
@@ -58,12 +41,9 @@ class AuditLogsService
                 $countQuery .= " AND j.date_action >= DATE_SUB(NOW(), INTERVAL ? DAY)";
                 $countParams[] = $filters['days'];
             }
-
             $stmt = $this->db->prepare($countQuery);
             $stmt->execute($countParams);
             $totalLogs = $stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
-
-            // Récupérer les logs filtrés et paginés
             $logsQuery = "
                 SELECT j.*, u.email 
                 FROM journal_securite j
@@ -71,7 +51,6 @@ class AuditLogsService
                 WHERE 1=1
             ";
             $logsParams = [];
-
             if ($filters['user'] > 0) {
                 $logsQuery .= " AND j.id_utilisateur = ?";
                 $logsParams[] = $filters['user'];
@@ -84,18 +63,13 @@ class AuditLogsService
                 $logsQuery .= " AND j.date_action >= DATE_SUB(NOW(), INTERVAL ? DAY)";
                 $logsParams[] = $filters['days'];
             }
-
             $logsQuery .= " ORDER BY j.date_action DESC LIMIT ? OFFSET ?";
             $logsParams[] = self::LOGS_PER_PAGE;
             $logsParams[] = $offset;
-
             $stmt = $this->db->prepare($logsQuery);
             $stmt->execute($logsParams);
             $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-            // Calculer le nombre de pages
             $totalPages = ceil($totalLogs / self::LOGS_PER_PAGE);
-
             return [
                 'logs' => $logs,
                 'total' => $totalLogs,
@@ -119,8 +93,7 @@ class AuditLogsService
     }
 
     /**
-     * Récupère toutes les actions uniques dans les logs
-     * 
+     * Récupère toutes les actions dans les logs
      * @return array Liste des actions (string[])
      */
     public function getAvailableActions(): array
@@ -136,7 +109,6 @@ class AuditLogsService
 
     /**
      * Récupère tous les utilisateurs pour le filtre
-     * 
      * @return array Liste des utilisateurs: ['id_utilisateur' => int, 'email' => string]
      */
     public function getAvailableUsers(): array
@@ -152,7 +124,6 @@ class AuditLogsService
 
     /**
      * Récupère les statistiques des logs
-     * 
      * @return array Stats: ['total_logs' => int, 'unique_users' => int, 'unique_actions' => int]
      */
     public function getStatistics(): array
@@ -167,7 +138,6 @@ class AuditLogsService
             ");
             $stmt->execute();
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
-            
             return [
                 'total_logs' => $result['total_logs'] ?? 0,
                 'unique_users' => $result['unique_users'] ?? 0,
@@ -180,7 +150,6 @@ class AuditLogsService
 
     /**
      * Récupère les logs d'un utilisateur spécifique
-     * 
      * @param int $userId
      * @param int $limit Nombre max de logs
      * @return array[] Liste des logs
@@ -203,7 +172,6 @@ class AuditLogsService
 
     /**
      * Récupère les logs d'une action spécifique
-     * 
      * @param string $action
      * @param int $limit
      * @return array[] Liste des logs
@@ -227,7 +195,6 @@ class AuditLogsService
 
     /**
      * Récupère les logs des derniers jours
-     * 
      * @param int $days
      * @return array[] Liste des logs
      */
@@ -249,8 +216,7 @@ class AuditLogsService
 
     /**
      * Supprime les logs avant une date donnée
-     * 
-     * @param int $daysOld Nombre de jours (logs plus anciens que X jours)
+     * @param int $daysOld Nombre de jours
      * @return array ['success' => bool, 'message' => string, 'deleted' => int]
      */
     public function deleteLogs(int $daysOld): array
@@ -263,14 +229,12 @@ class AuditLogsService
                     'deleted' => 0
                 ];
             }
-
             $stmt = $this->db->prepare("
                 DELETE FROM journal_securite
                 WHERE date_action < DATE_SUB(NOW(), INTERVAL ? DAY)
             ");
             $stmt->execute([$daysOld]);
             $deleted = $stmt->rowCount();
-
             return [
                 'success' => true,
                 'message' => $deleted . ' logs supprimés',
@@ -287,7 +251,6 @@ class AuditLogsService
 
     /**
      * Exporte les logs filtrés au format CSV
-     * 
      * @param array $filters
      * @return array ['success' => bool, 'data' => string, 'error' => string|null]
      */
@@ -299,14 +262,12 @@ class AuditLogsService
                 'action' => trim($filters['action'] ?? ''),
                 'days' => intval($filters['days'] ?? 30)
             ];
-
             $query = "
                 SELECT j.*, u.email FROM journal_securite j
                 LEFT JOIN utilisateur u ON j.id_utilisateur = u.id_utilisateur
                 WHERE 1=1
             ";
             $params = [];
-
             if ($filters['user'] > 0) {
                 $query .= " AND j.id_utilisateur = ?";
                 $params[] = $filters['user'];
@@ -319,14 +280,10 @@ class AuditLogsService
                 $query .= " AND j.date_action >= DATE_SUB(NOW(), INTERVAL ? DAY)";
                 $params[] = $filters['days'];
             }
-
             $query .= " ORDER BY j.date_action DESC";
-
             $stmt = $this->db->prepare($query);
             $stmt->execute($params);
             $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-            // Générer le CSV
             $csv = "ID,Date,Utilisateur,Email,Action,Détails\n";
             foreach ($logs as $log) {
                 $csv .= sprintf(
@@ -339,7 +296,6 @@ class AuditLogsService
                     '"' . str_replace('"', '""', $log['details'] ?? '') . '"'
                 );
             }
-
             return [
                 'success' => true,
                 'data' => $csv,

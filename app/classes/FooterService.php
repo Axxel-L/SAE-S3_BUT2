@@ -1,22 +1,11 @@
 <?php
 /**
- * FooterService.php
- * 
- * Gère la logique métier du pied de page (footer)
- * - Informations de l'application
- * - Liens sociaux
- * - Données dynamiques
- * 
- * Single Responsibility: Logique métier footer
+ * Gère la logique du footer
  */
-
-
-
 class FooterService {
     
     /**
      * Récupère les informations de l'application
-     * 
      * @return array ['name' => string, 'year' => int, 'copyright' => string]
      */
     public function getAppInfo(): array {
@@ -29,7 +18,6 @@ class FooterService {
     
     /**
      * Récupère les liens sociaux
-     * 
      * @return array
      */
     public function getSocialLinks(): array {
@@ -59,22 +47,21 @@ class FooterService {
     
     /**
      * Récupère les liens du footer
-     * 
      * @return array
      */
     public function getFooterLinks(): array {
         return [
             'legal' => [
                 'label' => 'Mentions légales',
-                'url' => '#legal'
+                'url' => 'index.php#legal'
             ],
             'privacy' => [
                 'label' => 'Politique de confidentialité',
-                'url' => '#privacy'
+                'url' => 'index.php#privacy'
             ],
             'terms' => [
                 'label' => 'Conditions d\'utilisation',
-                'url' => '#terms'
+                'url' => 'index.php#terms'
             ],
             'contact' => [
                 'label' => 'Contact',
@@ -83,5 +70,4 @@ class FooterService {
         ];
     }
 }
-
 ?>

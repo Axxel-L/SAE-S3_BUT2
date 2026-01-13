@@ -1,19 +1,12 @@
 <?php
-
 /**
  * CandidatProfileService - Gère le profil des candidats
- * 
- * Principes SOLID:
- * - Single Responsibility: Récupère et gère le profil du candidat
- * - Dependency Injection: Reçoit PDO et services via le constructeur
- * - Testable: Pas de dépendances globales
  */
 class CandidatProfileService
 {
     private DatabaseConnection $db;
     private UserService $userService;
     private AuditLogger $auditLogger;
-
     public function __construct(
         DatabaseConnection $db,
         UserService $userService,
@@ -25,12 +18,7 @@ class CandidatProfileService
     }
 
     /**
-     * ⭐ MÉTHODE PRINCIPALE - Récupère TOUTES les infos du profil candidat
-     * 
-     * Retourne un tableau avec:
-     * - candidat: infos du candidat
-     * - stats: statistiques rapides du jeu
-     * - error: message d'erreur ou null
+     * Récupère les infos du profil candidat
      */
     public function getCandidatProfile(int $userId): array
     {
@@ -44,7 +32,6 @@ class CandidatProfileService
                     'error' => 'Candidat non trouvé'
                 ];
             }
-
             return [
                 'candidat' => $candidat,
                 'stats' => $this->getQuickStats($candidat['id_jeu'] ?? null),
@@ -70,29 +57,24 @@ class CandidatProfileService
         ?string $photo
     ): array {
         try {
-            // Validation
             if (empty($nom) || strlen($nom) < 2 || strlen($nom) > 100) {
                 return [
                     'success' => false,
                     'message' => 'Le nom doit contenir entre 2 et 100 caractères !'
                 ];
             }
-
             if (!empty($photo) && !filter_var($photo, FILTER_VALIDATE_URL)) {
                 return [
                     'success' => false,
                     'message' => "L'URL de la photo n'est pas valide !"
                 ];
             }
-
             if (!empty($bio) && strlen($bio) > 500) {
                 return [
                     'success' => false,
                     'message' => 'La biographie ne peut pas dépasser 500 caractères !'
                 ];
             }
-
-            // Mise à jour
             $stmt = $this->db->prepare("
                 UPDATE candidat 
                 SET nom = ?, bio = ?, photo = ?
@@ -104,14 +86,10 @@ class CandidatProfileService
                 !empty($photo) ? $photo : null,
                 $userId
             ]);
-
-            // Log audit
             $this->auditLogger->log(
-                
                 'CANDIDAT_PROFIL_UPDATE',
                 'Mise à jour du profil candidat',$userId
             );
-
             return [
                 'success' => true,
                 'message' => 'Profil mis à jour avec succès ! ✅'
@@ -148,7 +126,7 @@ class CandidatProfileService
     }
 
     /**
-     * Récupère les statistiques rapides du jeu
+     * Récupère les statistiques du jeu
      */
     private function getQuickStats(?int $idJeu): array
     {
@@ -157,30 +135,24 @@ class CandidatProfileService
             'votes_final' => 0,
             'commentaires' => 0
         ];
-
         if (!$idJeu) {
             return $stats;
         }
-
         try {
-            // Votes catégories
             $stmt = $this->db->prepare("SELECT COUNT(*) as total FROM bulletin_categorie WHERE id_jeu = ?");
             $stmt->execute([$idJeu]);
             $stats['votes_categorie'] = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
-            // Votes finaux
             $stmt = $this->db->prepare("SELECT COUNT(*) as total FROM bulletin_final WHERE id_jeu = ?");
             $stmt->execute([$idJeu]);
             $stats['votes_final'] = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
-            // Commentaires
             $stmt = $this->db->prepare("SELECT COUNT(*) as total FROM commentaire WHERE id_jeu = ?");
             $stmt->execute([$idJeu]);
             $stats['commentaires'] = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
         } catch (\Exception $e) {
             error_log("getQuickStats Error: " . $e->getMessage());
         }
-
         return $stats;
     }
 
@@ -206,7 +178,6 @@ class CandidatProfileService
                 'icon' => 'fa-times-circle'
             ]
         ];
-
         return $statut_config[$statut] ?? $statut_config['en_attente'];
     }
 }

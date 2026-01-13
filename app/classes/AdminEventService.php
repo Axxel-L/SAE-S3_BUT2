@@ -1,29 +1,12 @@
 <?php
-
-
-
 /**
- * AdminEventService - Gestion des événements (Admin)
- * 
- * Responsabilités:
- * - CRUD événements
- * - Validation des dates et transitions d'état
- * - Gestion automatique des statuts
- * - Suppression en cascade sécurisée
- * 
- * SOLID principles:
- * - S: Une seule responsabilité (gestion événements admin)
- * - O: Facile d'ajouter de nouvelles phases/statuts
- * - L: Services substitutables
- * - I: Méthodes spécifiques et claires
- * - D: Dépendances injectées (DB, ValidationService, AuditLogger)
+ * Gestion des événements
  */
 class AdminEventService
 {
     private DatabaseConnection $db;
     private ValidationService $validationService;
     private AuditLogger $auditLogger;
-
     public function __construct(
         DatabaseConnection $db,
         ValidationService $validationService,
@@ -35,18 +18,13 @@ class AdminEventService
     }
 
     /**
-     * 📋 Récupère tous les événements
-     * 
-     * Met à jour les statuts automatiquement avant de retourner
-     * 
+     * Récupère tous les événements
      * @return array[] Liste des événements
      */
     public function getAllEvents(): array
     {
         try {
-            // Mettre à jour les statuts
             $this->updateEventStatuses();
-
             $stmt = $this->db->prepare("SELECT * FROM evenement ORDER BY date_ouverture DESC");
             $stmt->execute();
             return $stmt->fetchAll(\PDO::FETCH_ASSOC) ?? [];
@@ -57,8 +35,7 @@ class AdminEventService
     }
 
     /**
-     * ➕ Crée un nouvel événement
-     * 
+     * Crée un nouvel événement
      * @param string $nom Nom de l'événement
      * @param string $description Description optionnelle
      * @param string $dateOuverture Date ouverture vote catégories (ISO format)
@@ -77,13 +54,9 @@ class AdminEventService
         string $dateFermetureFinal,
         int $adminId
     ): array {
-        // Validation
         $nom = trim($nom);
         $description = trim($description);
-
         $errors = [];
-
-        // Vérifier champs requis
         if (empty($nom)) {
             $errors[] = "Le nom est obligatoire";
         }
@@ -99,14 +72,11 @@ class AdminEventService
         if (empty($dateFermetureFinal)) {
             $errors[] = "La date de clôture du vote final est obligatoire";
         }
-
-        // Valider ordre chronologique
         if (empty($errors)) {
             $d1 = strtotime($dateOuverture);
             $d2 = strtotime($dateFermeture);
             $d3 = strtotime($dateDebutFinal);
             $d4 = strtotime($dateFermetureFinal);
-
             if ($d2 <= $d1) {
                 $errors[] = "La fin du vote par catégories doit être après l'ouverture";
             }
@@ -117,21 +87,18 @@ class AdminEventService
                 $errors[] = "La clôture du vote final doit être après son début";
             }
         }
-
         if (!empty($errors)) {
             return [
                 'success' => false,
                 'message' => implode("<br>", $errors)
             ];
         }
-
         try {
             $stmt = $this->db->prepare("
                 INSERT INTO evenement 
                 (nom, description, date_ouverture, date_fermeture, date_debut_vote_final, date_fermeture_vote_final, statut)
                 VALUES (?, ?, ?, ?, ?, ?, 'preparation')
             ");
-
             $stmt->execute([
                 $nom,
                 !empty($description) ? $description : null,
@@ -140,16 +107,12 @@ class AdminEventService
                 $dateDebutFinal,
                 $dateFermetureFinal
             ]);
-
             $newEventId = (int)$this->db->lastInsertId();
-
-            // Log audit
             $this->auditLogger->log(
                 'ADMIN_EVENT_CREATE',
                 "Événement créé: $nom",
                 $adminId
             );
-
             return [
                 'success' => true,
                 'message' => 'Événement créé avec succès ! ✅',
@@ -165,10 +128,7 @@ class AdminEventService
     }
 
     /**
-     * 🗑️ Supprime un événement (UNIQUEMENT s'il est CLÔTURÉ)
-     * 
-     * Suppression en cascade sécurisée de toutes les données liées
-     * 
+     * Supprime un événement (si il est cloturé)
      * @param int $eventId ID événement à supprimer
      * @param int $adminId ID de l'admin qui fait l'action
      * @return array ['success' => bool, 'message' => string]
@@ -176,70 +136,49 @@ class AdminEventService
     public function deleteEvent(int $eventId, int $adminId): array
     {
         try {
-            // Vérifier le statut
             $stmt = $this->db->prepare("SELECT statut FROM evenement WHERE id_evenement = ?");
             $stmt->execute([$eventId]);
             $event = $stmt->fetch(\PDO::FETCH_ASSOC);
-
             if (!$event) {
                 return [
                     'success' => false,
                     'message' => 'Événement non trouvé!'
                 ];
             }
-
-            // Seuls les événements clôturés peuvent être supprimés
             if ($event['statut'] !== 'cloture') {
                 return [
                     'success' => false,
                     'message' => '❌ Vous pouvez seulement supprimer les événements CLÔTURÉS!'
                 ];
             }
-
-            // Transaction pour suppression en cascade
             $this->db->beginTransaction();
-
             try {
-                // Ordre d'importance pour éviter les contraintes FK
                 $this->db->prepare("DELETE FROM event_candidat WHERE id_evenement = ?")
                     ->execute([$eventId]);
-
                 $this->db->prepare("DELETE FROM resultat WHERE id_evenement = ?")
                     ->execute([$eventId]);
-
                 $this->db->prepare("DELETE FROM nomination WHERE id_evenement = ?")
                     ->execute([$eventId]);
-
                 $this->db->prepare("DELETE FROM categorie WHERE id_evenement = ?")
                     ->execute([$eventId]);
-
                 $this->db->prepare("DELETE FROM emargement_final WHERE id_evenement = ?")
                     ->execute([$eventId]);
-
                 $this->db->prepare("DELETE FROM emargement_categorie WHERE id_evenement = ?")
                     ->execute([$eventId]);
-
                 $this->db->prepare("DELETE FROM bulletin_final WHERE id_evenement = ?")
                     ->execute([$eventId]);
-
                 $this->db->prepare("DELETE FROM bulletin_categorie WHERE id_evenement = ?")
                     ->execute([$eventId]);
-
                 $this->db->prepare("DELETE FROM registre_electoral WHERE id_evenement = ?")
                     ->execute([$eventId]);
-
                 $this->db->prepare("DELETE FROM evenement WHERE id_evenement = ?")
                     ->execute([$eventId]);
-
                 $this->db->commit();
-
-                // Log audit
                 $this->auditLogger->log(
                     'ADMIN_EVENT_DELETE',
                     "Événement #$eventId supprimé",
                     $adminId
                 );
-
                 return [
                     'success' => true,
                     'message' => 'Événement supprimé avec succès ! ✅'
@@ -258,10 +197,7 @@ class AdminEventService
     }
 
     /**
-     * 🔄 Met à jour les statuts de tous les événements
-     * 
-     * Appelle la procédure stockée update_event_statuts()
-     * 
+     * Met à jour les statuts de tous les événements
      * @return bool Succès
      */
     private function updateEventStatuses(): bool
@@ -276,8 +212,7 @@ class AdminEventService
     }
 
     /**
-     * 📊 Configuration des statuts (pour affichage)
-     * 
+     * Configuration des statuts
      * @return array Configuration des statuts
      */
     public static function getStatusConfig(): array

@@ -1,12 +1,12 @@
 <?php
-
-
+/**
+ * Service pour gérer les événements des candidats
+ */
 class CandidatEventsService
 {
     private DatabaseConnection $db;
     private UserService $userService;
     private AuditLogger $auditLogger;
-
     public function __construct(DatabaseConnection $db, UserService $userService, AuditLogger $auditLogger)
     {
         $this->db = $db;
@@ -42,8 +42,6 @@ class CandidatEventsService
     {
         try {
             $events = [];
-            
-            // Récupérer les événements
             $stmt = $this->db->prepare("
                 SELECT 
                     e.id_evenement, 
@@ -58,10 +56,7 @@ class CandidatEventsService
             ");
             $stmt->execute();
             $events = $stmt->fetchAll(\PDO::FETCH_ASSOC);
-
-            // Enrichir avec catégories et candidatures
             foreach ($events as &$event) {
-                // Récupérer les catégories
                 $stmt = $this->db->prepare("
                     SELECT c.id_categorie, c.nom, c.description
                     FROM categorie c
@@ -70,15 +65,12 @@ class CandidatEventsService
                 ");
                 $stmt->execute([$event['id_evenement']]);
                 $event['categories'] = $stmt->fetchAll(\PDO::FETCH_ASSOC);
-
-                // Récupérer les candidatures existantes
                 $event['mes_candidatures'] = $this->getCandidaturesByEventAndCandidat(
                     $event['id_evenement'],
                     $candidatId
                 );
             }
             unset($event);
-
             return $events;
         } catch (\Exception $e) {
             $this->auditLogger->log('ERROR', "Erreur récupération événements: " . $e->getMessage());
@@ -105,7 +97,6 @@ class CandidatEventsService
             $stmt->execute([$candidatId, $eventId]);
             return $stmt->fetchAll(\PDO::FETCH_ASSOC);
         } catch (\Exception $e) {
-            // Silencieusement ignorer les erreurs de structure
             return [];
         }
     }
@@ -120,15 +111,12 @@ class CandidatEventsService
         string $gameTitle
     ): void {
         try {
-            // Vérifier que l'événement est en préparation
             $stmt = $this->db->prepare("SELECT statut FROM evenement WHERE id_evenement = ?");
             $stmt->execute([$eventId]);
             $evt = $stmt->fetch();
             if (!$evt || $evt['statut'] !== 'preparation') {
                 throw new \Exception("Cet événement n'accepte plus les candidatures.");
             }
-
-            // Vérifier que la catégorie appartient à cet événement
             $stmt = $this->db->prepare("
                 SELECT id_categorie, nom FROM categorie 
                 WHERE id_categorie = ? AND id_evenement = ?
@@ -138,8 +126,6 @@ class CandidatEventsService
             if (!$categorie) {
                 throw new \Exception("Cette catégorie n'existe pas pour cet événement.");
             }
-
-            // Vérifier qu'il n'y a pas déjà une candidature
             $stmt = $this->db->prepare("
                 SELECT id_event_candidat 
                 FROM event_candidat
@@ -151,16 +137,12 @@ class CandidatEventsService
             if ($stmt->rowCount() > 0) {
                 throw new \Exception("Vous avez déjà postulé à cette catégorie !");
             }
-
-            // Créer la candidature
             $stmt = $this->db->prepare("
                 INSERT INTO event_candidat 
                 (id_evenement, id_candidat, id_categorie, statut_candidature, date_inscription)
                 VALUES (?, ?, ?, 'en_attente', NOW())
             ");
             $stmt->execute([$eventId, $candidatId, $categoryId]);
-
-            // Logger l'action
             $this->auditLogger->log(
                 'CANDIDATURE_SOUMISE',
                 "Événement: $eventId, Catégorie: {$categorie['nom']}, Jeu: $gameTitle"
@@ -195,7 +177,6 @@ class CandidatEventsService
                 'class' => 'bg-red-500/10 text-red-400 border-red-500/30'
             ],
         ];
-
         return !empty($statut) && isset($config[$statut]) 
             ? $config[$statut] 
             : $config;

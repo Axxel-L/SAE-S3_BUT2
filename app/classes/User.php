@@ -1,19 +1,15 @@
 <?php
 /**
- * User Model
  * Représente un utilisateur
- * SOLID: Single Responsibility (représentation d'un utilisateur)
  */
-
 class User {
     private ?int $id;
     private string $email;
     private string $pseudo;
     private string $passwordHash;
     private string $salt;
-    private string $type; // 'joueur', 'candidat', 'admin'
+    private string $type;
     private \DateTime $dateInscription;
-    
     public function __construct(
         ?int $id = null,
         string $email = '',
@@ -102,11 +98,9 @@ class User {
             $data['salt'] ?? '',
             $data['type'] ?? 'joueur'
         );
-        
         if (isset($data['date_inscription'])) {
             $user->dateInscription = new \DateTime($data['date_inscription']);
         }
-        
         return $user;
     }
     

@@ -1,23 +1,10 @@
 <?php
 /**
- * ResultatsService.php - CORRIGÉ
- * 
- * Gère la logique métier de la page des résultats
- * - Récupération événement
- * - Résultats par catégorie
- * - Vote final
- * - Statistiques
- * 
- * Single Responsibility: Logique métier résultats
+ * Gère la logique de la page des résultats
  */
-
-
-
 class ResultatsService {
-    
     private $db;
     private $validator;
-    
     public function __construct($db, $validator = null) {
         $this->db = $db;
         $this->validator = $validator;
@@ -25,7 +12,6 @@ class ResultatsService {
     
     /**
      * Récupère l'événement avec statut clôturé
-     * 
      * @param int $eventId ID événement
      * @return array|null
      */
@@ -33,7 +19,6 @@ class ResultatsService {
         if ($eventId <= 0) {
             return null;
         }
-        
         try {
             $stmt = $this->db->prepare("
                 SELECT * FROM evenement 
@@ -50,13 +35,11 @@ class ResultatsService {
     
     /**
      * Récupère les résultats par catégorie
-     * 
      * @param int $eventId ID événement
      * @return array
      */
     public function getResultsByCategory(int $eventId): array {
         $resultatsCat = [];
-        
         try {
             $stmt = $this->db->prepare("
                 SELECT c.id_categorie, c.nom as categorie, j.id_jeu, j.titre, COUNT(bc.id_bulletin) as nb_voix
@@ -69,7 +52,6 @@ class ResultatsService {
             ");
             $stmt->execute([$eventId, $eventId]);
             $allResults = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
             foreach ($allResults as $result) {
                 if (!isset($resultatsCat[$result['id_categorie']])) {
                     $resultatsCat[$result['id_categorie']] = [
@@ -84,13 +66,11 @@ class ResultatsService {
         } catch (Exception $e) {
             error_log("ResultatsService getResultsByCategory Error: " . $e->getMessage());
         }
-        
         return $resultatsCat;
     }
     
     /**
      * Récupère les résultats du vote final
-     * 
      * @param int $eventId ID événement
      * @return array
      */
@@ -114,7 +94,6 @@ class ResultatsService {
     
     /**
      * Récupère les statistiques de l'événement
-     * 
      * @param int $eventId ID événement
      * @param int $categoryCount Nombre de catégories
      * @return array
@@ -126,7 +105,6 @@ class ResultatsService {
             'nb_categories' => $categoryCount,
             'nb_inscrits' => 0
         ];
-        
         try {
             $stmt = $this->db->prepare("
                 SELECT COUNT(*) as total FROM bulletin_categorie WHERE id_evenement = ?
@@ -151,13 +129,11 @@ class ResultatsService {
         } catch (Exception $e) {
             error_log("ResultatsService getEventStats Error: " . $e->getMessage());
         }
-        
         return $stats;
     }
     
     /**
      * Calcule le pourcentage d'un vote
-     * 
      * @param int $votes Nombre de votes
      * @param int $total Total des votes
      * @return float
@@ -169,5 +145,4 @@ class ResultatsService {
         return round($votes / $total * 100, 1);
     }
 }
-
 ?>

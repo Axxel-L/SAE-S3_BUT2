@@ -1,21 +1,12 @@
 <?php
-
-
-
 /**
- * DashboardService - Gère la logique métier du tableau de bord utilisateur
- * 
- * Principes SOLID appliqués:
- * - Single Responsibility: Récupère et organise UNIQUEMENT les données du dashboard
- * - Dependency Injection: Reçoit ses dépendances via le constructeur
- * - Testable: Pas de dépendances globales
+ * Gère la logique métier du tableau de bord utilisateur
  */
 class DashboardService
 {
      private $db;
     private UserService $userService;
     private AuditLogger $auditLogger;
-
     public function __construct(
         $db,
         UserService $userService,
@@ -27,15 +18,7 @@ class DashboardService
     }
 
     /**
-     * ⭐ MÉTHODE PRINCIPALE - Récupère TOUTES les données du dashboard
-     * 
-     * Retourne un tableau structuré avec:
-     * - user: données utilisateur
-     * - events: événements inscrits
-     * - votes: historique des votes
-     * - voteStatus: statut de vote par événement
-     * - statistics: statistiques utilisateur
-     * - error: message d'erreur (null si OK)
+     * Récupère les données du dashboard
      */
     public function getUserDashboardData(int $userId): array
     {
@@ -153,13 +136,9 @@ class DashboardService
         $voteStatus = [];
         
         try {
-            // Récupérer les événements
             $events = $this->getUserEvents($userId);
-            
             foreach ($events as $event) {
                 $status = [];
-                
-                // Catégories votées
                 $stmt = $this->db->prepare("
                     SELECT COUNT(DISTINCT c.id_categorie) as total_categories,
                            COUNT(DISTINCT ec.id_categorie) as voted_categories
@@ -171,8 +150,6 @@ class DashboardService
                 $stmt->execute([$userId, $event['id_evenement'], $event['id_evenement']]);
                 $catResult = $stmt->fetch(PDO::FETCH_ASSOC);
                 $status['categories'] = $catResult;
-                
-                // Vote final
                 $stmt = $this->db->prepare("
                     SELECT COUNT(*) as has_voted_final
                     FROM emargement_final
@@ -187,7 +164,6 @@ class DashboardService
         } catch (\Exception $e) {
             error_log("getVoteStatusPerEvent Error: " . $e->getMessage());
         }
-        
         return $voteStatus;
     }
 
@@ -199,7 +175,6 @@ class DashboardService
         try {
             $events = $this->getUserEvents($userId);
             $votes = $this->getUserVoteHistory($userId);
-            
             return [
                 'total_events' => count($events),
                 'total_votes' => count($votes)
@@ -222,7 +197,6 @@ class DashboardService
             $now = new \DateTime();
             $ouverture = new \DateTime($event['date_ouverture']);
             $fermeture = new \DateTime($event['date_fermeture']);
-            
             return $now >= $ouverture && $now <= $fermeture;
         } catch (\Exception $e) {
             return false;

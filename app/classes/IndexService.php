@@ -1,18 +1,11 @@
 <?php
 /**
- * IndexService.php - CORRIGÉ
- * 
  * Gère la logique de la page d'accueil
  */
-
-
-
 class IndexService {
-    
     private $db;
     private $validator;
     private $auditLogger;
-    
     public function __construct($db, $validator, $auditLogger) {
         $this->db = $db;
         $this->validator = $validator;
@@ -21,7 +14,6 @@ class IndexService {
     
     /**
      * Récupère les jeux en vedette pour l'accueil
-     * 
      * @param int $limit Nombre de jeux à retourner
      * @return array
      */
@@ -50,9 +42,6 @@ class IndexService {
     
     /**
      * Récupère l'événement actif
-     * 
-     * ✅ CORRIGÉ: fetch() retourne false (pas null), donc on doit convertir
-     * 
      * @return array|null
      */
     public function getActiveEvent(): ?array {
@@ -65,7 +54,6 @@ class IndexService {
             ");
             $stmt->execute();
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
-            // ✅ FIX: Convertir false → null
             return $result ?: null;
         } catch (Exception $e) {
             error_log("IndexService getActiveEvent Error: " . $e->getMessage());
@@ -75,7 +63,6 @@ class IndexService {
     
     /**
      * Récupère les statistiques globales du site
-     * 
      * @return array ['nb_games' => int, 'nb_users' => int, 'nb_votes' => int, 'nb_comments' => int]
      */
     public function getGlobalStats(): array {
@@ -87,17 +74,14 @@ class IndexService {
         ];
         
         try {
-            // Nombre de jeux
             $stmt = $this->db->prepare("SELECT COUNT(*) FROM jeu");
             $stmt->execute();
             $stats['nb_games'] = (int)$stmt->fetchColumn();
             
-            // Nombre d'utilisateurs
             $stmt = $this->db->prepare("SELECT COUNT(*) FROM utilisateur");
             $stmt->execute();
             $stats['nb_users'] = (int)$stmt->fetchColumn();
             
-            // Nombre de votes
             $stmt = $this->db->prepare("
                 SELECT COUNT(*) FROM (
                     SELECT id_bulletin FROM bulletin_categorie
@@ -107,21 +91,18 @@ class IndexService {
             ");
             $stmt->execute();
             $stats['nb_votes'] = (int)$stmt->fetchColumn();
-            
-            // Nombre de commentaires
+
             $stmt = $this->db->prepare("SELECT COUNT(*) FROM commentaire");
             $stmt->execute();
             $stats['nb_comments'] = (int)$stmt->fetchColumn();
         } catch (Exception $e) {
             error_log("IndexService getGlobalStats Error: " . $e->getMessage());
         }
-        
         return $stats;
     }
     
     /**
      * Envoie un message de contact
-     * 
      * @param string $name Nom complet
      * @param string $email Email
      * @param string $subject Sujet
@@ -130,36 +111,27 @@ class IndexService {
      */
     public function sendContactMessage(string $name, string $email, string $subject, string $message): array {
         $errors = [];
-        
-        // Validation
         if (empty($name) || strlen($name) < 2) {
             $errors[] = "Le nom doit contenir au moins 2 caractères";
         }
-        
         if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $errors[] = "Email invalide";
         }
-        
         if (empty($subject) || strlen($subject) < 3) {
             $errors[] = "Le sujet doit contenir au moins 3 caractères";
         }
-        
         if (empty($message) || strlen($message) < 10) {
             $errors[] = "Le message doit contenir au moins 10 caractères";
         }
-        
         if (!empty($errors)) {
             return ['success' => false, 'errors' => $errors];
         }
-        
         try {
-            // Sanitize inputs
             $name = htmlspecialchars(trim($name), ENT_QUOTES, 'UTF-8');
             $email = htmlspecialchars(trim($email), ENT_QUOTES, 'UTF-8');
             $subject = htmlspecialchars(trim($subject), ENT_QUOTES, 'UTF-8');
             $message = htmlspecialchars(trim($message), ENT_QUOTES, 'UTF-8');
             
-            // Envoyer l'email
             $to = 'contact@gamecrown.fr';
             $headers = "From: $email\r\n";
             $headers .= "Reply-To: $email\r\n";
@@ -171,7 +143,6 @@ class IndexService {
             $fullMessage .= $message;
             
             $success = mail($to, "[GameCrown] $subject", $fullMessage, $headers);
-            
             if ($success) {
                 return ['success' => true, 'errors' => []];
             } else {
@@ -183,5 +154,4 @@ class IndexService {
         }
     }
 }
-
 ?>
