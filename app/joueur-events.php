@@ -1,89 +1,155 @@
 <?php
+/**
+ * joueur-events-refactored.php
+ * 
+ * Logique métier refactorisée avec architecture SOLID
+ * Utilise EventService pour gestion des événements
+ */
+
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
-require_once 'dbconnect.php';
+require_once 'classes/init.php';
 
-if (!isset($_SESSION['type']) || $_SESSION['type'] !== 'joueur') {
+// ========== VÉRIFICATIONS D'ACCÈS ==========
+
+// 1. Vérifier authentification
+if (!AuthenticationService::isAuthenticated()) {
     header('Location: index.php');
     exit;
 }
 
-$id_utilisateur = $_SESSION['id_utilisateur'];
+// 2. Vérifier type joueur
+if (AuthenticationService::getAuthenticatedUserType() !== 'joueur') {
+    header('Location: index.php');
+    exit;
+}
+
+// 3. Récupérer ID utilisateur
+$userId = AuthenticationService::getAuthenticatedUserId();
+
+// ========== INITIALISATION SERVICES ==========
+
+$db = DatabaseConnection::getInstance();
+$eventService = ServiceContainer::getEventService();
+
 $error = '';
 $success = '';
 
-// Mets à jour les statuts des événements
-try {
-    $connexion->query("CALL update_event_statuts()");
-} catch (Exception $e) {}
+// ========== MISE À JOUR STATUTS ==========
 
-// Récupérer les événements actifs
-$events = [];
+// Appeler procédure stockée pour mettre à jour statuts (optionnel)
 try {
-    $stmt = $connexion->prepare("
-        SELECT e.*, 
-               (SELECT COUNT(*) FROM registre_electoral WHERE id_evenement = e.id_evenement AND id_utilisateur = ?) as is_registered
-        FROM evenement e
-        WHERE e.statut IN ('preparation', 'ouvert_categories', 'ferme_categories', 'ouvert_final')
-        ORDER BY e.date_ouverture DESC
-    ");
-    $stmt->execute([$id_utilisateur]);
-    $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $db->query("CALL update_event_statuts()");
 } catch (Exception $e) {
-    $error = "Erreur : " . $e->getMessage();
+    // Erreur non bloquante
 }
 
-// Inscription à un événement
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'register') {
-    $id_evenement = intval($_POST['id_evenement'] ?? 0);
+// ========== RÉCUPÉRATION ÉVÉNEMENTS ==========
+
+$events = [];
+$eventResult = $eventService->getActiveEvents($userId);
+
+if (!$eventResult['success']) {
+    $error = implode(' | ', $eventResult['errors']);
+} else {
+    $events = $eventResult['events'] ?? [];
+}
+
+// ========== INSCRIPTION À UN ÉVÉNEMENT ==========
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && 
+    isset($_POST['action']) && 
+    $_POST['action'] === 'register') {
     
-    try {
-        $stmt = $connexion->prepare("SELECT statut FROM evenement WHERE id_evenement = ?");
-        $stmt->execute([$id_evenement]);
-        $event = $stmt->fetch();
+    $eventId = intval($_POST['id_evenement'] ?? 0);
+    
+    // Appeler service inscription
+    $registerResult = $eventService->registerEvent($userId, $eventId);
+    
+    if ($registerResult['success']) {
+        $success = "Inscription réussie ! ✅";
         
-        if (!$event || $event['statut'] === 'cloture') {
-            throw new Exception("Cet événement n'accepte plus les inscriptions.");
+        // Rafraîchir la liste événements
+        $eventResult = $eventService->getActiveEvents($userId);
+        if ($eventResult['success']) {
+            $events = $eventResult['events'] ?? [];
         }
         
-        $stmt = $connexion->prepare("SELECT id_registre FROM registre_electoral WHERE id_utilisateur = ? AND id_evenement = ?");
-        $stmt->execute([$id_utilisateur, $id_evenement]);
-        
-        if ($stmt->rowCount() > 0) {
-            $error = "Vous êtes déjà inscrit !";
-        } else {
-            $stmt = $connexion->prepare("INSERT INTO registre_electoral (id_utilisateur, id_evenement, date_inscription) VALUES (?, ?, NOW())");
-            $stmt->execute([$id_utilisateur, $id_evenement]);
-            $success = "Inscription réussie ! ✅";
-            
-            // Rafraîchir la liste
-            $stmt = $connexion->prepare("
-                SELECT e.*, 
-                       (SELECT COUNT(*) FROM registre_electoral WHERE id_evenement = e.id_evenement AND id_utilisateur = ?) as is_registered
-                FROM evenement e
-                WHERE e.statut IN ('preparation', 'ouvert_categories', 'ferme_categories', 'ouvert_final')
-                ORDER BY e.date_ouverture DESC
-            ");
-            $stmt->execute([$id_utilisateur]);
-            $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        }
-    } catch (Exception $e) {
-        $error = $e->getMessage();
+        // Reset error
+        $error = '';
+    } else {
+        $error = implode(' | ', $registerResult['errors']);
     }
 }
 
-// Config statuts
+// ========== DÉSINSCRIPTION (OPTIONNEL) ==========
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && 
+    isset($_POST['action']) && 
+    $_POST['action'] === 'unregister') {
+    
+    $eventId = intval($_POST['id_evenement'] ?? 0);
+    
+    // Appeler service désinscription
+    $unregisterResult = $eventService->unregisterEvent($userId, $eventId);
+    
+    if ($unregisterResult['success']) {
+        $success = "Désinscription réussie ! ✅";
+        
+        // Rafraîchir la liste
+        $eventResult = $eventService->getActiveEvents($userId);
+        if ($eventResult['success']) {
+            $events = $eventResult['events'] ?? [];
+        }
+        
+        $error = '';
+    } else {
+        $error = implode(' | ', $unregisterResult['errors']);
+    }
+}
+
+// ========== CONFIGURATION STATUTS ==========
+
 $statut_config = [
-    'preparation' => ['label' => 'Préparation', 'color' => 'yellow', 'icon' => 'fa-hourglass-start', 'can_vote_cat' => false, 'can_vote_final' => false],
-    'ouvert_categories' => ['label' => 'Vote Catégories', 'color' => 'green', 'icon' => 'fa-vote-yea', 'can_vote_cat' => true, 'can_vote_final' => false],
-    'ferme_categories' => ['label' => 'Attente Vote Final', 'color' => 'blue', 'icon' => 'fa-pause-circle', 'can_vote_cat' => false, 'can_vote_final' => false],
-    'ouvert_final' => ['label' => 'Vote Final', 'color' => 'purple', 'icon' => 'fa-crown', 'can_vote_cat' => false, 'can_vote_final' => true],
-    'cloture' => ['label' => 'Clôturé', 'color' => 'red', 'icon' => 'fa-times-circle', 'can_vote_cat' => false, 'can_vote_final' => false]
+    'preparation' => [
+        'label' => 'Préparation',
+        'color' => 'yellow',
+        'icon' => 'fa-hourglass-start',
+        'can_vote_cat' => false,
+        'can_vote_final' => false
+    ],
+    'ouvert_categories' => [
+        'label' => 'Vote Catégories',
+        'color' => 'green',
+        'icon' => 'fa-vote-yea',
+        'can_vote_cat' => true,
+        'can_vote_final' => false
+    ],
+    'ferme_categories' => [
+        'label' => 'Attente Vote Final',
+        'color' => 'blue',
+        'icon' => 'fa-pause-circle',
+        'can_vote_cat' => false,
+        'can_vote_final' => false
+    ],
+    'ouvert_final' => [
+        'label' => 'Vote Final',
+        'color' => 'purple',
+        'icon' => 'fa-crown',
+        'can_vote_cat' => false,
+        'can_vote_final' => true
+    ],
+    'cloture' => [
+        'label' => 'Clôturé',
+        'color' => 'red',
+        'icon' => 'fa-times-circle',
+        'can_vote_cat' => false,
+        'can_vote_final' => false
+    ]
 ];
 
-// Config des couleurs
 $color_classes = [
     'yellow' => ['bg' => 'bg-yellow-500/20', 'text' => 'text-yellow-400', 'border' => 'border-yellow-500/30'],
     'green' => ['bg' => 'bg-green-500/20', 'text' => 'text-green-400', 'border' => 'border-green-500/30'],
@@ -92,14 +158,19 @@ $color_classes = [
     'red' => ['bg' => 'bg-red-500/20', 'text' => 'text-red-400', 'border' => 'border-red-500/30']
 ];
 
+// ========== INCLURE TEMPLATE ==========
+
+
+
 require_once 'header.php';
 ?>
-<br><br><br>
+                                                                                           
 <section class="py-20 px-6">
     <div class="container mx-auto max-w-7xl">
         <div class="text-center mb-12">
             <h1 class="text-5xl md:text-6xl font-bold font-orbitron mb-4 accent-gradient">
-                <i class="fas fa-calendar text-accent mr-3"></i>Événements
+            <br>  
+            <i class="fas fa-calendar text-accent mr-3"></i>Événements
             </h1>
             <p class="text-xl text-light-80">Inscrivez-vous pour participer aux votes</p>
         </div>
@@ -259,5 +330,5 @@ require_once 'header.php';
         </div>
     </div>
 </section>
-
-<?php require_once 'footer.php'; ?>
+<?php require_once 'footer.php';
+?>

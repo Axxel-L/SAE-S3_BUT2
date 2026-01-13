@@ -2,9 +2,11 @@
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
-require_once 'dbconnect.php';
 
-// Vérifie si l'utilisateur est un admin
+require_once 'classes/init.php';
+
+// ==================== VÉRIFICATION ACCÈS ====================
+
 if (!isset($_SESSION['id_utilisateur']) || ($_SESSION['type'] ?? '') !== 'admin') {
     echo "<script>
         alert('Accès réservé aux administrateurs');
@@ -13,123 +15,80 @@ if (!isset($_SESSION['id_utilisateur']) || ($_SESSION['type'] ?? '') !== 'admin'
     exit;
 }
 
+// ==================== SERVICES ====================
+
+$adminCategoryService = ServiceContainer::getAdminCategoryService();
+$adminEventService = ServiceContainer::getAdminEventService();
+
+// ==================== VARIABLES ====================
+
 $id_utilisateur = $_SESSION['id_utilisateur'];
-$id_evenement = intval($_GET['event'] ?? 0);
+$id_evenement = (int)($_GET['event'] ?? 0);
 $error = '';
 $success = '';
 
-// Récupérer l'événement
-try {
-    $stmt = $connexion->prepare("SELECT * FROM evenement WHERE id_evenement = ?");
-    $stmt->execute([$id_evenement]);
-    $event = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if (!$event) {
-        header('Location: admin-events.php');
-        exit;
+// ==================== RÉCUPÉRATION EVENT ====================
+
+$events = $adminEventService->getAllEvents();
+$event = null;
+
+foreach ($events as $e) {
+    if ($e['id_evenement'] == $id_evenement) {
+        $event = $e;
+        break;
     }
-} catch (Exception $e) {
-    $error = "Erreur : " . $e->getMessage();
 }
 
-// Récupérer les catégories de l'événement
-$categories = [];
-try {
-    $stmt = $connexion->prepare("
-        SELECT c.*, COUNT(DISTINCT n.id_nomination) as nb_jeux
-        FROM categorie c
-        LEFT JOIN nomination n ON c.id_categorie = n.id_categorie
-        WHERE c.id_evenement = ?
-        GROUP BY c.id_categorie
-        ORDER BY c.nom ASC
-    ");
-    $stmt->execute([$id_evenement]);
-    $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
-    $error = "Erreur : " . $e->getMessage();
+if (!$event) {
+    header('Location: admin-events.php');
+    exit;
 }
 
-// Créer une catégorie
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'create_category') {
-    $nom = trim($_POST['nom'] ?? '');
-    $description = trim($_POST['description'] ?? '');
+// ==================== ACTIONS ====================
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     
-    if (!empty($nom)) {
-        try {
-            $stmt = $connexion->prepare("
-                INSERT INTO categorie (nom, description, id_evenement) 
-                VALUES (?, ?, ?)
-            ");
-            $stmt->execute([$nom, $description, $id_evenement]);
-            $success = "Catégorie créée avec succès !";
-            $stmt = $connexion->prepare("
-                INSERT INTO journal_securite (id_utilisateur, action, details) 
-                VALUES (?, 'ADMIN_CATEGORY_CREATE', ?)
-            "); // Rajoute dans les logs
-            $stmt->execute([$id_utilisateur, "Catégorie '$nom' créée pour événement #$id_evenement"]);
-            // Rafraîchir la liste des catégories
-            $stmt = $connexion->prepare("
-                SELECT c.*, COUNT(DISTINCT n.id_nomination) as nb_jeux
-                FROM categorie c
-                LEFT JOIN nomination n ON c.id_categorie = n.id_categorie
-                WHERE c.id_evenement = ?
-                GROUP BY c.id_categorie
-                ORDER BY c.nom ASC
-            ");
-            $stmt->execute([$id_evenement]);
-            $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (Exception $e) {
-            $error = "Erreur : " . $e->getMessage();
+    // ➕ Créer catégorie
+    if ($_POST['action'] === 'create_category') {
+        $result = $adminCategoryService->createCategory(
+            $_POST['nom'] ?? '',
+            $_POST['description'] ?? '',
+            $id_evenement,
+            $id_utilisateur
+        );
+
+        if ($result['success']) {
+            $success = $result['message'];
+        } else {
+            $error = $result['message'];
         }
-    } else {
-        $error = "Le nom est obligatoire !";
+    }
+    
+    // 🗑️ Supprimer catégorie
+    elseif ($_POST['action'] === 'delete_category') {
+        $result = $adminCategoryService->deleteCategory(
+            (int)($_POST['id_categorie'] ?? 0),
+            $id_evenement,
+            $id_utilisateur
+        );
+
+        if ($result['success']) {
+            $success = $result['message'];
+        } else {
+            $error = $result['message'];
+        }
     }
 }
 
-// Supprimer une catégorie
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_category') {
-    $id_categorie = intval($_POST['id_categorie'] ?? 0);
-    try {
-        $stmt = $connexion->prepare("SELECT nom FROM categorie WHERE id_categorie = ?");
-        $stmt->execute([$id_categorie]);
-        $cat = $stmt->fetch();
-        $stmt = $connexion->prepare("DELETE FROM categorie WHERE id_categorie = ? AND id_evenement = ?");
-        $stmt->execute([$id_categorie, $id_evenement]);
-        $success = "Catégorie supprimée !";
-        
-        // Rafraîchir la liste des catégories
-        $stmt = $connexion->prepare("
-            SELECT c.*, COUNT(DISTINCT n.id_nomination) as nb_jeux
-            FROM categorie c
-            LEFT JOIN nomination n ON c.id_categorie = n.id_categorie
-            WHERE c.id_evenement = ?
-            GROUP BY c.id_categorie
-            ORDER BY c.nom ASC
-        ");
-        $stmt->execute([$id_evenement]);
-        $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Exception $e) {
-        $error = "Erreur : " . $e->getMessage();
-    }
-}
+// ==================== RÉCUPÉRATION DONNÉES ====================
 
-// Compter les candidatures en attente pour cet événement
-$nbCandidaturesAttente = 0;
-try {
-    $stmt = $connexion->prepare("
-        SELECT COUNT(*) FROM event_candidat 
-        WHERE id_evenement = ? AND statut_candidature = 'en_attente'
-    ");
-    $stmt->execute([$id_evenement]);
-    $nbCandidaturesAttente = $stmt->fetchColumn();
-} catch (Exception $e) {
-    // La colonne n'existe pas
-    $nbCandidaturesAttente = 0;
-}
+$categories = $adminCategoryService->getCategoriesByEvent($id_evenement);
+$nbCandidaturesAttente = $adminCategoryService->countEventPendingApplications($id_evenement);
 
 require_once 'header.php';
 ?>
-<br><br><br> <!-- Espace pour le header -->
+
+<br><br><br>
 <section class="py-20 px-6">
     <div class="container mx-auto max-w-7xl">
         <div class="mb-12 flex flex-wrap items-center justify-between gap-4">
@@ -141,22 +100,25 @@ require_once 'header.php';
             </div>
             <div class="flex flex-wrap gap-3">
                 <?php if ($nbCandidaturesAttente > 0): ?>
-                <a href="admin-candidatures.php?event=<?php echo $id_evenement; ?>&status=en_attente" class="px-6 py-3 rounded-2xl bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/30 transition-colors flex items-center gap-2">
-                    <i class="fas fa-bell"></i> 
-                    <span class="font-bold"><?php echo $nbCandidaturesAttente; ?></span> candidature(s) en attente
-                </a>
+                    <a href="admin-candidatures.php?event=<?php echo $id_evenement; ?>&status=en_attente" class="px-6 py-3 rounded-2xl bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/30 transition-colors flex items-center gap-2">
+                        <i class="fas fa-bell"></i> 
+                        <span class="font-bold"><?php echo $nbCandidaturesAttente; ?></span> candidature(s) en attente
+                    </a>
                 <?php endif; ?>
                 <a href="admin-events.php" class="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 hover:border-accent/50 transition-colors flex items-center gap-2">
                     <i class="fas fa-arrow-left"></i> Retour
                 </a>
             </div>
         </div>
+
+        <!-- Messages d'erreur/succès -->
         <?php if ($error): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
                 <i class="fas fa-exclamation-circle text-red-400"></i>
                 <span class="text-red-400"><?php echo htmlspecialchars($error); ?></span>
             </div>
         <?php endif; ?>
+
         <?php if ($success): ?>
             <div class="mb-8 p-4 rounded-2xl bg-green-500/10 border border-green-500/30 flex items-center gap-3">
                 <i class="fas fa-check-circle text-green-400"></i>
@@ -175,7 +137,8 @@ require_once 'header.php';
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Formulaire création catégorie -->
+            
+            <!-- ➕ Formulaire création catégorie -->
             <div class="lg:col-span-1">
                 <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10 sticky top-8">
                     <h2 class="text-2xl font-bold font-orbitron mb-6 flex items-center gap-2">
@@ -201,7 +164,8 @@ require_once 'header.php';
                     </form>
                 </div>
             </div>
-            <!-- Liste des catégories -->
+
+            <!-- 📋 Liste des catégories -->
             <div class="lg:col-span-2">
                 <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10">
                     <h2 class="text-2xl font-bold font-orbitron mb-6 flex items-center gap-2">
@@ -216,33 +180,10 @@ require_once 'header.php';
                         </div>
                     <?php else: ?>
                         <div class="space-y-4">
-                            <?php foreach ($categories as $cat): ?>
-                                <?php
-                                // Récupérer les jeux nominés pour cette catégorie
-                                $jeux_nomines = [];
-                                try {
-                                    $stmt = $connexion->prepare("
-                                        SELECT j.id_jeu, j.titre, j.image, j.editeur
-                                        FROM nomination n
-                                        JOIN jeu j ON n.id_jeu = j.id_jeu
-                                        WHERE n.id_categorie = ? AND n.id_evenement = ?
-                                        ORDER BY j.titre ASC
-                                    ");
-                                    $stmt->execute([$cat['id_categorie'], $id_evenement]);
-                                    $jeux_nomines = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                                } catch (Exception $e) {}
-                                
-                                // Compter les candidatures en attente pour cette catégorie
-                                $nbAttenteCat = 0;
-                                try {
-                                    $stmt = $connexion->prepare("
-                                        SELECT COUNT(*) FROM event_candidat 
-                                        WHERE id_categorie = ? AND id_evenement = ? AND statut_candidature = 'en_attente'
-                                    ");
-                                    $stmt->execute([$cat['id_categorie'], $id_evenement]);
-                                    $nbAttenteCat = $stmt->fetchColumn();
-                                } catch (Exception $e) {}
-                                ?>
+                            <?php foreach ($categories as $cat): 
+                                $jeux_nomines = $adminCategoryService->getNominatedGames($cat['id_categorie'], $id_evenement);
+                                $nbAttenteCat = $adminCategoryService->countPendingApplications($cat['id_categorie'], $id_evenement);
+                            ?>
                                 <div class="glass-card rounded-2xl p-6 modern-border border border-white/10">
                                     <div class="flex items-start justify-between gap-4 mb-4">
                                         <div class="flex-1">
@@ -267,10 +208,10 @@ require_once 'header.php';
                                             <?php echo count($jeux_nomines); ?> jeu(x) nominé(s)
                                         </span>
                                         <?php if ($nbAttenteCat > 0): ?>
-                                        <a href="admin-candidatures.php?event=<?php echo $id_evenement; ?>&status=en_attente" class="px-3 py-1 rounded-2xl bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-sm hover:bg-yellow-500/30 transition-colors">
-                                            <i class="fas fa-hourglass-half mr-1"></i>
-                                            <?php echo $nbAttenteCat; ?> en attente
-                                        </a>
+                                            <a href="admin-candidatures.php?event=<?php echo $id_evenement; ?>&status=en_attente" class="px-3 py-1 rounded-2xl bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-sm hover:bg-yellow-500/30 transition-colors">
+                                                <i class="fas fa-hourglass-half mr-1"></i>
+                                                <?php echo $nbAttenteCat; ?> en attente
+                                            </a>
                                         <?php endif; ?>
                                     </div>
                                     
@@ -312,5 +253,3 @@ require_once 'header.php';
 </section>
 
 <?php require_once 'footer.php'; ?>
-</body>
-</html>

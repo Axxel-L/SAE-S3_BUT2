@@ -1,352 +1,289 @@
 <?php
+
+
+
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
-require_once 'dbconnect.php';
 
-// Vérifier candidat
-if (!isset($_SESSION['type']) || $_SESSION['type'] !== 'candidat') {
+require_once 'classes/init.php';
+
+// ✅ VÉRIFIER QUE L'UTILISATEUR EST CANDIDAT
+if (!isCandidate()) {
     echo "<script>alert('Accès réservé aux candidats'); window.location.href = './dashboard.php';</script>";
     exit;
 }
 
-$id_utilisateur = $_SESSION['id_utilisateur'];
+$id_utilisateur = (int)getAuthUserId();
+
+// ✅ RÉCUPÉRER LE SERVICE VIA SERVICECONTAINER
+$campaignService = ServiceContainer::getCandidatCampaignService();
+
+// ✅ RÉCUPÉRER LES DONNÉES
+$data = $campaignService->getCampaignData($id_utilisateur);
+$candidat = $data['candidat'];
+$commentaires = $data['commentaires'];
+$stats = $data['stats'];
 $error = '';
 $success = '';
-$candidat = null;
-$commentaires = [];
 
-// Vérifier que le candidat a un profil validé
-try {
-    $stmt = $connexion->prepare("
-        SELECT c.*, j.id_jeu, j.titre as titre_jeu, j.image as jeu_image, j.editeur, j.description as jeu_description
-        FROM candidat c 
-        LEFT JOIN jeu j ON c.id_jeu = j.id_jeu
-        WHERE c.id_utilisateur = ?
-    ");
-    $stmt->execute([$id_utilisateur]);
-    $candidat = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if (!$candidat) {
-        header('Location: candidat-profil.php');
-        exit;
-    }
-} catch (Exception $e) {
-    $error = "Erreur : " . $e->getMessage();
-}
-
-// Ajouter un commentaire
+// ✅ TRAITEMENT SOUMISSION - GESTION COMMENTAIRES
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'add_comment') {
-        $contenu = htmlspecialchars(trim($_POST['contenu'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $result = $campaignService->addComment($id_utilisateur, $_POST['contenu'] ?? '');
         
-        if (!empty($contenu) && !empty($candidat['id_jeu'])) {
-            if (strlen($contenu) < 3) {
-                $error = "Message trop court (min 3 caractères) !";
-            } elseif (strlen($contenu) > 1000) {
-                $error = "Message trop long (max 1000 caractères) !";
-            } else {
-                try {
-                    $stmt = $connexion->prepare("
-                        INSERT INTO commentaire (id_utilisateur, id_jeu, contenu, date_commentaire) 
-                        VALUES (?, ?, ?, NOW())
-                    ");
-                    $stmt->execute([$id_utilisateur, $candidat['id_jeu'], $contenu]);
-                    $success = "Message publié !";
-                    
-                    $stmt = $connexion->prepare("INSERT INTO journal_securite (id_utilisateur, action, details, adresse_ip) VALUES (?, 'CAMPAGNE_POST', ?, ?)");
-                    $stmt->execute([$id_utilisateur, "Jeu: " . $candidat['id_jeu'], $_SERVER['REMOTE_ADDR'] ?? '']);
-                } catch (Exception $e) {
-                    $error = "Erreur lors de la publication.";
-                }
-            }
+        if ($result['success']) {
+            $success = $result['message'];
+            // Rafraîchir les données
+            $data = $campaignService->getCampaignData($id_utilisateur);
+            $commentaires = $data['commentaires'];
+            $stats = $data['stats'];
         } else {
-            $error = "Veuillez écrire un message !";
+            $error = $result['message'];
         }
-    }
-    
-    // Supprimer un commentaire
-    if ($_POST['action'] === 'delete_comment') {
-        $id_comment = intval($_POST['id_comment'] ?? 0);
-        if ($id_comment > 0) {
-            try {
-                $stmt = $connexion->prepare("DELETE FROM commentaire WHERE id_commentaire = ? AND id_utilisateur = ?");
-                $stmt->execute([$id_comment, $id_utilisateur]);
-                $success = "Message supprimé !";
-            } catch (Exception $e) {
-                $error = "Erreur lors de la suppression.";
-            }
+    } elseif ($_POST['action'] === 'delete_comment') {
+        $result = $campaignService->deleteComment($id_utilisateur, (int)($_POST['id_comment'] ?? 0));
+        
+        if ($result['success']) {
+            $success = $result['message'];
+            // Rafraîchir les données
+            $data = $campaignService->getCampaignData($id_utilisateur);
+            $commentaires = $data['commentaires'];
+            $stats = $data['stats'];
+        } else {
+            $error = $result['message'];
         }
     }
 }
-
-// Récupérer les commentaires du jeu
-try {
-    $stmt = $connexion->prepare("
-        SELECT 
-            com.id_commentaire,
-            com.contenu,
-            com.date_commentaire,
-            u.id_utilisateur,
-            u.pseudo,
-            u.type,
-            CASE WHEN u.id_utilisateur = ? THEN 1 ELSE 0 END as is_mine
-        FROM commentaire com
-        JOIN utilisateur u ON com.id_utilisateur = u.id_utilisateur
-        WHERE com.id_jeu = ?
-        ORDER BY com.date_commentaire DESC
-        LIMIT 100
-    ");
-    $stmt->execute([$id_utilisateur, $candidat['id_jeu']]);
-    $commentaires = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
-    $commentaires = [];
-}
-
-// Statistiques
-$stats = [
-    'nb_votes_cat' => 0,
-    'nb_votes_final' => 0,
-    'nb_comments' => count($commentaires),
-    'my_comments' => 0
-];
-
-try {
-    $stmt = $connexion->prepare("SELECT COUNT(*) FROM bulletin_categorie WHERE id_jeu = ?");
-    $stmt->execute([$candidat['id_jeu']]);
-    $stats['nb_votes_cat'] = $stmt->fetchColumn();
-    
-    $stmt = $connexion->prepare("SELECT COUNT(*) FROM bulletin_final WHERE id_jeu = ?");
-    $stmt->execute([$candidat['id_jeu']]);
-    $stats['nb_votes_final'] = $stmt->fetchColumn();
-    
-    $stmt = $connexion->prepare("SELECT COUNT(*) FROM commentaire WHERE id_jeu = ? AND id_utilisateur = ?");
-    $stmt->execute([$candidat['id_jeu'], $id_utilisateur]);
-    $stats['my_comments'] = $stmt->fetchColumn();
-} catch (Exception $e) {}
 
 require_once 'header.php';
 ?>
-
 <br><br><br>
 <section class="py-20 px-6">
     <div class="container mx-auto max-w-7xl">
-        <div class="text-center mb-12">
-            <div class="flex items-center justify-center gap-2 text-light/60 text-sm mb-4">
-                <a href="candidat-profil.php" class="hover:text-accent transition-colors">Mon profil</a>
-                <i class="fas fa-chevron-right text-xs"></i>
-                <span class="text-accent font-medium">Ma campagne</span>
+        <!-- Header -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+            <div class="md:col-span-2">
+                <div class="text-center md:text-left">
+                    <h1 class="text-5xl md:text-6xl font-bold font-orbitron mb-4 accent-gradient">
+                        <i class="fas fa-megaphone text-accent mr-3"></i>Ma Campagne
+                    </h1>
+                    <p class="text-xl text-light/80">Interagissez avec les électeurs pour promouvoir votre jeu</p>
+                </div>
             </div>
-            <h1 class="text-5xl md:text-6xl font-bold font-orbitron mb-4 accent-gradient">
-                <i class="fas fa-bullhorn text-accent mr-3"></i>Ma Campagne
-            </h1>
-            <p class="text-xl text-light/80">Interagissez avec les électeurs pour <?php echo htmlspecialchars($candidat['titre_jeu'] ?? 'votre jeu'); ?></p>
+            <div class="flex items-center justify-center">
+                <div class="glass-card rounded-3xl p-6 modern-border border-2 border-white/10 text-center">
+                    <div class="text-3xl font-bold text-accent mb-2"><?php echo $stats['nb_votes_cat']; ?></div>
+                    <p class="text-light/60 text-sm">Votes catégories</p>
+                    <div class="mt-4 h-1 bg-gradient-to-r from-accent/20 to-accent/5 rounded-full"></div>
+                    <div class="text-2xl font-bold text-accent mt-4 mb-2"><?php echo $stats['nb_votes_final']; ?></div>
+                    <p class="text-light/60 text-sm">Votes final</p>
+                </div>
+            </div>
         </div>
-        <?php if ($error): ?>
+
+        <?php if (!empty($error)): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
                 <i class="fas fa-exclamation-circle text-red-400"></i>
-                <span class="text-red-400"><?php echo $error; ?></span>
+                <span class="text-red-400"><?php echo htmlspecialchars($error); ?></span>
             </div>
         <?php endif; ?>
-        <?php if ($success): ?>
+
+        <?php if (!empty($success)): ?>
             <div class="mb-8 p-4 rounded-2xl bg-green-500/10 border border-green-500/30 flex items-center gap-3">
                 <i class="fas fa-check-circle text-green-400"></i>
                 <span class="text-green-400"><?php echo htmlspecialchars($success); ?></span>
             </div>
         <?php endif; ?>
-        
-        <!-- Statistiques -->
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            <div class="glass-card rounded-3xl p-6 modern-border border-2 border-white/10 text-center">
-                <div class="text-4xl font-bold text-accent mb-2"><?php echo $stats['nb_votes_cat']; ?></div>
-                <div class="text-sm text-light/60 flex items-center justify-center gap-2">
-                    <i class="fas fa-layer-group text-accent"></i>
-                    <span>Votes catégories</span>
+
+        <!-- Profil candidat -->
+        <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10 mb-12">
+            <h2 class="text-2xl font-bold font-orbitron mb-6 flex items-center gap-3">
+                <div class="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center">
+                    <i class="fas fa-user-circle text-accent text-xl"></i>
                 </div>
-            </div>
-            <div class="glass-card rounded-3xl p-6 modern-border border-2 border-white/10 text-center">
-                <div class="text-4xl font-bold text-purple-400 mb-2"><?php echo $stats['nb_votes_final']; ?></div>
-                <div class="text-sm text-light/60 flex items-center justify-center gap-2">
-                    <i class="fas fa-crown text-purple-400"></i>
-                    <span>Votes final</span>
+                <span>Mon profil</span>
+            </h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:items-center">
+                <div class="flex flex-col gap-4">
+                    <div class="p-6 rounded-2xl bg-white/5 border border-white/10">
+                        <p class="text-light/60 text-sm mb-2 flex items-center gap-2">
+                            <i class="fas fa-user text-accent text-lg"></i>Nom
+                        </p>
+                        <p class="text-lg font-bold text-light"><?php echo htmlspecialchars($candidat['nom'] ?? 'Non défini'); ?></p>
+                    </div>
+                    <div class="p-6 rounded-2xl bg-white/5 border border-white/10">
+                        <p class="text-light/60 text-sm mb-2 flex items-center gap-2">
+                            <i class="fas fa-envelope text-accent text-lg"></i>Email
+                        </p>
+                        <p class="text-lg font-bold text-light break-all"><?php echo htmlspecialchars($candidat['email'] ?? ''); ?></p>
+                    </div>
                 </div>
-            </div>
-            <div class="glass-card rounded-3xl p-6 modern-border border-2 border-white/10 text-center">
-                <div class="text-4xl font-bold text-light mb-2"><?php echo $stats['nb_comments']; ?></div>
-                <div class="text-sm text-light/60 flex items-center justify-center gap-2">
-                    <i class="fas fa-comments text-light"></i>
-                    <span>Commentaires</span>
-                </div>
-            </div>
-            <div class="glass-card rounded-3xl p-6 modern-border border-2 border-white/10 text-center">
-                <div class="text-4xl font-bold text-yellow-400 mb-2"><?php echo $stats['my_comments']; ?></div>
-                <div class="text-sm text-light/60 flex items-center justify-center gap-2">
-                    <i class="fas fa-pen text-yellow-400"></i>
-                    <span>Mes posts</span>
+                <div class="flex flex-col items-center gap-6">
+                    <?php if (!empty($candidat['jeu_image'])): ?>
+                        <div class="relative">
+                            <div class="absolute inset-0 rounded-full bg-gradient-to-br from-accent/20 to-accent/5 blur-xl"></div>
+                            <img src="<?php echo htmlspecialchars($candidat['jeu_image']); ?>" alt="<?php echo htmlspecialchars($candidat['jeu_titre']); ?>" class="relative w-52 h-52 rounded-full object-cover border-4 border-accent/30 shadow-lg shadow-accent/20">
+                        </div>
+                    <?php else: ?>
+                        <div class="w-52 h-52 rounded-full bg-white/5 border-4 border-white/10 flex items-center justify-center">
+                            <i class="fas fa-image text-5xl text-light/20"></i>
+                        </div>
+                    <?php endif; ?>
+                    <div class="p-6 rounded-2xl bg-accent/10 border border-accent/30 text-center w-full">
+                        <p class="text-light/60 text-sm mb-2 flex items-center justify-center gap-2">
+                            <i class="fas fa-gamepad text-accent text-lg"></i>Jeu représenté
+                        </p>
+                        <p class="text-xl font-bold text-accent"><?php echo htmlspecialchars($candidat['jeu_titre'] ?? 'Aucun jeu sélectionné'); ?></p>
+                    </div>
                 </div>
             </div>
         </div>
-        
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="lg:col-span-2 space-y-8">
-                <!-- Publier un message -->
-                <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10">
-                    <h2 class="text-2xl font-bold font-orbitron mb-6 flex items-center gap-3">
-                        <div class="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center">
-                            <i class="fas fa-edit text-accent text-xl"></i>
-                        </div>
-                        <span>Publier un message</span>
-                    </h2>
-                    <p class="text-light/80 mb-6">Partagez des actualités, répondez aux électeurs, faites votre promotion !</p>
-                    <form method="POST" class="space-y-6">
+
+        <!-- Actions rapides -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            <a href="candidat-profil.php" class="glass-card rounded-3xl p-6 modern-border border-2 border-white/10 hover:border-accent/50 transition-all">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center">
+                        <i class="fas fa-edit text-accent text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="font-bold text-light">Modifier mon profil</p>
+                        <p class="text-sm text-light/60">Mettez à jour vos informations</p>
+                    </div>
+                </div>
+            </a>
+            <a href="candidat-statistiques.php" class="glass-card rounded-3xl p-6 modern-border border-2 border-white/10 hover:border-accent/50 transition-all">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center">
+                        <i class="fas fa-chart-bar text-accent text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="font-bold text-light">Voir mes statistiques</p>
+                        <p class="text-sm text-light/60">Analyses détaillées</p>
+                    </div>
+                </div>
+            </a>
+            <a href="#" class="glass-card rounded-3xl p-6 modern-border border-2 border-white/10 hover:border-accent/50 transition-all">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center">
+                        <i class="fas fa-globe text-accent text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="font-bold text-light">Page publique du jeu</p>
+                        <p class="text-sm text-light/60">Voir comme les électeurs</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <!-- Fil de discussion -->
+        <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10">
+            <h2 class="text-2xl font-bold font-orbitron mb-8 flex items-center gap-3">
+                <div class="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center">
+                    <i class="fas fa-comments text-accent text-xl"></i>
+                </div>
+                <span>Publier un message</span>
+            </h2>
+
+            <?php if (!empty($candidat['id_jeu'])): ?>
+                <div class="mb-8 p-6 rounded-2xl bg-white/5 border border-white/10">
+                    <p class="text-light/80 mb-4">Partagez des actualités, répondez aux électeurs, faites votre promotion !</p>
+                    <form method="POST" class="space-y-4">
                         <input type="hidden" name="action" value="add_comment">
-                        <div>
-                            <textarea name="contenu" required minlength="3" maxlength="1000" rows="5"
-                                class="w-full px-6 py-4 rounded-2xl bg-white/5 border border-white/10 text-light focus:border-accent/50 outline-none placeholder:text-light/40 resize-none transition-all font-medium"
-                                placeholder="Écrivez votre message ici... (max 1000 caractères)"></textarea>
-                        </div>
+                        <textarea
+                            name="contenu"
+                            placeholder="Écrivez votre message ici..."
+                            class="form-control bg-white/5 border border-white/10 text-light placeholder-light/40 rounded-2xl focus:border-accent focus:ring-2 focus:ring-accent/20 resize-none"
+                            rows="4"
+                            maxlength="1000"></textarea>
                         <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <span class="text-sm text-light/60">Signé :</span>
-                                <span class="text-accent font-bold text-lg"><?php echo htmlspecialchars($candidat['nom']); ?></span>
-                                <span class="px-3 py-1 rounded-full bg-accent/20 text-accent border border-accent/30 text-xs">
-                                    <i class="fas fa-crown mr-1"></i>Candidat
-                                </span>
-                            </div>
-                            <button type="submit" class="px-8 py-3 rounded-2xl bg-accent text-dark font-bold hover:bg-accent/80 transition-colors border-2 border-white/10 flex items-center gap-3">
+                            <p class="text-sm text-light/60"><span class="conteur">0</span>/1000</p>
+                            <button type="submit" class="px-6 py-3 rounded-2xl bg-accent text-dark font-bold hover:bg-accent/80 transition-colors flex items-center gap-2">
                                 <i class="fas fa-paper-plane"></i> Publier
                             </button>
                         </div>
                     </form>
                 </div>
-                
-                <!-- Fil des commentaires -->
-                <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10">
-                    <h2 class="text-2xl font-bold font-orbitron mb-6 flex items-center gap-3">
-                        <div class="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center">
-                            <i class="fas fa-stream text-accent text-xl"></i>
+            <?php else: ?>
+                <div class="p-6 rounded-2xl bg-orange-500/10 border border-orange-500/30 mb-8">
+                    <div class="flex items-center gap-3">
+                        <i class="fas fa-exclamation-triangle text-orange-400 text-xl"></i>
+                        <div>
+                            <p class="text-orange-400 font-bold">Jeu non sélectionné</p>
+                            <p class="text-orange-300/80 text-sm">Vous devez d'abord sélectionner un jeu dans votre <a href="candidat-profil.php" class="underline hover:text-orange-200">profil</a> pour publier des messages.</p>
                         </div>
-                        <span>Fil de discussion (<?php echo count($commentaires); ?>)</span>
-                    </h2>
-                    <?php if (empty($commentaires)): ?>
-                        <div class="text-center py-12">
-                            <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-white/5 mb-6">
-                                <i class="fas fa-comment-slash text-4xl text-light/20"></i>
-                            </div>
-                            <p class="text-light/80 text-lg mb-2">Aucun message pour le moment.</p>
-                            <p class="text-light/60">Publiez votre premier message pour lancer la discussion !</p>
-                        </div>
-                    <?php else: ?>
-                        <div class="space-y-4 max-h-[600px] overflow-y-auto pr-2">
-                            <?php foreach ($commentaires as $comment): 
-                                $is_mine = $comment['is_mine'] == 1;
-                                $is_candidat = $comment['type'] === 'candidat';
-                                $is_admin = $comment['type'] === 'admin';
-                                
-                                if ($is_mine) {
-                                    $pseudo_class = 'text-accent font-bold';
-                                    $badge = '<span class="ml-2 px-3 py-1 rounded-full text-xs bg-accent/20 text-accent border border-accent/30"><i class="fas fa-crown mr-1"></i>Vous</span>';
-                                    $card_class = 'border-l-4 border-l-accent bg-accent/5';
-                                } elseif ($is_candidat) {
-                                    $pseudo_class = 'text-purple-400 font-semibold';
-                                    $badge = '<span class="ml-2 px-3 py-1 rounded-full text-xs bg-purple-500/20 text-purple-400 border border-purple-500/30">Candidat</span>';
-                                    $card_class = '';
-                                } elseif ($is_admin) {
-                                    $pseudo_class = 'text-red-400 font-semibold';
-                                    $badge = '<span class="ml-2 px-3 py-1 rounded-full text-xs bg-red-500/20 text-red-400 border border-red-500/30">Admin</span>';
-                                    $card_class = '';
-                                } else {
-                                    $pseudo_class = 'text-light';
-                                    $badge = '';
-                                    $card_class = '';
-                                }
-                            ?>
-                                <div class="p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-white/20 transition-colors <?php echo $card_class; ?>">
-                                    <div class="flex items-start justify-between mb-4">
-                                        <div class="flex items-center flex-wrap">
-                                            <span class="<?php echo $pseudo_class; ?> text-lg font-medium"><?php echo htmlspecialchars($comment['pseudo'] ?? 'Anonyme'); ?></span>
-                                            <?php echo $badge; ?>
-                                        </div>
-                                        <div class="flex items-center gap-4">
-                                            <span class="text-sm text-light/60">
-                                                <?php echo date('d/m/Y H:i', strtotime($comment['date_commentaire'])); ?>
-                                            </span>
-                                            <?php if ($is_mine): ?>
-                                                <form method="POST" class="inline" onsubmit="return confirm('Supprimer ce message ?');">
-                                                    <input type="hidden" name="action" value="delete_comment">
-                                                    <input type="hidden" name="id_comment" value="<?php echo $comment['id_commentaire']; ?>">
-                                                    <button type="submit" class="text-red-400/60 hover:text-red-400 transition-colors">
-                                                        <i class="fas fa-trash-alt"></i>
-                                                    </button>
-                                                </form>
-                                            <?php endif; ?>
-                                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <!-- Fil de discussion -->
+            <h3 class="text-xl font-bold font-orbitron mb-6 flex items-center gap-3">
+                <i class="fas fa-comments text-accent"></i>
+                <span>Fil de discussion (<?php echo count($commentaires); ?>)</span>
+            </h3>
+
+            <?php if (empty($commentaires)): ?>
+                <div class="text-center py-12">
+                    <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-white/5 mb-4">
+                        <i class="fas fa-comment text-3xl text-light/20"></i>
+                    </div>
+                    <p class="text-light/80 text-lg mb-2">Aucun message pour le moment.</p>
+                    <p class="text-light/60">Publiez votre premier message pour lancer la discussion !</p>
+                </div>
+            <?php else: ?>
+                <div class="space-y-4">
+                    <?php foreach ($commentaires as $comment):
+                        $isOwner = $comment['is_mine'];
+                        $isCandidates = $comment['type'] === 'candidat';
+                        $isAdmin = $comment['type'] === 'admin';
+                    ?>
+                        <div class="p-6 rounded-2xl bg-white/5 border border-white/10 <?php echo $isOwner ? 'border-l-4 border-l-accent bg-accent/5' : ''; ?>">
+                            <div class="flex items-start justify-between gap-3 mb-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
+                                        <i class="fas fa-user-circle text-accent"></i>
                                     </div>
-                                    <p class="text-light/80 leading-relaxed"><?php echo nl2br(htmlspecialchars($comment['contenu'])); ?></p>
+                                    <div>
+                                        <p class="font-bold text-light">
+                                            <?php echo htmlspecialchars($comment['pseudo']); ?>
+                                            <?php if ($isOwner): ?>
+                                                <span class="text-xs ml-2 px-2 py-1 rounded-full bg-accent/20 text-accent">Vous</span>
+                                            <?php endif; ?>
+                                            <?php if ($isCandidates): ?>
+                                                <span class="text-xs ml-2 px-2 py-1 rounded-full bg-purple-500/20 text-purple-400">Candidat</span>
+                                            <?php endif; ?>
+                                            <?php if ($isAdmin): ?>
+                                                <span class="text-xs ml-2 px-2 py-1 rounded-full bg-red-500/20 text-red-400">Admin</span>
+                                            <?php endif; ?>
+                                        </p>
+                                        <p class="text-xs text-light/60"><?php echo date('d/m/Y H:i', strtotime($comment['date_commentaire'])); ?></p>
+                                    </div>
                                 </div>
-                            <?php endforeach; ?>
+                                <?php if ($isOwner): ?>
+                                    <form method="POST" style="display: inline;">
+                                        <input type="hidden" name="action" value="delete_comment">
+                                        <input type="hidden" name="id_comment" value="<?php echo $comment['id_commentaire']; ?>">
+                                        <button type="submit" class="text-light/40 hover:text-red-400 transition-colors" title="Supprimer">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
+                            </div>
+                            <p class="text-light/80 leading-relaxed"><?php echo nl2br(htmlspecialchars($comment['contenu'])); ?></p>
                         </div>
-                    <?php endif; ?>
+                    <?php endforeach; ?>
                 </div>
-            </div>
-            
-            <div class="space-y-8">
-                
-                <!-- Jeu voté -->
-                <div class="glass-card rounded-3xl overflow-hidden modern-border border-2 border-white/10">
-                    <?php if ($candidat['jeu_image']): ?>
-                        <div class="h-48 bg-gradient-to-br from-accent/20 to-purple-500/20">
-                            <img src="<?php echo htmlspecialchars($candidat['jeu_image']); ?>" alt="<?php echo htmlspecialchars($candidat['titre_jeu']); ?>" class="w-full h-full object-cover">
-                        </div>
-                    <?php endif; ?>
-                    <div class="p-6">
-                        <h3 class="text-xl font-bold text-light mb-3"><?php echo htmlspecialchars($candidat['titre_jeu']); ?></h3>
-                        <?php if ($candidat['editeur']): ?>
-                            <p class="text-accent text-sm mb-4 flex items-center gap-2">
-                                <i class="fas fa-building"></i>
-                                <?php echo htmlspecialchars($candidat['editeur']); ?>
-                            </p>
-                        <?php endif; ?>
-                        <a href="jeu-campagne.php?id=<?php echo $candidat['id_jeu']; ?>" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20 transition-colors text-sm font-medium">
-                            <i class="fas fa-external-link-alt"></i> Voir la page publique
-                        </a>
-                    </div>
-                </div>
-    
-                <div class="glass-card rounded-3xl p-6 modern-border border-2 border-white/10">
-                    <h3 class="text-xl font-bold font-orbitron mb-6 flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
-                            <i class="fas fa-bolt text-accent"></i>
-                        </div>
-                        <span>Actions rapides</span>
-                    </h3>
-                    <div class="space-y-4">
-                        <a href="candidat-profil.php" class="flex items-center gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-light hover:text-light border border-white/10">
-                            <i class="fas fa-user-edit text-accent text-lg w-6"></i>
-                            <div>
-                                <p class="font-medium">Modifier mon profil</p>
-                                <p class="text-xs text-light/60">Mettez à jour vos informations</p>
-                            </div>
-                        </a>
-                        <a href="candidat-statistiques.php" class="flex items-center gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-light hover:text-light border border-white/10">
-                            <i class="fas fa-chart-line text-green-400 text-lg w-6"></i>
-                            <div>
-                                <p class="font-medium">Voir mes statistiques</p>
-                                <p class="text-xs text-light/60">Analyses détaillées</p>
-                            </div>
-                        </a>
-                        <a href="jeu-campagne.php?id=<?php echo $candidat['id_jeu']; ?>" class="flex items-center gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-light hover:text-light border border-white/10">
-                            <i class="fas fa-eye text-purple-400 text-lg w-6"></i>
-                            <div>
-                                <p class="font-medium">Page publique du jeu</p>
-                                <p class="text-xs text-light/60">Voir comme les électeurs</p>
-                            </div>
-                        </a>
-                    </div>
-                </div>               
-            </div>
+            <?php endif; ?>
         </div>
     </div>
 </section>
+
+<script>
+// Compteur de caractères
+document.querySelector('textarea[name="contenu"]')?.addEventListener('input', function() {
+    document.querySelector('.conteur').textContent = this.value.length;
+});
+</script>
 
 <?php require_once 'footer.php'; ?>

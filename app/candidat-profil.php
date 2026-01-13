@@ -1,106 +1,56 @@
 <?php
-/**
- * PROFIL CANDIDAT - GameCrown
- * Le candidat peut voir ses infos mais NE PEUT PAS changer de jeu
- */
 
-session_start();
-require_once 'dbconnect.php';
 
-// Vérifier candidat AVANT d'inclure header.php
-if (!isset($_SESSION['type']) || $_SESSION['type'] !== 'candidat') {
+
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
+// ✅ CHARGER init.php POUR ACCÉDER AUX SERVICES
+require_once 'classes/init.php';
+
+// ✅ VÉRIFIER QUE L'UTILISATEUR EST CANDIDAT
+if (!isCandidate()) {
     echo "<script>alert('Accès réservé aux candidats'); window.location.href = './dashboard.php';</script>";
     exit;
 }
 
-$id_utilisateur = $_SESSION['id_utilisateur'];
+$id_utilisateur = (int)getAuthUserId();
 
-// Récupérer les infos du candidat
-try {
-    $stmt = $connexion->prepare("
-        SELECT c.*, u.email, u.date_inscription, j.titre as titre_jeu, j.image as image_jeu, j.editeur
-        FROM candidat c 
-        JOIN utilisateur u ON c.id_utilisateur = u.id_utilisateur 
-        LEFT JOIN jeu j ON c.id_jeu = j.id_jeu
-        WHERE c.id_utilisateur = ?
-    ");
-    $stmt->execute([$id_utilisateur]);
-    $candidat = $stmt->fetch(PDO::FETCH_ASSOC);
+// ✅ RÉCUPÉRER LE SERVICE VIA SERVICECONTAINER
+$profileService = ServiceContainer::getCandidatProfileService();
+
+// ✅ RÉCUPÉRER LE PROFIL
+$data = $profileService->getCandidatProfile($id_utilisateur);
+$candidat = $data['candidat'];
+$stats = $data['stats'];
+$error = $data['error'];
+
+// ✅ TRAITEMENT FORMULAIRE - UNE LIGNE!
+$success = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_profil') {
+    $result = $profileService->updateCandidatProfile(
+        $id_utilisateur,
+        htmlspecialchars(trim($_POST['nom'] ?? ''), ENT_QUOTES, 'UTF-8'),
+        !empty($_POST['bio']) ? htmlspecialchars(trim($_POST['bio']), ENT_QUOTES, 'UTF-8') : null,
+        !empty($_POST['photo']) ? filter_var(trim($_POST['photo']), FILTER_SANITIZE_URL) : null
+    );
     
-    if (!$candidat) {
-        header('Location: register.php');
-        exit;
+    if ($result['success']) {
+        $success = $result['message'];
+        // Rafraîchir les données
+        $data = $profileService->getCandidatProfile($id_utilisateur);
+        $candidat = $data['candidat'];
+        $stats = $data['stats'];
+    } else {
+        $error = $result['message'];
     }
-} catch (Exception $e) {
-    $candidat = null;
 }
 
 require_once 'header.php';
 
-$error = '';
-$success = '';
-
-// Traitement de la mise à jour du PROFIL (pas du jeu)
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    if ($_POST['action'] === 'update_profil') {
-        // Nettoyage des données
-        $nom = htmlspecialchars(trim($_POST['nom'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $bio = htmlspecialchars(trim($_POST['bio'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $photo = filter_var(trim($_POST['photo'] ?? ''), FILTER_SANITIZE_URL);
-        
-        // Validation
-        if (empty($nom) || strlen($nom) < 2 || strlen($nom) > 100) {
-            $error = "Le nom doit contenir entre 2 et 100 caractères !";
-        } elseif (!empty($photo) && !filter_var($photo, FILTER_VALIDATE_URL)) {
-            $error = "L'URL de la photo n'est pas valide !";
-        } else {
-            try {
-                $stmt = $connexion->prepare("
-                    UPDATE candidat 
-                    SET nom = ?, bio = ?, photo = ?
-                    WHERE id_utilisateur = ?
-                ");
-                $stmt->execute([
-                    $nom, 
-                    !empty($bio) ? $bio : null, 
-                    !empty($photo) ? $photo : null, 
-                    $id_utilisateur
-                ]);
-                
-                $success = "Profil mis à jour avec succès ! ✅";
-                
-                // Log audit
-                $stmt = $connexion->prepare("
-                    INSERT INTO journal_securite (id_utilisateur, action, details, adresse_ip) 
-                    VALUES (?, 'CANDIDAT_PROFIL_UPDATE', 'Mise à jour du profil', ?)
-                ");
-                $stmt->execute([$id_utilisateur, $_SERVER['REMOTE_ADDR'] ?? 'unknown']);
-                
-                // Rafraîchir les données
-                $stmt = $connexion->prepare("
-                    SELECT c.*, u.email, u.date_inscription, j.titre as titre_jeu, j.image as image_jeu, j.editeur
-                    FROM candidat c 
-                    JOIN utilisateur u ON c.id_utilisateur = u.id_utilisateur 
-                    LEFT JOIN jeu j ON c.id_jeu = j.id_jeu
-                    WHERE c.id_utilisateur = ?
-                ");
-                $stmt->execute([$id_utilisateur]);
-                $candidat = $stmt->fetch(PDO::FETCH_ASSOC);
-                
-            } catch (Exception $e) {
-                $error = "Erreur lors de la mise à jour.";
-            }
-        }
-    }
-}
-
-// Statut du candidat
-$statut_config = [
-    'en_attente' => ['label' => 'En attente de validation', 'color' => 'yellow', 'icon' => 'fa-clock'],
-    'valide' => ['label' => 'Validé', 'color' => 'green', 'icon' => 'fa-check-circle'],
-    'refuse' => ['label' => 'Refusé', 'color' => 'red', 'icon' => 'fa-times-circle']
-];
-$statut = $statut_config[$candidat['statut'] ?? 'en_attente'] ?? $statut_config['en_attente'];
+// ✅ Récupérer statut
+$statut = CandidatProfileService::getStatutConfig($candidat['statut'] ?? 'en_attente');
 ?>
 
 <br><br><br>
@@ -117,7 +67,7 @@ $statut = $statut_config[$candidat['statut'] ?? 'en_attente'] ?? $statut_config[
         <?php if (!empty($error)): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
                 <i class="fas fa-exclamation-circle text-red-400"></i>
-                <span class="text-red-400"><?php echo $error; ?></span>
+                <span class="text-red-400"><?php echo htmlspecialchars($error); ?></span>
             </div>
         <?php endif; ?>
         
@@ -186,31 +136,13 @@ $statut = $statut_config[$candidat['statut'] ?? 'en_attente'] ?? $statut_config[
                             <i class="fas fa-chart-bar text-accent"></i> Statistiques
                         </h2>
                         
-                        <?php
-                        // Récupérer stats rapides
-                        $votes_cat = 0; $votes_final = 0; $commentaires = 0;
-                        try {
-                            $stmt = $connexion->prepare("SELECT COUNT(*) as t FROM bulletin_categorie WHERE id_jeu = ?");
-                            $stmt->execute([$candidat['id_jeu']]);
-                            $votes_cat = $stmt->fetch()['t'];
-                            
-                            $stmt = $connexion->prepare("SELECT COUNT(*) as t FROM bulletin_final WHERE id_jeu = ?");
-                            $stmt->execute([$candidat['id_jeu']]);
-                            $votes_final = $stmt->fetch()['t'];
-                            
-                            $stmt = $connexion->prepare("SELECT COUNT(*) as t FROM commentaire WHERE id_jeu = ?");
-                            $stmt->execute([$candidat['id_jeu']]);
-                            $commentaires = $stmt->fetch()['t'];
-                        } catch (Exception $e) {}
-                        ?>
-                        
                         <div class="space-y-4">
                             <div class="flex justify-between items-center p-3 rounded-xl bg-green-500/10 border border-green-500/30">
                                 <div class="flex items-center gap-3">
                                     <i class="fas fa-layer-group text-green-400 text-lg"></i>
                                     <div>
                                         <p class="text-light/60 text-xs">Votes catégories</p>
-                                        <p class="text-green-400 font-bold text-xl"><?php echo $votes_cat; ?></p>
+                                        <p class="text-green-400 font-bold text-xl"><?php echo $stats['votes_categorie']; ?></p>
                                     </div>
                                 </div>
                             </div>
@@ -219,7 +151,7 @@ $statut = $statut_config[$candidat['statut'] ?? 'en_attente'] ?? $statut_config[
                                     <i class="fas fa-crown text-purple-400 text-lg"></i>
                                     <div>
                                         <p class="text-light/60 text-xs">Votes finaux</p>
-                                        <p class="text-purple-400 font-bold text-xl"><?php echo $votes_final; ?></p>
+                                        <p class="text-purple-400 font-bold text-xl"><?php echo $stats['votes_final']; ?></p>
                                     </div>
                                 </div>
                             </div>
@@ -228,7 +160,7 @@ $statut = $statut_config[$candidat['statut'] ?? 'en_attente'] ?? $statut_config[
                                     <i class="fas fa-comment text-accent text-lg"></i>
                                     <div>
                                         <p class="text-light/60 text-xs">Commentaires</p>
-                                        <p class="text-accent font-bold text-xl"><?php echo $commentaires; ?></p>
+                                        <p class="text-accent font-bold text-xl"><?php echo $stats['commentaires']; ?></p>
                                     </div>
                                 </div>
                             </div>

@@ -1,112 +1,45 @@
 <?php
+
+
+
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
-require_once 'dbconnect.php';
+// ✅ UTILISER LE init.php POUR ACCÉDER AU SERVICE
+require_once 'classes/init.php';
 
-// Vérifier que l'utilisateur est connecté
+// ✅ Vérifier que l'utilisateur est connecté
 if (!isset($_SESSION['id_utilisateur'])) {
     header('Location: login.php');
     exit;
 }
 
-$id_utilisateur = $_SESSION['id_utilisateur'];
-$useremail = $_SESSION['useremail'] ?? '';
-$error = '';
+$id_utilisateur = (int)$_SESSION['id_utilisateur'];
+$useremail = (string)($_SESSION['useremail'] ?? '');
 
-// Récupérer les informations
-try {
-    $stmt = $connexion->prepare("
-        SELECT * FROM utilisateur WHERE id_utilisateur = ?
-    ");
-    $stmt->execute([$id_utilisateur]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
-    $error = "Erreur : " . $e->getMessage();
-    $user = [];
-}
+/**
+ * ✅ RÉCUPÉRER LE SERVICE VIA init.php
+ * $dashboardService est instancié dans init.php et disponible
+ */
+$dashboardService = ServiceContainer::getDashboardService();
 
-// Récupérer les événements auxquels l'utilisateur est inscrit
-try {
-    $stmt = $connexion->prepare("
-        SELECT e.*, r.date_inscription
-        FROM evenement e
-        JOIN registre_electoral r ON e.id_evenement = r.id_evenement
-        WHERE r.id_utilisateur = ?
-        ORDER BY e.date_ouverture DESC
-    ");
-    $stmt->execute([$id_utilisateur]);
-    $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
-    $events = [];
-}
+$data = $dashboardService->getUserDashboardData($id_utilisateur);
 
-// Récupérer l'historique des votes
-try {
-    $stmt = $connexion->prepare("
-        SELECT 'categorie' as type, j.titre, c.nom as categorie, e.nom as evenement, 
-               ec.date_emargement as datevote
-        FROM emargement_categorie ec
-        JOIN categorie c ON ec.id_categorie = c.id_categorie
-        JOIN evenement e ON ec.id_evenement = e.id_evenement
-        JOIN (
-            SELECT DISTINCT id_jeu FROM bulletin_categorie bc
-        ) AS jeux ON TRUE
-        LEFT JOIN jeu j ON j.id_jeu IN (SELECT id_jeu FROM bulletin_categorie WHERE id_evenement = ec.id_evenement)
-        WHERE ec.id_utilisateur = ?
-        
-        UNION ALL
-        
-        SELECT 'final' as type, j.titre, 'Finale' as categorie, e.nom as evenement,
-               ef.date_emargement as datevote
-        FROM emargement_final ef
-        JOIN evenement e ON ef.id_evenement = e.id_evenement
-        LEFT JOIN bulletin_final bf ON bf.id_evenement = ef.id_evenement
-        LEFT JOIN jeu j ON j.id_jeu = bf.id_jeu
-        WHERE ef.id_utilisateur = ?
-        
-        ORDER BY datevote DESC
-    ");
-    $stmt->execute([$id_utilisateur, $id_utilisateur]);
-    $votes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
-    $votes = [];
-}
+/**
+ * ✅ UNE SEULE LIGNE DE LOGIQUE - Toute la logique métier est encapsulée
+ */
+$data = $dashboardService->getUserDashboardData($id_utilisateur);
 
-// Récupérer le statut de vote par événement
-$voteStatus = [];
-try {
-    foreach ($events as $event) {
-        $status = [];
-        
-        // Catégories
-        $stmt = $connexion->prepare("
-            SELECT COUNT(DISTINCT ec.id_categorie) as total_categories,
-                   COUNT(DISTINCT ec.id_categorie) as voted_categories
-            FROM categorie c
-            LEFT JOIN emargement_categorie ec ON c.id_categorie = ec.id_categorie 
-                AND ec.id_utilisateur = ? AND ec.id_evenement = ?
-            WHERE c.id_evenement = ?
-        ");
-        $stmt->execute([$id_utilisateur, $event['id_evenement'], $event['id_evenement']]);
-        $catResult = $stmt->fetch(PDO::FETCH_ASSOC);
-        $status['categories'] = $catResult;
-        
-        // Finale
-        $stmt = $connexion->prepare("
-            SELECT COUNT(*) as has_voted_final
-            FROM emargement_final
-            WHERE id_utilisateur = ? AND id_evenement = ?
-        ");
-        $stmt->execute([$id_utilisateur, $event['id_evenement']]);
-        $finalResult = $stmt->fetch(PDO::FETCH_ASSOC);
-        $status['final'] = $finalResult['has_voted_final'] > 0;
-        
-        $voteStatus[$event['id_evenement']] = $status;
-    }
-} catch (Exception $e) {}
+// ✅ Extraire les données (simples variables pour la vue)
+$user = $data['user'];
+$events = $data['events'];
+$votes = $data['votes'];
+$voteStatus = $data['voteStatus'];
+$error = $data['error'];
+$stats = $data['statistics'];
 
+// Affichage du header
 require_once 'header.php';
 ?>
 <br><br><br> <!-- Espace pour le header -->
@@ -119,7 +52,7 @@ require_once 'header.php';
             <p class="text-xl text-light-80">Gérez vos votes et informations personnelles</p>
         </div>
         
-        <!-- Messages -->
+        <!-- Messages d'erreur -->
         <?php if ($error): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
                 <i class="fas fa-exclamation-circle text-red-400"></i>
@@ -128,6 +61,7 @@ require_once 'header.php';
         <?php endif; ?>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Profil utilisateur -->
             <div class="lg:col-span-1">
                 <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10 mb-6">
                     <div class="text-center mb-6">
@@ -137,36 +71,42 @@ require_once 'header.php';
                         <h2 class="text-xl font-bold text-light break-words">
                             <?php echo htmlspecialchars($useremail); ?>
                         </h2>
-                        <p class="text-sm text-light-80 mt-1">Inscrit depuis <?php echo date('d/m/Y', strtotime($user['date_inscription'])); ?></p>
+                        <?php if ($user): ?>
+                            <p class="text-sm text-light-80 mt-1">
+                                Inscrit depuis <?php echo date('d/m/Y', strtotime($user['date_inscription'])); ?>
+                            </p>
+                        <?php endif; ?>
                     </div>
                     
-                    <div class="mb-6 pb-6 border-b border-white/10">
-                        <div class="text-sm text-light-80 mb-2">Type de compte</div>
-                        <div class="inline-block px-4 py-2 rounded-full bg-accent/20 text-accent border-2 border-accent/30">
-                            <i class="fas fa-tag mr-2"></i>
-                            <?php 
-                            $typeLabels = [
-                                'joueur' => 'Joueur',
-                                'admin' => 'Administrateur',
-                                'candidat' => 'Candidat'
-                            ];
-                            echo $typeLabels[$user['type']] ?? ucfirst($user['type']);
-                            ?>
+                    <?php if ($user): ?>
+                        <div class="mb-6 pb-6 border-b border-white/10">
+                            <div class="text-sm text-light-80 mb-2">Type de compte</div>
+                            <div class="inline-block px-4 py-2 rounded-full bg-accent/20 text-accent border-2 border-accent/30">
+                                <i class="fas fa-tag mr-2"></i>
+                                <?php 
+                                $typeLabels = [
+                                    'joueur' => 'Joueur',
+                                    'admin' => 'Administrateur',
+                                    'candidat' => 'Candidat'
+                                ];
+                                echo $typeLabels[$user['type']] ?? ucfirst($user['type']);
+                                ?>
+                            </div>
                         </div>
-                    </div>
+                    <?php endif; ?>
                     
                     <div class="space-y-4">
                         <div class="flex items-center justify-between">
                             <span class="text-light-80 flex items-center gap-2">
                                 <i class="fas fa-calendar text-accent"></i> Événements
                             </span>
-                            <span class="text-2xl font-bold text-accent"><?php echo count($events); ?></span>
+                            <span class="text-2xl font-bold text-accent"><?php echo $stats['total_events']; ?></span>
                         </div>
                         <div class="flex items-center justify-between">
                             <span class="text-light-80 flex items-center gap-2">
                                 <i class="fas fa-vote-yea text-accent"></i> Votes
                             </span>
-                            <span class="text-2xl font-bold text-accent"><?php echo count($votes); ?></span>
+                            <span class="text-2xl font-bold text-accent"><?php echo $stats['total_votes']; ?></span>
                         </div>
                     </div>
                     
@@ -180,6 +120,7 @@ require_once 'header.php';
 
             <!-- Événements et historique -->
             <div class="lg:col-span-2 space-y-8">
+                <!-- Mes événements -->
                 <div>
                     <h3 class="text-2xl font-bold font-orbitron mb-4 flex items-center gap-2">
                         <i class="fas fa-calendar-check text-accent"></i> Mes Événements
@@ -195,10 +136,7 @@ require_once 'header.php';
                             <?php foreach ($events as $event): ?>
                                 <?php
                                 $status = $voteStatus[$event['id_evenement']] ?? [];
-                                $now = new DateTime();
-                                $ouverture = new DateTime($event['date_ouverture']);
-                                $fermeture = new DateTime($event['date_fermeture']);
-                                $isOpen = $now >= $ouverture && $now <= $fermeture;
+                                $isOpen = DashboardService::isEventOpen($event);
                                 ?>
                                 <div class="glass-card rounded-3xl p-6 modern-border border-2 border-white/10">
                                     <div class="flex items-start justify-between mb-4">
@@ -216,6 +154,7 @@ require_once 'header.php';
                                         </span>
                                     </div>
                                     
+                                    <!-- Progression des votes -->
                                     <div class="mb-4">
                                         <div class="flex items-center justify-between mb-2">
                                             <span class="text-sm text-light-80">Progression des votes</span>
@@ -224,8 +163,8 @@ require_once 'header.php';
                                                 $catVoted = 0;
                                                 $catTotal = 0;
                                                 if (isset($status['categories'])) {
-                                                    $catVoted = intval($status['categories']['voted_categories']);
-                                                    $catTotal = intval($status['categories']['total_categories']);
+                                                    $catVoted = (int)$status['categories']['voted_categories'];
+                                                    $catTotal = (int)$status['categories']['total_categories'];
                                                 }
                                                 echo "$catVoted/$catTotal";
                                                 ?>

@@ -1,55 +1,78 @@
+<?php
+/**
+ * footer.php - REFACTORISÉ avec SOLID
+ * 
+ * Pied de page principal de l'application
+ * Informations, liens sociaux, copyright
+ * 
+ * Utilise FooterService pour toute la logique métier
+ */
+
+try {
+    $footerService = ServiceContainer::getFooterService();
+    $appInfo = $footerService->getAppInfo();
+    $socialLinks = $footerService->getSocialLinks();
+    $footerLinks = $footerService->getFooterLinks();
+} catch (Exception $e) {
+    error_log("Footer Error: " . $e->getMessage());
+    // Fallback values
+    $appInfo = ['name' => 'GameCrown', 'year' => date('Y'), 'copyright' => '© ' . date('Y') . ' GameCrown'];
+    $socialLinks = [];
+    $footerLinks = [];
+}
+
+?>
+    <!-- Footer -->
     <footer class="glass-effect-footer py-16 px-6 mt-20 rounded-t-6xl modern-border">
         <div class="container mx-auto">
+            <!-- Logo + Réseaux sociaux -->
             <div class="flex flex-col md:flex-row justify-between items-center">
                 <div class="flex items-center space-x-4 mb-8 md:mb-0">
                     <div class="glass-button p-2 rounded-3xl">
-                        <img src="../assets/img/logo.png" alt="Logo GameCrown" class="logo-image">
+                        <img src="../assets/img/logo.png" alt="Logo <?php echo htmlspecialchars($appInfo['name']); ?>" class="logo-image">
                     </div>
                     <span class="logo-text">
                         GAME<span class="accent-gradient">CROWN</span>
                     </span>
                 </div>
 
+                <!-- Liens sociaux -->
                 <div class="flex space-x-5">
-                    <a href="#" class="glass-button rounded-3xl p-3 w-12 h-12 flex items-center justify-center modern-border">
-                        <i class="fab fa-twitter text-accent"></i>
-                    </a>
-                    <a href="#" class="glass-button rounded-3xl p-3 w-12 h-12 flex items-center justify-center modern-border">
-                        <i class="fab fa-facebook-f text-accent"></i>
-                    </a>
-                    <a href="#" class="glass-button rounded-3xl p-3 w-12 h-12 flex items-center justify-center modern-border">
-                        <i class="fab fa-instagram text-accent"></i>
-                    </a>
-                    <a href="#" class="glass-button rounded-3xl p-3 w-12 h-12 flex items-center justify-center modern-border">
-                        <i class="fab fa-youtube text-accent"></i>
-                    </a>
+                    <?php foreach ($socialLinks as $key => $social): ?>
+                        <a href="<?php echo htmlspecialchars($social['url']); ?>" 
+                           title="<?php echo htmlspecialchars($social['label']); ?>"
+                           class="glass-button rounded-3xl p-3 w-12 h-12 flex items-center justify-center modern-border hover:bg-accent/20 transition-colors"
+                           target="_blank" rel="noopener noreferrer">
+                            <i class="<?php echo htmlspecialchars($social['icon']); ?> text-accent"></i>
+                        </a>
+                    <?php endforeach; ?>
                 </div>
             </div>
 
+            <!-- Séparateur -->
             <div class="separator mt-10"></div>
 
+            <!-- Copyright -->
             <div class="text-center text-base text-light/70">
-                <p>&copy;2025 GameCrown. Tous droits réservés.</p>
+                <p><?php echo htmlspecialchars($appInfo['copyright']); ?></p>
             </div>
         </div>
     </footer>
 
+    <!-- Scripts -->
     <script src="../assets/js/index.js"></script>
 
     <!-- Script pour les modals Login et Register -->
     <script>
-        // Login
+        // ==================== VARIABLES GLOBALES ====================
         const loginOverlay = document.getElementById('loginOverlay');
         const loginModal = document.getElementById('loginModal');
         const loginModalContent = document.getElementById('loginModalContent');
         const closeLoginModal = document.getElementById('closeLoginModal');
-        const openLoginBtn = document.getElementById('openLoginBtn');
-        const openLoginBtnMobile = document.getElementById('openLoginBtnMobile');
         const toggleLoginPassword = document.getElementById('toggleLoginPassword');
         const loginPassword = document.getElementById('loginPassword');
         const switchToRegister = document.getElementById('switchToRegister');
 
-        // Register
         const registerOverlay = document.getElementById('registerOverlay');
         const registerModal = document.getElementById('registerModal');
         const registerModalContent = document.getElementById('registerModalContent');
@@ -140,16 +163,6 @@
         }
 
         // ==================== ÉVÉNEMENTS LOGIN ====================
-        openLoginBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            openLoginPopup();
-        });
-
-        openLoginBtnMobile.addEventListener('click', (e) => {
-            e.preventDefault();
-            openLoginPopup();
-        });
-
         closeLoginModal.addEventListener('click', closeLoginPopup);
         loginOverlay.addEventListener('click', closeLoginPopup);
         loginModalContent.addEventListener('click', (e) => e.stopPropagation());
@@ -166,6 +179,7 @@
         closeRegisterModal.addEventListener('click', closeRegisterPopup);
         registerOverlay.addEventListener('click', closeRegisterPopup);
         registerModalContent.addEventListener('click', (e) => e.stopPropagation());
+
         toggleRegisterPassword.addEventListener('click', () => {
             const type = registerPassword.type === 'password' ? 'text' : 'password';
             registerPassword.type = type;
@@ -235,7 +249,9 @@
                 registerPasswordConfirm.classList.add('border-red-500');
             }
         }
+
         registerPasswordConfirm.addEventListener('input', checkPasswordMatch);
+
         document.getElementById('registerForm').addEventListener('submit', (e) => {
             e.preventDefault();
             const password = registerPassword.value;

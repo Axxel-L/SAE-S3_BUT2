@@ -3,188 +3,83 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-require_once 'dbconnect.php';
+require_once 'classes/init.php';
 
-// Vérifier que l'utilisateur est admin
+// ==================== VÉRIFICATION ACCÈS ====================
+
 if (!isset($_SESSION['id_utilisateur']) || ($_SESSION['type'] ?? '') !== 'admin') {
     echo "<script>alert('Accès réservé aux administrateurs'); window.location.href = 'index.php';</script>";
     exit;
 }
+
+// ==================== SERVICES ====================
+
+$adminUserService = ServiceContainer::getAdminUserService();
+$authService = ServiceContainer::getAuthenticationService();
+
+// ==================== VARIABLES ====================
 
 $id_utilisateur = $_SESSION['id_utilisateur'];
 $error = '';
 $success = '';
 $users = [];
 
-// Récupérer tous les utilisateurs
-try {
-    $stmt = $connexion->prepare("
-        SELECT 
-            u.id_utilisateur,
-            u.email,
-            u.type,
-            u.date_inscription,
-            (SELECT COUNT(*) FROM candidat c WHERE c.id_utilisateur = u.id_utilisateur) as is_candidat,
-            (SELECT c.statut FROM candidat c WHERE c.id_utilisateur = u.id_utilisateur LIMIT 1) as candidat_statut
-        FROM utilisateur u
-        ORDER BY u.date_inscription DESC
-    ");
-    $stmt->execute();
-    $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
-    $error = "Erreur : " . $e->getMessage();
-}
+// ==================== ACTIONS ====================
 
-// Traite les actions POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     
-    // Ajouter un utilisateur
+    // ➕ Créer utilisateur
     if ($_POST['action'] === 'add_user') {
-        $email = filter_var(trim($_POST['email'] ?? ''), FILTER_SANITIZE_EMAIL);
-        $password = $_POST['password'] ?? '';
-        $type = $_POST['type'] ?? 'joueur';
+        $result = $adminUserService->createUser(
+            $_POST['email'] ?? '',
+            $_POST['password'] ?? '',
+            $_POST['type'] ?? 'joueur',
+            $id_utilisateur
+        );
         
-        // Validation
-        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $error = "Email invalide !";
-        } elseif (strlen($password) < 8) {
-            $error = "Mot de passe minimum 8 caractères !";
-        } elseif (!in_array($type, ['joueur', 'candidat', 'admin'])) {
-            $error = "Type invalide !";
+        if ($result['success']) {
+            $success = $result['message'];
         } else {
-            try {
-                // Vérifier que l'email est unique
-                $stmt = $connexion->prepare("SELECT id_utilisateur FROM utilisateur WHERE email = ?");
-                $stmt->execute([$email]);
-                
-                if ($stmt->rowCount() > 0) {
-                    $error = "Cet email existe déjà !";
-                } else {
-                    // On utilise le même hash que login.php
-                    $salt = bin2hex(random_bytes(16));
-                    $password_hash = hash('sha256', $password . $salt);
-                    
-                    $stmt = $connexion->prepare("
-                        INSERT INTO utilisateur (email, mot_de_passe, salt, type, date_inscription) 
-                        VALUES (?, ?, ?, ?, NOW())
-                    ");
-                    
-                    if ($stmt->execute([$email, $password_hash, $salt, $type])) {
-                        $new_user_id = $connexion->lastInsertId();
-                        
-                        // Si c'est un candidat on créer aussi le profil candidat
-                        if ($type === 'candidat') {
-                            $stmt = $connexion->prepare("
-                                INSERT INTO candidat (id_utilisateur, nom, statut, date_inscription) 
-                                VALUES (?, ?, 'valide', NOW())
-                            ");
-                            $stmt->execute([$new_user_id, $email]);
-                        }
-                        $success = "✅ Utilisateur créé avec succès !";
-                        
-                        // Ajoute aux logs
-                        $stmt = $connexion->prepare("INSERT INTO journal_securite (id_utilisateur, action, details, adresse_ip) VALUES (?, 'ADMIN_USER_CREATE', ?, ?)");
-                        $stmt->execute([$id_utilisateur, "Utilisateur créé: $email ($type)", $_SERVER['REMOTE_ADDR'] ?? '']);
-                        
-                        // Rafraîchir la liste
-                        $stmt = $connexion->prepare("
-                            SELECT u.id_utilisateur, u.email, u.type, u.date_inscription,
-                                   (SELECT COUNT(*) FROM candidat c WHERE c.id_utilisateur = u.id_utilisateur) as is_candidat,
-                                   (SELECT c.statut FROM candidat c WHERE c.id_utilisateur = u.id_utilisateur LIMIT 1) as candidat_statut
-                            FROM utilisateur u ORDER BY u.date_inscription DESC
-                        ");
-                        $stmt->execute();
-                        $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                    }
-                }
-            } catch (Exception $e) {
-                $error = "Erreur : " . $e->getMessage();
-            }
+            $error = $result['message'];
         }
     }
     
-    // Changer le type d'un utilisateur
+    // 🔄 Changer type utilisateur
     elseif ($_POST['action'] === 'change_type') {
-        $user_id = intval($_POST['user_id'] ?? 0);
-        $new_type = $_POST['new_type'] ?? '';
+        $result = $adminUserService->changeUserType(
+            (int)($_POST['user_id'] ?? 0),
+            $_POST['new_type'] ?? '',
+            $id_utilisateur
+        );
         
-        if ($user_id > 0 && $user_id !== $id_utilisateur && in_array($new_type, ['joueur', 'candidat', 'admin'])) {
-            try {
-                $stmt = $connexion->prepare("UPDATE utilisateur SET type = ? WHERE id_utilisateur = ?");
-                $stmt->execute([$new_type, $user_id]);
-                
-                // Si devient candidat, créer le profil candidat
-                if ($new_type === 'candidat') {
-                    $stmt = $connexion->prepare("SELECT id_candidat FROM candidat WHERE id_utilisateur = ?");
-                    $stmt->execute([$user_id]);
-                    if ($stmt->rowCount() === 0) {
-                        $stmt = $connexion->prepare("SELECT email FROM utilisateur WHERE id_utilisateur = ?");
-                        $stmt->execute([$user_id]);
-                        $user_email = $stmt->fetchColumn();
-                        
-                        $stmt = $connexion->prepare("INSERT INTO candidat (id_utilisateur, nom, statut, date_inscription) VALUES (?, ?, 'valide', NOW())");
-                        $stmt->execute([$user_id, $user_email]);
-                    }
-                }
-                $success = "✅ Type modifié !";
-                
-                // Rafraîchir la liste
-                $stmt = $connexion->prepare("
-                    SELECT u.id_utilisateur, u.email, u.type, u.date_inscription,
-                           (SELECT COUNT(*) FROM candidat c WHERE c.id_utilisateur = u.id_utilisateur) as is_candidat,
-                           (SELECT c.statut FROM candidat c WHERE c.id_utilisateur = u.id_utilisateur LIMIT 1) as candidat_statut
-                    FROM utilisateur u ORDER BY u.date_inscription DESC
-                ");
-                $stmt->execute();
-                $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            } catch (Exception $e) {
-                $error = "Erreur : " . $e->getMessage();
-            }
+        if ($result['success']) {
+            $success = $result['message'];
+        } else {
+            $error = $result['message'];
         }
     }
     
-    // Supprimer un utilisateur
+    // 🗑️ Supprimer utilisateur
     elseif ($_POST['action'] === 'delete_user') {
-        $user_id = intval($_POST['user_id'] ?? 0);
+        $result = $adminUserService->deleteUser(
+            (int)($_POST['user_id'] ?? 0),
+            $id_utilisateur
+        );
         
-        if ($user_id > 0 && $user_id !== $id_utilisateur) {
-            try {
-                $connexion->beginTransaction();
-                
-                // Supprimer les données liées
-                $connexion->prepare("DELETE FROM event_candidat WHERE id_candidat IN (SELECT id_candidat FROM candidat WHERE id_utilisateur = ?)")->execute([$user_id]);
-                $connexion->prepare("DELETE FROM candidat WHERE id_utilisateur = ?")->execute([$user_id]);
-                $connexion->prepare("DELETE FROM registre_electoral WHERE id_utilisateur = ?")->execute([$user_id]);
-                $connexion->prepare("DELETE FROM bulletin_categorie WHERE id_utilisateur = ?")->execute([$user_id]);
-                $connexion->prepare("DELETE FROM bulletin_final WHERE id_utilisateur = ?")->execute([$user_id]);
-                $connexion->prepare("DELETE FROM commentaire WHERE id_utilisateur = ?")->execute([$user_id]);
-                $connexion->prepare("DELETE FROM utilisateur WHERE id_utilisateur = ?")->execute([$user_id]);
-                $connexion->commit();
-                $success = "🗑️ Utilisateur supprimé !";
-                
-                // Ajoute aux logs
-                $stmt = $connexion->prepare("INSERT INTO journal_securite (id_utilisateur, action, details, adresse_ip) VALUES (?, 'ADMIN_USER_DELETE', ?, ?)");
-                $stmt->execute([$id_utilisateur, "Utilisateur #$user_id supprimé", $_SERVER['REMOTE_ADDR'] ?? '']);
-                
-                // Rafraîchir la liste
-                $stmt = $connexion->prepare("
-                    SELECT u.id_utilisateur, u.email, u.type, u.date_inscription,
-                           (SELECT COUNT(*) FROM candidat c WHERE c.id_utilisateur = u.id_utilisateur) as is_candidat,
-                           (SELECT c.statut FROM candidat c WHERE c.id_utilisateur = u.id_utilisateur LIMIT 1) as candidat_statut
-                    FROM utilisateur u ORDER BY u.date_inscription DESC
-                ");
-                $stmt->execute();
-                $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                
-            } catch (Exception $e) {
-                $connexion->rollBack();
-                $error = "Erreur : " . $e->getMessage();
-            }
+        if ($result['success']) {
+            $success = $result['message'];
+        } else {
+            $error = $result['message'];
         }
     }
 }
 
-// Configuration des types
+// ==================== RÉCUPÉRATION DONNÉES ====================
+
+$users = $adminUserService->getAllUsers();
+
+// ==================== CONFIG ====================
+
 $type_config = [
     'joueur' => ['label' => 'Joueur', 'color' => 'blue', 'icon' => 'fa-gamepad'],
     'candidat' => ['label' => 'Candidat', 'color' => 'purple', 'icon' => 'fa-trophy'],
@@ -194,7 +89,7 @@ $type_config = [
 require_once 'header.php';
 ?>
 
-<br><br><br> <!-- Espace pour le header -->
+<br><br><br>
 <section class="py-20 px-6 min-h-screen">
     <div class="container mx-auto max-w-7xl">
         
@@ -206,12 +101,15 @@ require_once 'header.php';
                 <p class="text-xl text-light-80">Gérez les comptes utilisateurs</p>
             </div>
         </div>
+
+        <!-- Messages d'erreur/succès -->
         <?php if ($error): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
                 <i class="fas fa-exclamation-circle text-red-400"></i>
                 <span class="text-red-400"><?php echo htmlspecialchars($error); ?></span>
             </div>
         <?php endif; ?>
+        
         <?php if ($success): ?>
             <div class="mb-8 p-4 rounded-2xl bg-green-500/10 border border-green-500/30 flex items-center gap-3">
                 <i class="fas fa-check-circle text-green-400"></i>
@@ -220,7 +118,8 @@ require_once 'header.php';
         <?php endif; ?>
         
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Formulaire création -->
+            
+            <!-- ➕ Formulaire création -->
             <div class="lg:col-span-1">
                 <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10 sticky top-24">
                     <h2 class="text-2xl font-bold text-accent mb-4 flex items-center gap-2">
@@ -228,18 +127,21 @@ require_once 'header.php';
                     </h2>
                     <form method="POST" class="space-y-4">
                         <input type="hidden" name="action" value="add_user">
+                        
                         <div>
                             <label class="block mb-2 text-light-80 text-sm font-medium">Email *</label>
                             <input type="email" name="email" required
                                 class="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-light appearance-none focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all duration-300"
                                 placeholder="email@exemple.com">
                         </div>
+                        
                         <div>
                             <label class="block mb-2 text-light-80 text-sm font-medium">Mot de passe * (min 8 car.)</label>
                             <input type="password" name="password" required minlength="8"
                                 class="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-light appearance-none focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all duration-300"
                                 placeholder="••••••••">
                         </div>
+                        
                         <div>
                             <label class="block mb-2 text-light-80 text-sm font-medium">Type *</label>
                             <div class="relative">
@@ -254,6 +156,7 @@ require_once 'header.php';
                                 </div>
                             </div>
                         </div>
+                        
                         <button type="submit" class="w-full px-6 py-4 rounded-2xl bg-accent text-dark font-bold hover:bg-accent/80 transition-colors border border-white/10">
                             <i class="fas fa-plus mr-2"></i>Créer
                         </button>
@@ -261,12 +164,13 @@ require_once 'header.php';
                 </div>
             </div>
             
-            <!-- Liste des utilisateurs -->
+            <!-- 📋 Liste utilisateurs -->
             <div class="lg:col-span-2">
                 <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10">
                     <h2 class="text-2xl font-bold text-accent mb-4 flex items-center gap-2">
                         <i class="fas fa-list"></i> Utilisateurs (<?php echo count($users); ?>)
                     </h2>
+                    
                     <?php if (empty($users)): ?>
                         <div class="text-center py-12">
                             <i class="fas fa-inbox text-4xl text-light-80 mb-3"></i>
@@ -307,9 +211,10 @@ require_once 'header.php';
                                                 </span>
                                             </div>
                                         </div>
+                                        
                                         <?php if (!$is_me): ?>
                                             <div class="flex gap-2">
-                                                <!-- Changer type -->
+                                                <!-- 🔄 Changer type -->
                                                 <form method="POST" class="inline">
                                                     <input type="hidden" name="action" value="change_type">
                                                     <input type="hidden" name="user_id" value="<?php echo $user['id_utilisateur']; ?>">
@@ -325,7 +230,8 @@ require_once 'header.php';
                                                         </div>
                                                     </div>
                                                 </form>
-                                                <!-- Supprimer -->
+                                                
+                                                <!-- 🗑️ Supprimer -->
                                                 <form method="POST" class="inline">
                                                     <input type="hidden" name="action" value="delete_user">
                                                     <input type="hidden" name="user_id" value="<?php echo $user['id_utilisateur']; ?>">

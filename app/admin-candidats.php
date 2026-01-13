@@ -3,9 +3,10 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-require_once 'dbconnect.php';
+require_once 'classes/init.php';
 
-// Vérifie si l'utilisateur est un admin
+// ==================== VÉRIFICATION ACCÈS ====================
+
 if (!isset($_SESSION['id_utilisateur']) || ($_SESSION['type'] ?? '') !== 'admin') {
     echo "<script>
         alert('Accès réservé aux administrateurs');
@@ -14,155 +15,81 @@ if (!isset($_SESSION['id_utilisateur']) || ($_SESSION['type'] ?? '') !== 'admin'
     exit;
 }
 
+// ==================== SERVICES ====================
+
+$adminCandidateService = ServiceContainer::getAdminCandidateService();
+
+// ==================== VARIABLES ====================
+
 $id_admin = $_SESSION['id_utilisateur'];
 $error = '';
 $success = '';
 $filter = $_GET['filter'] ?? 'all';
 
-// Traitement des actions
+// ==================== ACTIONS ====================
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    $candidat_id = intval($_POST['candidat_id'] ?? 0);
-    
+    $candidat_id = (int)($_POST['candidat_id'] ?? 0);
+
     if ($candidat_id > 0) {
-        try {
-            switch ($_POST['action']) {
-                // Valider un candidat
-                case 'valider':
-                    $stmt = $connexion->prepare("UPDATE candidat SET statut = 'valide' WHERE id_candidat = ?");
-                    $stmt->execute([$candidat_id]);
-                    $success = "✅ Candidature validée avec succès !";
-                    
-                    // Ajoute aux logs
-                    $stmt = $connexion->prepare("INSERT INTO journal_securite (id_utilisateur, action, details, adresse_ip) VALUES (?, 'ADMIN_CANDIDAT_VALIDE', ?, ?)");
-                    $stmt->execute([$id_admin, "Candidat ID: $candidat_id validé", $_SERVER['REMOTE_ADDR'] ?? '']);
-                    break;
-                
-                // Refuser un candidat
-                case 'refuser':
-                    $motif = htmlspecialchars(trim($_POST['motif'] ?? 'Candidature refusée'), ENT_QUOTES, 'UTF-8');
-                    $stmt = $connexion->prepare("UPDATE candidat SET statut = 'refuse' WHERE id_candidat = ?");
-                    $stmt->execute([$candidat_id]);
-                    $success = "❌ Candidature refusée.";
-                    
-                    // Ajoute aux logs
-                    $stmt = $connexion->prepare("INSERT INTO journal_securite (id_utilisateur, action, details, adresse_ip) VALUES (?, 'ADMIN_CANDIDAT_REFUSE', ?, ?)");
-                    $stmt->execute([$id_admin, "Candidat ID: $candidat_id refusé - Motif: $motif", $_SERVER['REMOTE_ADDR'] ?? '']);
-                    break;
-                
-                // Remettre en attente
-                case 'attente':
-                    $stmt = $connexion->prepare("UPDATE candidat SET statut = 'en_attente' WHERE id_candidat = ?");
-                    $stmt->execute([$candidat_id]);
-                    $success = "⏳ Candidature remise en attente.";
-                    break;
-                
-                // Supprimer un candidat
-                case 'supprimer':
-                    // Récupérer l'id_utilisateur
-                    $stmt = $connexion->prepare("SELECT id_utilisateur FROM candidat WHERE id_candidat = ?");
-                    $stmt->execute([$candidat_id]);
-                    $candidat_data = $stmt->fetch(PDO::FETCH_ASSOC);
-                    
-                    if ($candidat_data) {
-                        $connexion->beginTransaction();
-                        
-                        // Supprimer les candidatures aux événements
-                        $stmt = $connexion->prepare("DELETE FROM event_candidat WHERE id_candidat = ?");
-                        $stmt->execute([$candidat_id]);
-                        
-                        // Supprimer le profil candidat
-                        $stmt = $connexion->prepare("DELETE FROM candidat WHERE id_candidat = ?");
-                        $stmt->execute([$candidat_id]);
-                        
-                        // Changer le type de l'utilisateur en joueur
-                        $stmt = $connexion->prepare("UPDATE utilisateur SET type = 'joueur' WHERE id_utilisateur = ?");
-                        $stmt->execute([$candidat_data['id_utilisateur']]);
-                        
-                        $connexion->commit();
-                        $success = "🗑️ Candidat supprimé (compte converti en joueur).";
-                        
-                        // Ajouter aux logs
-                        $stmt = $connexion->prepare("INSERT INTO journal_securite (id_utilisateur, action, details, adresse_ip) VALUES (?, 'ADMIN_CANDIDAT_DELETE', ?, ?)");
-                        $stmt->execute([$id_admin, "Candidat ID: $candidat_id supprimé", $_SERVER['REMOTE_ADDR'] ?? '']);
-                    }
-                    break;
-            }
-        } catch (Exception $e) {
-            if ($connexion->inTransaction()) {
-                $connexion->rollBack();
-            }
-            $error = "Erreur : " . $e->getMessage();
+        switch ($_POST['action']) {
+            // ✅ Valider un candidat
+            case 'valider':
+                $result = $adminCandidateService->validateCandidate($candidat_id, $id_admin);
+                if ($result['success']) {
+                    $success = $result['message'];
+                } else {
+                    $error = $result['message'];
+                }
+                break;
+
+            // ❌ Refuser un candidat
+            case 'refuser':
+                $result = $adminCandidateService->rejectCandidate(
+                    $candidat_id,
+                    $_POST['motif'] ?? '',
+                    $id_admin
+                );
+                if ($result['success']) {
+                    $success = $result['message'];
+                } else {
+                    $error = $result['message'];
+                }
+                break;
+
+            // ⏳ Remettre en attente
+            case 'attente':
+                $result = $adminCandidateService->resetCandidate($candidat_id, $id_admin);
+                if ($result['success']) {
+                    $success = $result['message'];
+                } else {
+                    $error = $result['message'];
+                }
+                break;
+
+            // 🗑️ Supprimer un candidat
+            case 'supprimer':
+                $result = $adminCandidateService->deleteCandidate($candidat_id, $id_admin);
+                if ($result['success']) {
+                    $success = $result['message'];
+                } else {
+                    $error = $result['message'];
+                }
+                break;
         }
     }
 }
 
-// Liste des candidats
-$candidats = [];
-$counts = ['all' => 0, 'en_attente' => 0, 'valide' => 0, 'refuse' => 0];
+// ==================== RÉCUPÉRATION DONNÉES ====================
 
-try {
-    // Compter par statut
-    $stmt = $connexion->query("SELECT statut, COUNT(*) as nb FROM candidat GROUP BY statut");
-    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-        $counts[$row['statut']] = $row['nb'];
-        $counts['all'] += $row['nb'];
-    }
-    
-    // Requête principale
-    $query = "
-        SELECT 
-            c.id_candidat,
-            c.id_utilisateur,
-            c.nom,
-            c.bio,
-            c.photo,
-            c.statut,
-            c.date_inscription,
-            u.email,
-            j.id_jeu,
-            j.titre as jeu_titre,
-            j.image as jeu_image,
-            j.editeur,
-            (SELECT COUNT(*) FROM event_candidat ec WHERE ec.id_candidat = c.id_candidat) as nb_candidatures,
-            (SELECT COUNT(*) FROM commentaire cm WHERE cm.id_jeu = c.id_jeu) as nb_commentaires
-        FROM candidat c
-        JOIN utilisateur u ON c.id_utilisateur = u.id_utilisateur
-        LEFT JOIN jeu j ON c.id_jeu = j.id_jeu
-    ";
-    
-    $params = [];
-    if ($filter !== 'all') {
-        $query .= " WHERE c.statut = ?";
-        $params[] = $filter;
-    }
-    
-    $query .= " ORDER BY 
-        CASE c.statut 
-            WHEN 'en_attente' THEN 1 
-            WHEN 'valide' THEN 2 
-            WHEN 'refuse' THEN 3 
-        END,
-        c.date_inscription DESC";
-    
-    $stmt = $connexion->prepare($query);
-    $stmt->execute($params);
-    $candidats = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-} catch (Exception $e) {
-    $error = "Erreur lors du chargement : " . $e->getMessage();
-}
-
-// Configuration des statuts
-$statut_config = [
-    'en_attente' => ['label' => 'En attente', 'color' => 'yellow', 'icon' => 'fa-clock', 'bg' => 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'],
-    'valide' => ['label' => 'Validé', 'color' => 'green', 'icon' => 'fa-check-circle', 'bg' => 'bg-green-500/20 text-green-400 border-green-500/30'],
-    'refuse' => ['label' => 'Refusé', 'color' => 'red', 'icon' => 'fa-times-circle', 'bg' => 'bg-red-500/20 text-red-400 border-red-500/30']
-];
+$candidats = $adminCandidateService->getCandidates($filter === 'all' ? '' : $filter);
+$counts = $adminCandidateService->getCandidateStats();
+$statut_config = AdminCandidateService::getStatusConfig();
 
 require_once 'header.php';
 ?>
 
-<br><br><br> <!-- Espace pour le header fixe -->
+<br><br><br>
 <section class="py-20 px-6 min-h-screen">
     <div class="container mx-auto max-w-7xl">
         <div class="mb-12 flex flex-wrap items-center justify-between gap-4">
@@ -173,20 +100,23 @@ require_once 'header.php';
                 <p class="text-xl text-light-80">Validez ou refusez les inscriptions des candidats</p>
             </div>
         </div>
+
+        <!-- Messages d'erreur/succès -->
         <?php if ($error): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
                 <i class="fas fa-exclamation-circle text-red-400"></i>
                 <span class="text-red-400"><?php echo htmlspecialchars($error); ?></span>
             </div>
         <?php endif; ?>
+
         <?php if ($success): ?>
             <div class="mb-8 p-4 rounded-2xl bg-green-500/10 border border-green-500/30 flex items-center gap-3">
                 <i class="fas fa-check-circle text-green-400"></i>
                 <span class="text-green-400"><?php echo htmlspecialchars($success); ?></span>
             </div>
         <?php endif; ?>
-        
-        <!-- Filtres -->
+
+        <!-- 🔍 Filtres -->
         <div class="glass-card rounded-3xl p-6 modern-border border-2 border-white/10 mb-8">
             <div class="flex flex-wrap gap-3">
                 <a href="?filter=all" 
@@ -215,8 +145,8 @@ require_once 'header.php';
                 </a>
             </div>
         </div>
-        
-        <!-- Liste des candidats -->
+
+        <!-- 📋 Liste des candidats -->
         <?php if (empty($candidats)): ?>
             <div class="glass-card rounded-3xl p-12 modern-border border-2 border-white/10 text-center">
                 <i class="fas fa-inbox text-4xl text-light-80 mb-3"></i>
@@ -230,7 +160,7 @@ require_once 'header.php';
                     <div class="glass-card rounded-3xl p-6 modern-border border border-white/10 <?php echo $candidat['statut'] === 'en_attente' ? 'border-yellow-500/50' : ''; ?>">
                         <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-6 pb-6 border-b border-white/10">
                             <div class="flex items-start gap-4">
-                                <!-- Photo de profil -->
+                                <!-- 🖼️ Photo de profil -->
                                 <?php if (!empty($candidat['photo'])): ?>
                                     <img src="<?php echo htmlspecialchars($candidat['photo']); ?>" 
                                          alt="<?php echo htmlspecialchars($candidat['nom']); ?>"
@@ -256,7 +186,8 @@ require_once 'header.php';
                                     </p>
                                 </div>
                             </div>
-                            <!-- Statistiques -->
+                            
+                            <!-- 📊 Statistiques -->
                             <div class="flex gap-4 text-center">
                                 <div class="px-4 py-2 rounded-xl bg-white/5 border border-white/10">
                                     <div class="text-lg font-bold text-accent"><?php echo $candidat['nb_candidatures']; ?></div>
@@ -268,10 +199,10 @@ require_once 'header.php';
                                 </div>
                             </div>
                         </div>
-                        
-                        <!-- Infos jeu -->
+
+                        <!-- 📝 Infos jeu -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                            <!-- Jeu représenté -->
+                            <!-- 🎮 Jeu représenté -->
                             <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
                                 <h4 class="text-sm font-bold text-accent mb-3 flex items-center gap-2">
                                     <i class="fas fa-gamepad"></i>Jeu représenté
@@ -294,8 +225,8 @@ require_once 'header.php';
                                     <p class="text-light-80 italic text-sm">Aucun jeu sélectionné</p>
                                 <?php endif; ?>
                             </div>
-                            
-                            <!-- Biographie -->
+
+                            <!-- 📖 Biographie -->
                             <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
                                 <h4 class="text-sm font-bold text-accent mb-3 flex items-center gap-2">
                                     <i class="fas fa-align-left"></i>Biographie
@@ -308,9 +239,10 @@ require_once 'header.php';
                             </div>
                         </div>
 
+                        <!-- ⚙️ Actions -->
                         <div class="flex flex-wrap gap-3 pt-6 border-t border-white/10">
                             <?php if ($candidat['statut'] === 'en_attente'): ?>
-                                <!-- Valider -->
+                                <!-- ✅ Valider -->
                                 <form method="POST" class="inline">
                                     <input type="hidden" name="action" value="valider">
                                     <input type="hidden" name="candidat_id" value="<?php echo $candidat['id_candidat']; ?>">
@@ -320,14 +252,14 @@ require_once 'header.php';
                                         <i class="fas fa-check"></i> Valider
                                     </button>
                                 </form>
-                                
-                                <!-- Refuser -->
+
+                                <!-- ❌ Refuser -->
                                 <button type="button" 
                                         onclick="document.getElementById('refus-<?php echo $candidat['id_candidat']; ?>').classList.toggle('hidden')"
                                         class="px-4 py-2 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors flex items-center gap-2">
                                     <i class="fas fa-times"></i> Refuser
                                 </button>
-                                
+
                                 <!-- Formulaire refus -->
                                 <div id="refus-<?php echo $candidat['id_candidat']; ?>" class="hidden w-full mt-3">
                                     <div class="p-4 rounded-2xl bg-red-500/10 border border-red-500/30">
@@ -353,9 +285,9 @@ require_once 'header.php';
                                         </form>
                                     </div>
                                 </div>
-                                
+
                             <?php elseif ($candidat['statut'] === 'valide'): ?>
-                                <!-- Remettre en attente -->
+                                <!-- ⏳ Remettre en attente -->
                                 <form method="POST" class="inline">
                                     <input type="hidden" name="action" value="attente">
                                     <input type="hidden" name="candidat_id" value="<?php echo $candidat['id_candidat']; ?>">
@@ -365,9 +297,9 @@ require_once 'header.php';
                                         <i class="fas fa-clock"></i> Remettre en attente
                                     </button>
                                 </form>
-                                
+
                             <?php elseif ($candidat['statut'] === 'refuse'): ?>
-                                <!-- Revalider -->
+                                <!-- ✅ Revalider -->
                                 <form method="POST" class="inline">
                                     <input type="hidden" name="action" value="valider">
                                     <input type="hidden" name="candidat_id" value="<?php echo $candidat['id_candidat']; ?>">
@@ -378,8 +310,8 @@ require_once 'header.php';
                                     </button>
                                 </form>
                             <?php endif; ?>
-                            
-                            <!-- Supprimer -->
+
+                            <!-- 🗑️ Supprimer -->
                             <form method="POST" class="inline ml-auto">
                                 <input type="hidden" name="action" value="supprimer">
                                 <input type="hidden" name="candidat_id" value="<?php echo $candidat['id_candidat']; ?>">
@@ -394,7 +326,8 @@ require_once 'header.php';
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
-        
+
+        <!-- ℹ️ Info box -->
         <div class="mt-8 glass-card rounded-3xl p-8 modern-border border-2 border-white/10 bg-gradient-to-br from-accent/5 to-transparent">
             <div class="flex items-start gap-4">
                 <div class="flex-shrink-0">
