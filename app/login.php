@@ -57,20 +57,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $type = 'joueur';
     }
     
-    $result = $userService->register($email, $pseudo, $password, $confirm_password, $type);
-    if ($result['success']) {
-        if ($type === 'candidat') {
-            $_SESSION['temp_id_utilisateur'] = $result['id'];
-            $_SESSION['temp_email'] = $email;
-            $step = 2;
-            $registersuccess = '✓ Compte créé ! Complétez votre profil candidat.';
+    if (!isset($_POST['accept_cgu'])) {
+        $registererror = "Vous devez accepter les Conditions Générales d'Utilisation.";
+        $step = 1;
+    } else {
+        $result = $userService->register($email, $pseudo, $password, $confirm_password, $type);
+        if ($result['success']) {
+            if ($type === 'candidat') {
+                $_SESSION['temp_id_utilisateur'] = $result['id'];
+                $_SESSION['temp_email'] = $email;
+                $step = 2;
+                $registersuccess = '✓ Compte créé ! Complétez votre profil candidat.';
+            } else {
+                $registersuccess = '✓ Compte créé avec succès ! Vous pouvez maintenant vous connecter.';
+                $step = 1;
+            }
         } else {
-            $registersuccess = '✓ Compte créé avec succès ! Vous pouvez maintenant vous connecter.';
+            $registererror = implode(" | ", $result['errors']);
             $step = 1;
         }
-    } else {
-        $registererror = implode(" | ", $result['errors']);
-        $step = 1;
     }
 }
 
@@ -89,6 +94,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $step = 2;
     } elseif (!empty($photo) && !filter_var($photo, FILTER_VALIDATE_URL)) {
         $registererror = "L'URL de la photo n'est pas valide !";
+        $step = 2;
+    } elseif (!isset($_POST['accept_conditions'])) {
+        $registererror = "Vous devez accepter les conditions de candidature.";
         $step = 2;
     } else {
         try {
@@ -162,8 +170,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     <script src="http://cdn.agence-prestige-numerique.fr/tailwindcss/3.4.17.js"></script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap">
     <link rel="stylesheet" href="http://cdn.agence-prestige-numerique.fr/fontawesome/all.min.css">
-    <link rel="stylesheet" href="assets/css/index.css">
-    <link rel="icon" type="image/png" href="assets/img/logo.png">
+    <link rel="stylesheet" href="../assets/css/index.css">
+    <link rel="icon" type="image/png" href="../assets/img/logo.png">
     <style>
         .modal-content { background: rgba(10, 10, 10, 0.95); border: 1px solid rgba(255, 255, 255, 0.1); }
         .message-box { padding: 12px 15px; border-radius: 12px; margin-bottom: 16px; font-size: 14px; display: flex; align-items: center; gap: 10px; }
@@ -179,8 +187,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     </style>
 </head>
 <body class="font-inter">
-    <div class="gaming-bg"><div class="diagonal-lines"></div></div>
-    <div class="fixed inset-0 z-40 backdrop-blur-md" style="background: rgba(0,0,0,0.7);"></div>
+    <div class="gaming-bg">
+        <div class="diagonal-lines"></div>
+        <div class="diagonal-lines-2"></div>
+        <div class="diagonal-lines-3"></div>
+        <div class="award-grid"></div>
+        <div class="trophy-pattern"></div>
+        <div class="controller-icons" id="controller-icons"></div>
+        <div class="vote-aura" style="top: 10%; left: 5%;"></div>
+        <div class="vote-aura" style="top: 60%; left: 80%;"></div>
+        <div class="vote-aura" style="top: 80%; left: 20%;"></div>
+    </div>
     <div class="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
         <div class="relative w-full max-w-md my-8">
             <div class="modal-content rounded-3xl p-8 backdrop-blur-xl shadow-2xl">
@@ -262,6 +279,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                                 <p class="text-xs text-orange-400"><i class="fas fa-exclamation-triangle mr-1"></i>Validation admin requise</p>
                             </div>
                         </div>
+                        
+                        <!-- CGU -->
+                        <div class="mt-4">
+                            <label class="flex items-start space-x-3">
+                                <input type="checkbox" name="accept_cgu" required class="mt-1 accent-cyan-500">
+                                <span class="text-sm text-white/70">J'accepte les <a href="./pages/cgu.php" target="_blank" class="text-cyan-400 hover:underline">Conditions Générales d'Utilisation</a> *</span>
+                            </label>
+                        </div>
+                        
                         <button type="submit" class="w-full py-4 rounded-xl font-semibold bg-gradient-to-r from-cyan-500 to-cyan-600 text-dark flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-cyan-500/30 transition-all mt-4"><i class="fas fa-arrow-right"></i><span>Continuer</span></button>
                     </form>
                     <?php endif; ?>
@@ -297,6 +323,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                                 </div>
                             </div>
                         </div>
+                        <div class="mt-4">
+                            <label class="flex items-start space-x-3">
+                                <input type="checkbox" name="accept_conditions" required class="mt-1 accent-purple-500">
+                                <span class="text-sm text-white/70">J'accepte les <a href="./pages/cgu.php" target="_blank" class="text-purple-400 hover:underline">conditions de candidature</a> et je certifie que les informations fournies sont exactes. *</span>
+                            </label>
+                        </div>
+                        
                         <button type="submit" class="w-full py-4 rounded-xl font-semibold bg-gradient-to-r from-purple-500 to-purple-600 text-white flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-purple-500/30 transition-all mt-4"><i class="fas fa-paper-plane"></i><span>Soumettre ma candidature</span></button>
                     </form>
                 <?php endif; ?>

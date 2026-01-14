@@ -192,9 +192,6 @@ require_once 'header.php';
                                         </p>
                                     <?php endif; ?>
                                     <div class="flex gap-2 pt-2">
-                                        <a href="admin-resultats.php?event=<?php echo $event['id_evenement']; ?>" class="flex-1 px-4 py-2 rounded-2xl bg-white/5 border border-white/10 hover:border-accent/50 text-center transition-colors text-sm">
-                                            <i class="fas fa-chart-bar mr-1"></i> Résultats
-                                        </a>
                                         <a href="admin-categories.php?event=<?php echo $event['id_evenement']; ?>" class="flex-1 px-4 py-2 rounded-2xl bg-white/5 border border-white/10 hover:border-accent/50 text-center transition-colors text-sm">
                                             <i class="fas fa-tags mr-1"></i> Catégories
                                         </a>

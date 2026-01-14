@@ -27,8 +27,8 @@ try {
     <script src="https://cdn.agence-prestige-numerique.fr/tailwindcss/3.4.17.js"></script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap">
     <link rel="stylesheet" href="https://cdn.agence-prestige-numerique.fr/fontawesome/all.min.css">
-    <link rel="stylesheet" href="../assets/css/index.css">
-    <link rel="icon" type="image/png" href="../assets/img/logo.png">
+    <link rel="stylesheet" href="/assets/css/index.css">
+    <link rel="icon" type="image/png" href="/assets/img/logo.png">
 </head>
 
 <body class="font-inter">
@@ -36,7 +36,7 @@ try {
         <div class="max-w-7xl mx-auto flex justify-between items-center gap-4">
             <div class="logo-container flex-shrink-0">
                 <div class="glass-button p-2 rounded-[1rem] border border-white/10">
-                    <img src="../assets/img/logo.png" alt="Logo GameCrown" class="logo-image">
+                    <img src="/assets/img/logo.png" alt="Logo GameCrown" class="logo-image">
                 </div>
                 <span class="logo-text">GAME<span class="accent-gradient">CROWN</span></span>
             </div>

@@ -22,6 +22,16 @@ $page = intval($_GET['page'] ?? 1);
 $data = $auditLogsService->getLogsWithFilters($filters, $page);
 $actions = $auditLogsService->getAvailableActions();
 $users = $auditLogsService->getAvailableUsers();
+$selectedUserEmail = '';
+if ($filters['user'] > 0) {
+    foreach ($users as $user) {
+        if ($user['id_utilisateur'] == $filters['user']) {
+            $selectedUserEmail = $user['email'];
+            break;
+        }
+    }
+}
+
 require_once 'header.php';
 ?>
 <br><br><br>
@@ -49,16 +59,17 @@ require_once 'header.php';
                 <div>
                     <label class="block mb-2 text-light-80">Utilisateur</label>
                     <div class="relative">
-                        <select name="user" class="w-full px-4 py-3 pr-10 rounded-2xl bg-white/5 border border-white/10 text-light appearance-none focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all duration-300">
-                            <option value="0" class="text-black bg-white">Tous les utilisateurs</option>
-                            <?php foreach ($users as $user): ?>
-                                <option value="<?php echo $user['id_utilisateur']; ?>" <?php echo $filters['user'] === $user['id_utilisateur'] ? 'selected' : ''; ?> class="text-black bg-white">
-                                    <?php echo htmlspecialchars($user['email']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
+                        <input type="text" 
+                               id="userSearchInput" 
+                               name="user_email" 
+                               value="<?php echo htmlspecialchars($selectedUserEmail); ?>" 
+                               placeholder="Rechercher un utilisateur..." 
+                               autocomplete="off"
+                               class="w-full px-4 py-3 pr-10 rounded-2xl bg-white/5 border border-white/10 text-light focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all duration-300">
+                        <input type="hidden" name="user" id="userId" value="<?php echo $filters['user']; ?>">
+                        <div id="userSuggestions" class="absolute z-50 w-full mt-1 bg-dark-90 border border-white/10 rounded-2xl shadow-lg hidden max-h-60 overflow-y-auto"></div>
                         <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3">
-                            <i class="fas fa-chevron-down text-light-80"></i>
+                            <i class="fas fa-search text-light-80"></i>
                         </div>
                     </div>
                 </div>
@@ -93,9 +104,12 @@ require_once 'header.php';
                         </div>
                     </div>
                 </div>
-                <div class="flex items-end">
+                <div class="flex items-end gap-2">
                     <button type="submit" class="w-full px-6 py-3 rounded-2xl bg-accent text-dark font-bold hover:bg-accent/80 transition-colors border border-white/10">
                         <i class="fas fa-search mr-2"></i>Appliquer
+                    </button>
+                    <button type="button" id="clearUserFilter" class="px-4 py-3 rounded-2xl bg-white/10 text-light hover:bg-white/20 transition-colors border border-white/10">
+                        <i class="fas fa-times"></i>
                     </button>
                 </div>
             </form>
@@ -238,4 +252,82 @@ require_once 'header.php';
         </div>
     </div>
 </section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const userSearchInput = document.getElementById('userSearchInput');
+    const userIdInput = document.getElementById('userId');
+    const userSuggestions = document.getElementById('userSuggestions');
+    const clearUserFilter = document.getElementById('clearUserFilter');
+    const users = <?php echo json_encode($users); ?>;
+    function filterUsers(query) {
+        return users.filter(user => 
+            user.email.toLowerCase().includes(query.toLowerCase())
+        );
+    }
+    
+    function showSuggestions(results) {
+        userSuggestions.innerHTML = '';
+        
+        if (results.length === 0) {
+            userSuggestions.classList.add('hidden');
+            return;
+        }
+        
+        results.forEach(user => {
+            const div = document.createElement('div');
+            div.className = 'px-4 py-3 hover:bg-white/10 cursor-pointer transition-colors';
+            div.textContent = user.email;
+            div.dataset.id = user.id_utilisateur;
+            div.dataset.email = user.email;
+            
+            div.addEventListener('click', function() {
+                userSearchInput.value = this.dataset.email;
+                userIdInput.value = this.dataset.id;
+                userSuggestions.classList.add('hidden');
+            });
+            
+            userSuggestions.appendChild(div);
+        });
+        
+        userSuggestions.classList.remove('hidden');
+    }
+    
+    // Gestion de la recherche
+    let searchTimeout;
+    userSearchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        
+        if (this.value.length === 0) {
+            userIdInput.value = 0;
+            userSuggestions.classList.add('hidden');
+            return;
+        }
+        
+        searchTimeout = setTimeout(() => {
+            const results = filterUsers(this.value);
+            showSuggestions(results);
+        }, 300);
+    });
+    
+    document.addEventListener('click', function(e) {
+        if (!userSearchInput.contains(e.target) && !userSuggestions.contains(e.target)) {
+            userSuggestions.classList.add('hidden');
+        }
+    });
+    
+    clearUserFilter.addEventListener('click', function() {
+        userSearchInput.value = '';
+        userIdInput.value = 0;
+        userSuggestions.classList.add('hidden');
+    });
+    
+    userSearchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            userSuggestions.classList.add('hidden');
+        }
+    });
+});
+</script>
+
 <?php require_once 'footer.php'; ?>
