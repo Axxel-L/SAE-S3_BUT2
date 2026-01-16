@@ -2,10 +2,7 @@
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
-
-require_once 'dbconnect.php';
-
-// Vérifier candidat
+require_once 'classes/init.php';
 if (!isset($_SESSION['type']) || $_SESSION['type'] !== 'candidat') {
     echo "<script>alert('Accès réservé aux candidats'); window.location.href = './dashboard.php';</script>";
     exit;
@@ -14,154 +11,55 @@ if (!isset($_SESSION['type']) || $_SESSION['type'] !== 'candidat') {
 $id_utilisateur = $_SESSION['id_utilisateur'];
 $error = '';
 $success = '';
-
-// Récupérer les infos du candidat
-$candidat = null;
 try {
-    $stmt = $connexion->prepare("
-        SELECT c.*, u.email, j.titre as jeu_titre, j.image as jeu_image
-        FROM candidat c
-        JOIN utilisateur u ON c.id_utilisateur = u.id_utilisateur
-        LEFT JOIN jeu j ON c.id_jeu = j.id_jeu
-        WHERE c.id_utilisateur = ?
+    $eventsService = ServiceContainer::getCandidatEventsService();
+    $stmt = \DatabaseConnection::getInstance()->prepare("
+        SELECT id_candidat FROM candidat WHERE id_utilisateur = ?
     ");
     $stmt->execute([$id_utilisateur]);
-    $candidat = $stmt->fetch(PDO::FETCH_ASSOC);
-
+    $candidatResult = $stmt->fetch(\PDO::FETCH_ASSOC);
+    if (!$candidatResult) {
+        header('Location: candidat-profil.php');
+        exit;
+    }
+    
+    $id_candidat = $candidatResult['id_candidat'];
+    $candidat = $eventsService->getCandidatData($id_candidat);
     if (!$candidat) {
         header('Location: candidat-profil.php');
         exit;
     }
 
-    // Vérifier que le candidat a un jeu associé
     if (empty($candidat['id_jeu'])) {
         $error = "Vous devez d'abord sélectionner un jeu dans votre profil avant de postuler !";
     }
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'postuler') {
+        $id_event = intval($_POST['event_id'] ?? 0);
+        $id_categorie = intval($_POST['categorie_id'] ?? 0);
+        try {
+            if (empty($candidat['id_jeu'])) {
+                throw new Exception("Vous devez d'abord sélectionner un jeu dans votre profil !");
+            }
+            if ($id_categorie <= 0) {
+                throw new Exception("Veuillez sélectionner une catégorie !");
+            }
+            $eventsService->submitApplication(
+                $id_candidat,
+                $id_event,
+                $id_categorie,
+                $candidat['jeu_titre']
+            );
+            $success = "✅ Candidature soumise avec succès pour la catégorie \"" . htmlspecialchars($candidat['jeu_titre']) . "\" ! Elle sera examinée par un administrateur.";
+        } catch (Exception $e) {
+            $error = $e->getMessage();
+        }
+    }
+    $events = $eventsService->getEventsWithDetails($id_candidat);
 } catch (Exception $e) {
     $error = "Erreur: " . $e->getMessage();
-}
-
-// Postuler à une catégorie d'un événement
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'postuler') {
-    $id_event = intval($_POST['event_id'] ?? 0);
-    $id_categorie = intval($_POST['categorie_id'] ?? 0);
-    try {
-        if (!$candidat) {
-            throw new Exception("Candidat non trouvé");
-        }
-
-        if (empty($candidat['id_jeu'])) {
-            throw new Exception("Vous devez d'abord sélectionner un jeu dans votre profil !");
-        }
-
-        if ($id_categorie <= 0) {
-            throw new Exception("Veuillez sélectionner une catégorie !");
-        }
-
-        // Vérifier que l'événement est en préparation
-        $stmt = $connexion->prepare("SELECT statut FROM evenement WHERE id_evenement = ?");
-        $stmt->execute([$id_event]);
-        $evt = $stmt->fetch();
-        if (!$evt || $evt['statut'] !== 'preparation') {
-            throw new Exception("Cet événement n'accepte plus les candidatures.");
-        }
-
-        // Vérifier que la catégorie appartient à cet événement
-        $stmt = $connexion->prepare("SELECT id_categorie, nom FROM categorie WHERE id_categorie = ? AND id_evenement = ?");
-        $stmt->execute([$id_categorie, $id_event]);
-        $categorie = $stmt->fetch();
-        if (!$categorie) {
-            throw new Exception("Cette catégorie n'existe pas pour cet événement.");
-        }
-
-        // Vérifier qu'il n'y a pas déjà une candidature de ce candidat dans cette catégorie
-        $stmt = $connexion->prepare("
-            SELECT id_event_candidat 
-            FROM event_candidat
-            WHERE id_evenement = ? 
-            AND id_categorie = ? 
-            AND id_candidat = ?
-        ");
-        $stmt->execute([$id_event, $id_categorie, $candidat['id_candidat']]);
-        if ($stmt->rowCount() > 0) {
-            throw new Exception("Vous avez déjà postulé à cette catégorie !");
-        }
-
-        // Créer la candidature en attente
-        $stmt = $connexion->prepare("
-            INSERT INTO event_candidat (id_evenement, id_candidat, id_categorie, statut_candidature, date_inscription)
-            VALUES (?, ?, ?, 'en_attente', NOW())
-        ");
-        $stmt->execute([$id_event, $candidat['id_candidat'], $id_categorie]);
-
-        // Ajout aux logs
-        $stmt = $connexion->prepare("
-            INSERT INTO journal_securite (id_utilisateur, action, details) 
-            VALUES (?, 'CANDIDATURE_SOUMISE', ?)
-        ");
-        $stmt->execute([
-            $id_utilisateur,
-            "Événement: $id_event, Catégorie: {$categorie['nom']}, Jeu: " . $candidat['jeu_titre']
-        ]);
-
-        $success = "✅ Candidature soumise avec succès pour la catégorie \"" . htmlspecialchars($categorie['nom']) . "\" ! Elle sera examinée par un administrateur.";
-    } catch (Exception $e) {
-        $error = $e->getMessage();
-    }
-}
-
-// Récupérer les événements en préparation
-$events = [];
-try {
-    $stmt = $connexion->prepare("
-        SELECT 
-            e.id_evenement, 
-            e.nom as titre, 
-            e.description, 
-            e.date_ouverture as date_debut, 
-            e.date_fermeture as date_fin, 
-            e.statut as etat
-        FROM evenement e
-        WHERE e.statut = 'preparation'
-        ORDER BY e.date_ouverture ASC
-    ");
-    $stmt->execute();
-    $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    // Récupérer les catégories disponibles
-    foreach ($events as &$event) {
-        $stmt = $connexion->prepare("
-            SELECT c.id_categorie, c.nom, c.description
-            FROM categorie c
-            WHERE c.id_evenement = ?
-            ORDER BY c.nom ASC
-        ");
-        $stmt->execute([$event['id_evenement']]);
-        $event['categories'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // Vérifier les candidatures existantes de ce candidat pour cet événement
-        $event['mes_candidatures'] = [];
-        if ($candidat) {
-            try {
-                $stmt = $connexion->prepare("
-                    SELECT ec.id_categorie, ec.statut_candidature, cat.nom as categorie_nom
-                    FROM event_candidat ec
-                    LEFT JOIN categorie cat ON ec.id_categorie = cat.id_categorie
-                    WHERE ec.id_candidat = ? AND ec.id_evenement = ?
-                ");
-                $stmt->execute([$candidat['id_candidat'], $event['id_evenement']]);
-                $event['mes_candidatures'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            } catch (Exception $e) {
-                // La colonne id_categorie n'existe pas encore
-                $event['mes_candidatures'] = [];
-            }
-        }
-    }
-    unset($event);
-} catch (Exception $e) {
-    if (empty($error)) {
-        $error = "Erreur lors du chargement des événements: " . $e->getMessage();
-    }
+    $candidat = null;
+    $events = [];
 }
 require_once 'header.php';
 ?>
@@ -296,21 +194,10 @@ require_once 'header.php';
                                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                         <?php foreach ($event['mes_candidatures'] as $cand):
                                             $statut = $cand['statut_candidature'] ?? 'en_attente';
-                                            $statusClass = match ($statut) {
-                                                'approuve' => 'bg-green-500/10 text-green-400 border-green-500/30',
-                                                'refuse' => 'bg-red-500/10 text-red-400 border-red-500/30',
-                                                default => 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
-                                            };
-                                            $statusIcon = match ($statut) {
-                                                'approuve' => 'fa-check-circle',
-                                                'refuse' => 'fa-times-circle',
-                                                default => 'fa-hourglass-half'
-                                            };
-                                            $statusText = match ($statut) {
-                                                'approuve' => 'Approuvée',
-                                                'refuse' => 'Refusée',
-                                                default => 'En attente'
-                                            };
+                                            $config = CandidatEventsService::getStatutConfig($statut);
+                                            $statusClass = $config['class'] ?? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30';
+                                            $statusIcon = $config['icon'] ?? 'fa-hourglass-half';
+                                            $statusText = $config['label'] ?? 'En attente';
                                         ?>
                                             <div class="p-4 rounded-xl border <?php echo $statusClass; ?>">
                                                 <div class="flex items-center justify-between">
@@ -356,7 +243,6 @@ require_once 'header.php';
                                     <form method="POST" class="space-y-6">
                                         <input type="hidden" name="action" value="postuler">
                                         <input type="hidden" name="event_id" value="<?php echo $event['id_evenement']; ?>">
-
                                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                             <?php
                                             $candidaturesCategories = array_column($event['mes_candidatures'], 'id_categorie');
@@ -417,14 +303,12 @@ require_once 'header.php';
 
 <script>
 function changeColor(input) {
-    // Réinitialiser toutes les bordures
     document.querySelectorAll('input[name="categorie_id"]').forEach(r => {
         const label = r.nextElementSibling;
         if (label && !label.classList.contains('pointer-events-none')) {
             label.style.borderColor = 'rgba(255, 255, 255, 0.1)';
         }
     });
-    // Appliquer la bordure accent à la sélection
     const selectedLabel = input.nextElementSibling;
     if (selectedLabel) {
         selectedLabel.style.borderColor = '#00d4ff';

@@ -2,10 +2,7 @@
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
-
-require_once 'dbconnect.php';
-
-// Vérifie si l'utilisateur est un admin
+require_once 'classes/init.php';
 if (!isset($_SESSION['id_utilisateur']) || ($_SESSION['type'] ?? '') !== 'admin') {
     echo "<script>
         alert('Accès réservé aux administrateurs');
@@ -13,177 +10,47 @@ if (!isset($_SESSION['id_utilisateur']) || ($_SESSION['type'] ?? '') !== 'admin'
     </script>";
     exit;
 }
-
+$adminApplicationService = ServiceContainer::getAdminApplicationService();
+$adminEventService = ServiceContainer::getAdminEventService();
 $id_admin = $_SESSION['id_utilisateur'];
 $error = '';
 $success = '';
-
-// Filtres
-$filter_event = intval($_GET['event'] ?? 0);
+$filter_event = (int)($_GET['event'] ?? 0);
 $filter_status = $_GET['status'] ?? 'en_attente';
-
-// Approuver une candidature
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'approuver') {
-    $id_candidature = intval($_POST['id_candidature'] ?? 0);
-    try {
-        $connexion->beginTransaction();
-        // Récupérer les infos de la candidature
-        $stmt = $connexion->prepare("
-            SELECT ec.*, c.id_jeu, j.titre as jeu_titre
-            FROM event_candidat ec
-            JOIN candidat c ON ec.id_candidat = c.id_candidat
-            LEFT JOIN jeu j ON c.id_jeu = j.id_jeu
-            WHERE ec.id_event_candidat = ?
-        ");
-        $stmt->execute([$id_candidature]);
-        $candidature = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if (!$candidature) {
-            throw new Exception("Candidature non trouvée.");
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    if ($_POST['action'] === 'approuver') {
+        $result = $adminApplicationService->approveApplication(
+            (int)($_POST['id_candidature'] ?? 0),
+            $id_admin
+        );
+        if ($result['success']) {
+            $success = $result['message'];
+        } else {
+            $error = $result['message'];
         }
-        // Mettre à jour le statut
-        $stmt = $connexion->prepare("
-            UPDATE event_candidat 
-            SET statut_candidature = 'approuve', 
-                date_validation = NOW(), 
-                valide_par = ?,
-                motif_refus = NULL
-            WHERE id_event_candidat = ?
-        ");
-        $stmt->execute([$id_admin, $id_candidature]);
-        // Ajouter automatiquement le jeu dans les nominations si pas déjà nominé
-        $stmt = $connexion->prepare("
-            SELECT id_nomination FROM nomination 
-            WHERE id_jeu = ? AND id_categorie = ? AND id_evenement = ?
-        ");
-        $stmt->execute([
-            $candidature['id_jeu'], 
-            $candidature['id_categorie'], 
-            $candidature['id_evenement']
-        ]);
-        
-        if ($stmt->rowCount() === 0) {
-            $stmt = $connexion->prepare("
-                INSERT INTO nomination (id_jeu, id_categorie, id_evenement)
-                VALUES (?, ?, ?)
-            ");
-            $stmt->execute([
-                $candidature['id_jeu'],
-                $candidature['id_categorie'],
-                $candidature['id_evenement']
-            ]);
+    }
+    
+    elseif ($_POST['action'] === 'refuser') {
+        $result = $adminApplicationService->rejectApplication(
+            (int)($_POST['id_candidature'] ?? 0),
+            $_POST['motif'] ?? '',
+            $id_admin
+        );
+        if ($result['success']) {
+            $success = $result['message'];
+        } else {
+            $error = $result['message'];
         }
-        // Ajout dans les logs
-        $stmt = $connexion->prepare("
-            INSERT INTO journal_securite (id_utilisateur, action, details)
-            VALUES (?, 'ADMIN_CANDIDATURE_APPROUVE', ?)
-        ");
-        $stmt->execute([
-            $id_admin,
-            "Candidature #$id_candidature approuvée - Jeu: " . $candidature['jeu_titre']
-        ]);
-        $connexion->commit();
-        $success = "Candidature approuvée ! Le jeu a été ajouté aux nominations.";
-    } catch (Exception $e) {
-        $connexion->rollBack();
-        $error = $e->getMessage();
     }
 }
 
-// Refuser une candidature
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'refuser') {
-    $id_candidature = intval($_POST['id_candidature'] ?? 0);
-    $motif = trim($_POST['motif'] ?? '');
-    try {
-        // Mettre à jour le statut
-        $stmt = $connexion->prepare("
-            UPDATE event_candidat 
-            SET statut_candidature = 'refuse', 
-                date_validation = NOW(), 
-                valide_par = ?,
-                motif_refus = ?
-            WHERE id_event_candidat = ?
-        ");
-        $stmt->execute([$id_admin, $motif ?: 'Non spécifié', $id_candidature]);
-        // Ajout dans les logs        
-        $stmt = $connexion->prepare("
-            INSERT INTO journal_securite (id_utilisateur, action, details)
-            VALUES (?, 'ADMIN_CANDIDATURE_REFUSE', ?)
-        ");
-        $stmt->execute([$id_admin, "Candidature #$id_candidature refusée - Motif: $motif"]);
-        $success = "Candidature refusée.";
-    } catch (Exception $e) {
-        $error = $e->getMessage();
-    }
-}
-
-// Récupérer les événements pour le filtre
-$events = [];
-try {
-    $stmt = $connexion->query("SELECT id_evenement, nom, statut FROM evenement ORDER BY date_ouverture DESC");
-    $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (Exception $e) {}
-
-// Récupérer les candidatures
-$candidatures = [];
-try {
-    $query = "
-        SELECT 
-            ec.id_event_candidat,
-            ec.id_evenement,
-            ec.id_categorie,
-            ec.statut_candidature,
-            ec.date_inscription,
-            ec.date_validation,
-            ec.motif_refus,
-            e.nom as evenement_nom,
-            e.statut as evenement_statut,
-            cat.nom as categorie_nom,
-            c.id_candidat,
-            c.nom as candidat_nom,
-            c.id_jeu,
-            j.titre as jeu_titre,
-            j.image as jeu_image,
-            j.editeur as jeu_editeur,
-            u.email as candidat_email,
-            admin.email as valide_par_email
-        FROM event_candidat ec
-        JOIN evenement e ON ec.id_evenement = e.id_evenement
-        LEFT JOIN categorie cat ON ec.id_categorie = cat.id_categorie
-        JOIN candidat c ON ec.id_candidat = c.id_candidat
-        JOIN utilisateur u ON c.id_utilisateur = u.id_utilisateur
-        LEFT JOIN jeu j ON c.id_jeu = j.id_jeu
-        LEFT JOIN utilisateur admin ON ec.valide_par = admin.id_utilisateur
-        WHERE 1=1
-    ";
-    $params = [];
-    if ($filter_event > 0) {
-        $query .= " AND ec.id_evenement = ?";
-        $params[] = $filter_event;
-    }
-    if (!empty($filter_status)) {
-        $query .= " AND ec.statut_candidature = ?";
-        $params[] = $filter_status;
-    }
-    $query .= " ORDER BY ec.date_inscription DESC";
-    $stmt = $connexion->prepare($query);
-    $stmt->execute($params);
-    $candidatures = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
-    $error = "Erreur : " . $e->getMessage();
-}
-
-// Compter les candidatures en attente
-$nbEnAttente = 0;
-try {
-    $stmt = $connexion->query("SELECT COUNT(*) FROM event_candidat WHERE statut_candidature = 'en_attente'");
-    $nbEnAttente = $stmt->fetchColumn();
-} catch (Exception $e) {
-    // Ignorer
-}
+$events = $adminEventService->getAllEvents();
+$candidatures = $adminApplicationService->getApplications($filter_event, $filter_status);
+$nbEnAttente = $adminApplicationService->countPendingApplications();
+$statut_config = AdminApplicationService::getStatusConfig();
 require_once 'header.php';
 ?>
-<br><br><br> <!-- Espace pour le header -->
+<br><br><br>
 <section class="py-20 px-6">
     <div class="container mx-auto max-w-7xl">
         <div class="mb-12 flex flex-wrap items-center justify-between gap-4">
@@ -194,12 +61,13 @@ require_once 'header.php';
                 <p class="text-xl text-light-80">Validez ou refusez les candidatures des jeux</p>
             </div>
             <?php if ($nbEnAttente > 0): ?>
-            <div class="px-4 py-2 rounded-2xl bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
-                <i class="fas fa-bell mr-2"></i>
-                <span class="font-bold"><?php echo $nbEnAttente; ?></span> candidature(s) en attente
-            </div>
+                <div class="px-4 py-2 rounded-2xl bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                    <i class="fas fa-bell mr-2"></i>
+                    <span class="font-bold"><?php echo $nbEnAttente; ?></span> candidature(s) en attente
+                </div>
             <?php endif; ?>
         </div>
+        <!-- Messages d'erreur/succès -->
         <?php if ($error): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
                 <i class="fas fa-exclamation-circle text-red-400"></i>
@@ -212,11 +80,8 @@ require_once 'header.php';
                 <span class="text-green-400"><?php echo htmlspecialchars($success); ?></span>
             </div>
         <?php endif; ?>
-        
-        <!-- Carte des filtres -->
         <div class="glass-card rounded-3xl p-6 modern-border border-2 border-white/10 mb-8">
             <form method="GET" class="flex flex-wrap gap-4 items-end">
-                <!-- Événement -->
                 <div class="flex-1 min-w-48">
                     <label class="block text-sm font-medium text-light-80 mb-2">Événement</label>
                     <div class="relative">
@@ -233,7 +98,6 @@ require_once 'header.php';
                         </div>
                     </div>
                 </div>
-                <!-- Statut -->
                 <div class="flex-1 min-w-48">
                     <label class="block text-sm font-medium text-light-80 mb-2">Statut</label>
                     <div class="relative">
@@ -262,17 +126,12 @@ require_once 'header.php';
             </div>
         <?php else: ?>
             <div class="space-y-6">
-                <?php foreach ($candidatures as $cand): ?>
-                    <?php 
-                    $statusClass = match($cand['statut_candidature']) {
-                        'approuve' => 'border-green-500/30 bg-green-500/5',
-                        'refuse' => 'border-red-500/30 bg-red-500/5',
-                        default => 'border-yellow-500/30 bg-yellow-500/5'
-                    };
-                    ?>
+                <?php foreach ($candidatures as $cand): 
+                    $status = $statut_config[$cand['statut_candidature']] ?? $statut_config['en_attente'];
+                    $statusClass = $status['card_class'];
+                ?>
                     <div class="glass-card rounded-2xl p-6 modern-border border border-white/10 <?php echo $statusClass; ?>">
                         <div class="flex flex-wrap gap-6">
-                            <!-- Image du jeu -->
                             <div class="flex-shrink-0">
                                 <?php if ($cand['jeu_image']): ?>
                                     <img src="<?php echo htmlspecialchars($cand['jeu_image']); ?>" alt="" class="w-24 h-24 rounded-2xl object-cover">
@@ -282,8 +141,6 @@ require_once 'header.php';
                                     </div>
                                 <?php endif; ?>
                             </div>
-                            
-                            <!-- Infos -->
                             <div class="flex-1 min-w-64">
                                 <div class="flex flex-wrap items-start justify-between gap-4 mb-3">
                                     <div>
@@ -292,30 +149,10 @@ require_once 'header.php';
                                             <p class="text-sm text-light-80"><?php echo htmlspecialchars($cand['jeu_editeur']); ?></p>
                                         <?php endif; ?>
                                     </div>
-                                    
-                                    <!-- Badge statut -->
-                                    <?php 
-                                    $badgeClass = match($cand['statut_candidature']) {
-                                        'approuve' => 'bg-green-500/20 text-green-400 border-green-500/30',
-                                        'refuse' => 'bg-red-500/20 text-red-400 border-red-500/30',
-                                        default => 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
-                                    };
-                                    $badgeIcon = match($cand['statut_candidature']) {
-                                        'approuve' => 'fa-check-circle',
-                                        'refuse' => 'fa-times-circle',
-                                        default => 'fa-hourglass-half'
-                                    };
-                                    $badgeText = match($cand['statut_candidature']) {
-                                        'approuve' => 'Approuvée',
-                                        'refuse' => 'Refusée',
-                                        default => 'En attente'
-                                    };
-                                    ?>
-                                    <span class="px-3 py-1 rounded-full text-xs font-medium border <?php echo $badgeClass; ?>">
-                                        <i class="fas <?php echo $badgeIcon; ?> mr-1"></i><?php echo $badgeText; ?>
+                                    <span class="px-3 py-1 rounded-full text-xs font-medium border <?php echo $status['badge_class']; ?>">
+                                        <i class="fas <?php echo $status['icon']; ?> mr-1"></i><?php echo $status['label']; ?>
                                     </span>
                                 </div>
-                                
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                                     <div>
                                         <p class="text-light-80">Événement</p>
@@ -331,7 +168,6 @@ require_once 'header.php';
                                         <p class="text-xs text-light-80"><?php echo htmlspecialchars($cand['candidat_email']); ?></p>
                                     </div>
                                 </div>
-                                
                                 <div class="mt-3 text-xs text-light-80">
                                     <i class="fas fa-clock mr-1"></i>
                                     Soumis le <?php echo date('d/m/Y à H:i', strtotime($cand['date_inscription'])); ?>
@@ -340,7 +176,6 @@ require_once 'header.php';
                                         par <?php echo htmlspecialchars($cand['valide_par_email'] ?? 'Admin'); ?>
                                     <?php endif; ?>
                                 </div>
-                                
                                 <?php if ($cand['statut_candidature'] === 'refuse' && $cand['motif_refus']): ?>
                                     <div class="mt-3 p-3 rounded-2xl bg-red-500/10 border border-red-500/20">
                                         <p class="text-sm text-red-400">
@@ -350,30 +185,24 @@ require_once 'header.php';
                                     </div>
                                 <?php endif; ?>
                             </div>
-                            
-                            <!-- Actions -->
                             <?php if ($cand['statut_candidature'] === 'en_attente'): ?>
-                            <div class="flex-shrink-0 flex flex-col gap-2">
-                                <!-- Approuver -->
-                                <form method="POST" class="inline">
-                                    <input type="hidden" name="action" value="approuver">
-                                    <input type="hidden" name="id_candidature" value="<?php echo $cand['id_event_candidat']; ?>">
-                                    <button type="submit" class="w-full px-4 py-2 rounded-2xl bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30 transition-colors" onclick="return confirm('Approuver cette candidature ?');">
-                                        <i class="fas fa-check mr-2"></i>Approuver
+                                <div class="flex-shrink-0 flex flex-col gap-2">
+                                    <form method="POST" class="inline">
+                                        <input type="hidden" name="action" value="approuver">
+                                        <input type="hidden" name="id_candidature" value="<?php echo $cand['id_event_candidat']; ?>">
+                                        <button type="submit" class="w-full px-4 py-2 rounded-2xl bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30 transition-colors" onclick="return confirm('Approuver cette candidature ?');">
+                                            <i class="fas fa-check mr-2"></i>Approuver
+                                        </button>
+                                    </form>
+                                    <button type="button" onclick="openRefusModal(<?php echo $cand['id_event_candidat']; ?>, '<?php echo htmlspecialchars($cand['jeu_titre'], ENT_QUOTES); ?>')" class="w-full px-4 py-2 rounded-2xl bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors">
+                                        <i class="fas fa-times mr-2"></i>Refuser
                                     </button>
-                                </form>
-                                
-                                <!-- Refuser -->
-                                <button type="button" onclick="openRefusModal(<?php echo $cand['id_event_candidat']; ?>, '<?php echo htmlspecialchars($cand['jeu_titre'], ENT_QUOTES); ?>')" class="w-full px-4 py-2 rounded-2xl bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors">
-                                    <i class="fas fa-times mr-2"></i>Refuser
-                                </button>
-                            </div>
+                                </div>
                             <?php endif; ?>
                         </div>
                     </div>
                 <?php endforeach; ?>
             </div>
-            
             <div class="mt-6 text-center text-light-80">
                 <?php echo count($candidatures); ?> candidature(s) affichée(s)
             </div>
@@ -381,23 +210,20 @@ require_once 'header.php';
     </div>
 </section>
 
-<!-- Modal refus -->
+<!--Modal refus -->
 <div id="refusModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 hidden">
     <div class="glass-card rounded-3xl p-8 max-w-md w-full mx-4 border-2 border-white/10">
         <h3 class="text-2xl font-bold font-orbitron text-light mb-4 flex items-center gap-2">
             <i class="fas fa-times-circle text-red-400"></i>Refuser la candidature
         </h3>
         <p class="text-light-80 mb-4">Jeu: <span id="refusJeuTitre" class="font-bold text-accent"></span></p>
-        
         <form method="POST" id="refusForm">
             <input type="hidden" name="action" value="refuser">
             <input type="hidden" name="id_candidature" id="refusIdCandidature">
-            
             <div class="mb-4">
                 <label class="block text-sm font-medium text-light-80 mb-2">Motif du refus (optionnel)</label>
                 <textarea name="motif" rows="3" class="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-light" placeholder="Ex: Jeu non éligible dans cette catégorie..."></textarea>
             </div>
-            
             <div class="flex gap-3">
                 <button type="button" onclick="closeRefusModal()" class="flex-1 px-4 py-3 rounded-2xl bg-white/10 text-light hover:bg-white/20 transition-colors border border-white/10">
                     Annuler
@@ -409,7 +235,6 @@ require_once 'header.php';
         </form>
     </div>
 </div>
-
 <script>
 function openRefusModal(id, titre) {
     document.getElementById('refusIdCandidature').value = id;
@@ -421,14 +246,10 @@ function closeRefusModal() {
     document.getElementById('refusModal').classList.add('hidden');
 }
 
-// Fermer le modal en cliquant en dehors
 document.getElementById('refusModal').addEventListener('click', function(e) {
     if (e.target === this) {
         closeRefusModal();
     }
 });
 </script>
-
 <?php require_once 'footer.php'; ?>
-</body>
-</html>

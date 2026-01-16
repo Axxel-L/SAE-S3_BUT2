@@ -1,86 +1,21 @@
 <?php
-session_start();
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+require_once 'classes/init.php';
 require_once 'header.php';
-require_once 'dbconnect.php';
-
-// Vérifier candidat
-if (!isset($_SESSION['type']) || $_SESSION['type'] !== 'candidat') {
+if (!isCandidate()) {
     echo "<script>alert('Accès réservé aux candidats'); window.location.href = './dashboard.php';</script>";
     exit;
 }
 
-$id_utilisateur = $_SESSION['id_utilisateur'];
-$error = '';
-$candidat = null;
-$stats = [
-    'commentaires' => 0,
-    'votes_categorie' => 0,
-    'votes_final' => 0,
-    'votes_total' => 0,
-    'derniers_commentaires' => []
-];
-
-// Récupérer les infos du candidat
-try {
-    $stmt = $connexion->prepare("
-        SELECT c.*, j.titre as titre_jeu 
-        FROM candidat c 
-        LEFT JOIN jeu j ON c.id_jeu = j.id_jeu
-        WHERE c.id_utilisateur = ?
-    ");
-    $stmt->execute([$id_utilisateur]);
-    $candidat = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if (!$candidat) {
-        header('Location: candidat-profil.php');
-        exit;
-    }
-} catch (Exception $e) {
-    $error = "Erreur : " . $e->getMessage();
-}
-
-// Récupérer les statistiques
-if ($candidat && !empty($candidat['id_jeu'])) {
-    try {
-        // Commentaires
-        $stmt = $connexion->prepare("
-            SELECT COUNT(*) as total FROM commentaire WHERE id_jeu = ?
-        ");
-        $stmt->execute([$candidat['id_jeu']]);
-        $stats['commentaires'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
-        
-        // Votes pour ce jeu
-        $stmt = $connexion->prepare("
-            SELECT COUNT(*) as total FROM bulletin_categorie WHERE id_jeu = ?
-        ");
-        $stmt->execute([$candidat['id_jeu']]);
-        $stats['votes_categorie'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
-        
-        // Votes finaux
-        $stmt = $connexion->prepare("
-            SELECT COUNT(*) as total FROM bulletin_final WHERE id_jeu = ?
-        ");
-        $stmt->execute([$candidat['id_jeu']]);
-        $stats['votes_final'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
-        
-        // Total votes
-        $stats['votes_total'] = $stats['votes_categorie'] + $stats['votes_final'];
-        
-        // Derniers commentaires
-        $stmt = $connexion->prepare("
-            SELECT c.*, u.email, date_format(c.date_commentaire, '%d/%m/%Y %H:%i') as date_format
-            FROM commentaire c 
-            JOIN utilisateur u ON c.id_utilisateur = u.id_utilisateur 
-            WHERE c.id_jeu = ? 
-            ORDER BY c.date_commentaire DESC 
-            LIMIT 10
-        ");
-        $stmt->execute([$candidat['id_jeu']]);
-        $stats['derniers_commentaires'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Exception $e) {}
-}
+$id_utilisateur = (int)getAuthUserId();
+$candidatStatsService = ServiceContainer::getCandidatStatisticsService();
+$data = $candidatStatsService->getCandidatStatistics($id_utilisateur);
+$candidat = $data['candidat'];
+$stats = $data['stats'];
+$error = $data['error'];
 ?>
-
 <br><br><br>
 <section class="py-20 px-6">
     <div class="container mx-auto max-w-7xl">
@@ -203,6 +138,7 @@ if ($candidat && !empty($candidat['id_jeu'])) {
             </div>
         </div>
 
+        <!-- Commentaires -->
         <div class="glass-card rounded-3xl p-8 modern-border border-2 border-white/10">
             <div class="flex items-center justify-between mb-6">
                 <div>
@@ -249,5 +185,4 @@ if ($candidat && !empty($candidat['id_jeu'])) {
         </div>
     </div>
 </section>
-
 <?php require_once 'footer.php'; ?>
