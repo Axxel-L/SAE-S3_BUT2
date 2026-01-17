@@ -199,11 +199,6 @@ Collaboration: Gestion de projet en équipe
 
 ### **Projet Académique - SAE IUT**
 
-© 2025 Malek, Tristan, Axel - Tous droits réservés
+© 2026 Malek, Tristan, Axel - Tous droits réservés
 
 *Ce projet a été développé dans le cadre d'une Situation d'Apprentissage et d'Évaluation (SAE) à l'IUT.*
-<<<<<<< HEAD
-</div>
-=======
-</div>
->>>>>>> 967892c4539b2f691eb58553d538a1f2026da928
