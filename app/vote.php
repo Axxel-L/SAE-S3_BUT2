@@ -175,9 +175,6 @@ require_once 'header.php';
                                     <?php endif; ?>
                                 </div>
                             </div>
-                            <a href="vote.php" class="px-5 py-2 rounded-2xl bg-light/10 text-light hover:bg-light/20 transition-colors flex items-center gap-2 border border-white/10">
-                                <i class="fas fa-arrow-left"></i> Votes Catégories
-                            </a>
                         </div>
                     </div>
                     <div class="p-6">
@@ -272,11 +269,6 @@ require_once 'header.php';
                 </div>
             <?php endforeach; ?>
         <?php endif; ?>
-        <div class="text-center mt-8">
-            <a href="vote.php" class="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-light/10 text-light hover:bg-light/20 transition-colors border border-white/10">
-                <i class="fas fa-arrow-left"></i> Retour aux votes par catégories
-            </a>
-        </div>
     </div>
 </section>
 <?php require_once 'footer.php'; ?>
