@@ -155,8 +155,6 @@ class AdminEventService
             try {
                 $this->db->prepare("DELETE FROM event_candidat WHERE id_evenement = ?")
                     ->execute([$eventId]);
-                $this->db->prepare("DELETE FROM resultat WHERE id_evenement = ?")
-                    ->execute([$eventId]);
                 $this->db->prepare("DELETE FROM nomination WHERE id_evenement = ?")
                     ->execute([$eventId]);
                 $this->db->prepare("DELETE FROM categorie WHERE id_evenement = ?")

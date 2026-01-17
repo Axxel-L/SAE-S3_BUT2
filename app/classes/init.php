@@ -32,6 +32,7 @@ require_once __DIR__ . '/AdminUserService.php';
 require_once __DIR__ . '/AdminEventService.php';
 require_once __DIR__ . '/AdminApplicationService.php';
 require_once __DIR__ . '/AdminCandidateService.php';
+require_once __DIR__ . '/AdminCategoryService.php';
 
 /**
  * Conteneur d'injection de dépendances
