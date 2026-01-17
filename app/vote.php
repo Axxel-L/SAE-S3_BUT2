@@ -95,9 +95,9 @@ require_once 'header.php';
     <div class="container mx-auto max-w-7xl">
         <div class="text-center mb-12">
             <h1 class="text-5xl md:text-6xl font-bold font-orbitron mb-4 accent-gradient">
-                <i class="fas fa-crown text-accent mr-3"></i>Vote Final
+                <i class="fas fa-crown text-accent mr-3"></i>Vote par catégories
             </h1>
-            <p class="text-xl text-light-80">Phase 2 : Élisez le Jeu de l'Année</p>
+            <p class="text-xl text-light-80">Phase 1 : Élisez le jeu de la catégorie</p>
         </div>
         <?php if ($error): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3 max-w-2xl mx-auto">
