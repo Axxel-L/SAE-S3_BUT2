@@ -70,11 +70,7 @@ class GameService {
                 VALUES (?, ?, ?, NOW())
             ");
             $stmt->execute([$userId, $gameId, $content]);
-            $this->auditLogger->logAction(
-                $userId,
-                'COMMENT_ADD',
-                "Jeu: $gameId"
-            );
+            $this->auditLogger->log('COMMENT_ADD', "Jeu: $gameId", $userId);
             $this->db->commit();
             return ['success' => true, 'errors' => []];
         } catch (Exception $e) {

@@ -95,9 +95,9 @@ require_once 'header.php';
     <div class="container mx-auto max-w-7xl">
         <div class="text-center mb-12">
             <h1 class="text-5xl md:text-6xl font-bold font-orbitron mb-4 accent-gradient">
-                <i class="fas fa-crown text-accent mr-3"></i>Vote Final
+                <i class="fas fa-crown text-accent mr-3"></i>Vote par catégories
             </h1>
-            <p class="text-xl text-light-80">Phase 2 : Élisez le Jeu de l'Année</p>
+            <p class="text-xl text-light-80">Phase 1 : Élisez le jeu de la catégorie</p>
         </div>
         <?php if ($error): ?>
             <div class="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3 max-w-2xl mx-auto">
@@ -175,9 +175,6 @@ require_once 'header.php';
                                     <?php endif; ?>
                                 </div>
                             </div>
-                            <a href="vote.php" class="px-5 py-2 rounded-2xl bg-light/10 text-light hover:bg-light/20 transition-colors flex items-center gap-2 border border-white/10">
-                                <i class="fas fa-arrow-left"></i> Votes Catégories
-                            </a>
                         </div>
                     </div>
                     <div class="p-6">
@@ -272,11 +269,6 @@ require_once 'header.php';
                 </div>
             <?php endforeach; ?>
         <?php endif; ?>
-        <div class="text-center mt-8">
-            <a href="vote.php" class="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-light/10 text-light hover:bg-light/20 transition-colors border border-white/10">
-                <i class="fas fa-arrow-left"></i> Retour aux votes par catégories
-            </a>
-        </div>
     </div>
 </section>
 <?php require_once 'footer.php'; ?>

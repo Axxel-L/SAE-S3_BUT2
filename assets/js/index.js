@@ -2,29 +2,47 @@
 const mobileMenuBtn = document.getElementById('mobile-menu-btn');
 const mobileMenu = document.getElementById('mobile-menu');
 const hamburger = document.querySelector('.hamburger');
+const hamburgerIcon = document.querySelector('.hamburger i');
 
 mobileMenuBtn.addEventListener('click', function () {
-    mobileMenu.classList.toggle('open');
-    hamburger.classList.toggle('active');
+    mobileMenu.classList.toggle('hidden');
+    if (mobileMenu.classList.contains('hidden')) {
+        hamburgerIcon.classList.remove('fa-times');
+        hamburgerIcon.classList.add('fa-bars');
+    } else {
+        hamburgerIcon.classList.remove('fa-bars');
+        hamburgerIcon.classList.add('fa-times');
+    }
 });
 
 // Fermer le menu mobile si on clique sur un lien
 const mobileLinks = document.querySelectorAll('#mobile-menu a');
 mobileLinks.forEach(link => {
     link.addEventListener('click', function () {
-        mobileMenu.classList.remove('open');
-        hamburger.classList.remove('active');
+        mobileMenu.classList.add('hidden');
+        hamburgerIcon.classList.remove('fa-times');
+        hamburgerIcon.classList.add('fa-bars');
     });
 });
 
 // Fermer le menu mobile si on clique en dehors du menu
 document.addEventListener('click', function (event) {
     const isClickInsideNav = event.target.closest('nav');
-    if (!isClickInsideNav && mobileMenu.classList.contains('open')) {
-        mobileMenu.classList.remove('open');
-        hamburger.classList.remove('active');
+    if (!isClickInsideNav && !mobileMenu.classList.contains('hidden')) {
+        mobileMenu.classList.add('hidden');
+        hamburgerIcon.classList.remove('fa-times');
+        hamburgerIcon.classList.add('fa-bars');
     }
 });
+
+// Fonction pour ouvrir une fenêtre responsive
+function openResponsiveWindow(url) {
+    const width = Math.round(window.innerWidth * 0.3);
+    const height = Math.round(window.innerHeight * 0.7);
+    const left = Math.round((window.innerWidth - width) / 2);
+    const top = Math.round((window.innerHeight - height) / 2);
+    window.open(url, 'blank', `width=${width},height=${height},left=${left},top=${top}`);
+}
 
 // Gestion du formulaire de contact
 document.getElementById('contactForm').addEventListener('submit', async function (e) {
