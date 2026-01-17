@@ -141,11 +141,7 @@ class EventService {
             if (!$success) {
                 throw new Exception("Erreur lors de l'inscription");
             }
-            $this->auditLogger->logAction(
-                $userId,
-                'EVENT_REGISTRATION',
-                "Événement ID: $eventId"
-            );
+            $this->auditLogger->log('EVENT_REGISTRATION', "Événement ID: $eventId", $userId);
             $this->db->commit();
             return ['success' => true, 'errors' => []];
         } catch (Exception $e) {
@@ -286,11 +282,7 @@ class EventService {
             if (!$success) {
                 throw new Exception("Erreur lors de la désinscription");
             }
-            $this->auditLogger->logAction(
-                $userId,
-                'EVENT_UNREGISTRATION',
-                "Événement ID: $eventId"
-            );
+            $this->auditLogger->log('EVENT_UNREGISTRATION', "Événement ID: $eventId", $userId);
             $this->db->commit();
             return ['success' => true, 'errors' => []];
         } catch (Exception $e) {

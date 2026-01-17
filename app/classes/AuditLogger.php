@@ -1,7 +1,4 @@
 <?php
-/**
- * Système d'audit centralisé
- */
 class AuditLogger
 {
     private DatabaseConnection $db;
