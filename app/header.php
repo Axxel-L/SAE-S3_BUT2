@@ -46,18 +46,22 @@ try {
 
             <!-- Menu Desktop -->
             <div class="nav-desktop hidden md:flex items-center gap-1 lg:gap-2 flex-1 min-w-0 justify-end">
-                <!-- Items menu -->
-                <div class="flex items-center gap-0.5 lg:gap-1 xl:gap-2 overflow-x-auto no-scrollbar flex-shrink">
-                    <?php foreach ($menuItems as $key => $item):
-                        if (!isset($item['visible']) || !$item['visible']) continue;
-                    ?>
-                        <a href="<?php echo htmlspecialchars($item['url']); ?>" 
-                           class="nav-link glass-button px-2 sm:px-3 lg:px-4 xl:px-5 py-2 sm:py-2.5 lg:py-3 rounded-[0.8rem] lg:rounded-[1rem] font-medium flex items-center justify-center gap-1 lg:gap-2 text-xs sm:text-sm lg:text-base border border-white/10 whitespace-nowrap transition-all duration-200 hover:scale-[1.02] flex-shrink-0">
-                            <i class="fas <?php echo htmlspecialchars($item['icon']); ?> text-accent text-xs sm:text-sm lg:text-base"></i>
-                            <span class="hidden sm:inline"><?php echo htmlspecialchars($item['label']); ?></span>
-                            <span class="sm:hidden"><?php echo htmlspecialchars(substr($item['label'], 0, 3)); ?></span>
-                        </a>
-                    <?php endforeach; ?>
+                <!-- Container pour le défilement horizontal -->
+                <div class="flex items-center flex-1 min-w-0">
+                    <!-- Items menu avec défilement horizontal -->
+                    <div class="menu-scroll-container overflow-x-auto hover:overflow-x-scroll flex items-center gap-0.5 lg:gap-1 xl:gap-2 flex-shrink px-2 py-1 transition-all duration-300"
+                         style="scrollbar-width: thin; scrollbar-color: rgba(0, 212, 255, 0.3) transparent;">
+                        <?php foreach ($menuItems as $key => $item):
+                            if (!isset($item['visible']) || !$item['visible']) continue;
+                        ?>
+                            <a href="<?php echo htmlspecialchars($item['url']); ?>" 
+                               class="nav-link glass-button px-2 sm:px-3 lg:px-4 xl:px-5 py-2 sm:py-2.5 lg:py-3 rounded-[0.8rem] lg:rounded-[1rem] font-medium flex items-center justify-center gap-1 lg:gap-2 text-xs sm:text-sm lg:text-base border border-white/10 whitespace-nowrap transition-all duration-200 hover:scale-[1.02] flex-shrink-0">
+                                <i class="fas <?php echo htmlspecialchars($item['icon']); ?> text-accent text-xs sm:text-sm lg:text-base"></i>
+                                <span class="hidden sm:inline"><?php echo htmlspecialchars($item['label']); ?></span>
+                                <span class="sm:hidden"><?php echo htmlspecialchars(substr($item['label'], 0, 3)); ?></span>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
                 
                 <div class="h-6 sm:h-7 lg:h-8 w-px bg-accent/30 mx-1 sm:mx-2 flex-shrink-0"></div>
@@ -133,6 +137,34 @@ try {
         }
         .no-scrollbar::-webkit-scrollbar {
             display: none;
+        }
+        
+        .menu-scroll-container::-webkit-scrollbar {
+            height: 6px;
+        }
+        
+        .menu-scroll-container::-webkit-scrollbar-track {
+            background: transparent;
+            border-radius: 3px;
+        }
+        
+        .menu-scroll-container::-webkit-scrollbar-thumb {
+            background: rgba(0, 212, 255, 0.3);
+            border-radius: 3px;
+            transition: background 0.3s ease;
+        }
+        
+        .menu-scroll-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 212, 255, 0.5);
+        }
+        
+        .menu-scroll-container {
+            scrollbar-width: thin;
+            scrollbar-color: transparent transparent;
+        }
+        
+        .menu-scroll-container:hover {
+            scrollbar-color: rgba(0, 212, 255, 0.3) transparent;
         }
     </style>
     <script>
